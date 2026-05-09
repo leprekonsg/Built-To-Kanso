@@ -31,8 +31,10 @@ For a visual map of how the pieces fit together, open [built-to-kanso-architectu
 - Stage 2 Bones: plan editor/canvas, Asking Points, tokens, Ghost Futures, Kanso Reserve, Anti-Cure, and House Changelog.
 - Deterministic airflow and rule checks before visual polish.
 - Damp Risk shown as `Clear / Watch / High`, never raw alarm numbers.
-- Resonance Hours infrastructure for real wind alignment, with mock wind fallback when NEA is not configured.
-- Sketch routes for Plan, Life, Wind, and hero imagery, with deterministic fallbacks.
+- Resonance Hours: in-app `ResonanceBanner` polls `/api/resonance/check` and surfaces ONE calm banner per real wind-alignment event. Mock wind fallback when NEA is not configured.
+- Designer mode: full eight-knob material parameter set (visibility, density, turbulence, softness, velocity-to-width, stagnation threshold, texture scale, preset) with localStorage persistence.
+- Sketch routes for Plan, Life, Wind, and hero imagery: deterministic SVG fallbacks; OpenAI failures return 200 + fallback with `X-Sketch-Fallback` header so the UI never sees a 5xx.
+- Tier 1 WebGPU LBM dispatch+readback (canonical 256x256 D2Q9) ships in the server module; silent Tier 4 fallback when WebGPU is unavailable.
 
 ## Run Locally
 
@@ -63,7 +65,7 @@ Open `http://localhost:3000`. If that port is busy, Next.js prints the alternate
 - Black-state HDB/SCDF elements hard-block with Golden Failure copy.
 - Streamlines are deterministic first; image generation may only polish allowed visuals.
 - Three.js is reference imagery only, never compliance truth.
-- External systems must report unavailable config honestly. Do not pretend NEA, OpenAI, R2, VAPID, or WebGPU ran.
+- External systems must report unavailable config honestly. Do not pretend NEA, OpenAI, or WebGPU ran. R2 and VAPID are out of Phase 1.
 
 ## Design Rules
 
@@ -92,7 +94,8 @@ Useful checks:
 ```powershell
 cd app
 npm.cmd run typecheck
-npm.cmd run test:e2e
+npm.cmd run test          # unit tests (tsx --test)
+npm.cmd run test:e2e      # Playwright
 npm.cmd run build
 ```
 
@@ -105,7 +108,7 @@ npm.cmd run build
 | `/threshold` | Stage 1 onboarding: template, compass, floor, scenario |
 | `/bones` | Stage 2 plan reading: plan editor/canvas, Black-state protection, Asking Points, tokens, Ghost Futures, Kanso Reserve, Anti-Cure, House Changelog |
 | `/methodology` | Evidence ladder, cultural framing, audit gap, hard rules |
-| `app/public/service-worker.js` | Resonance Hours notification handler |
+| `app/public/service-worker.js` | Push-notification scaffold for Phase 2; Phase 1 Resonance surface is the in-app `ResonanceBanner`. |
 
 ## Backend
 
@@ -127,10 +130,8 @@ npm.cmd run build
 - `POST /api/ghost-futures`: pre-placement Breath and Damp deltas, evaluated against current placements.
 - `POST /api/changelog`: short homeowner receipt after placements.
 - `POST /api/simulation`: deterministic Tier 4 field with explicit CPU/prebake source metadata and Weather Trial conditions.
-- `POST /api/resonance/check`: current wind alignment evaluation and sender readiness; optional `siteLocation` selects nearest shared NEA station.
-- `GET|POST /api/resonance/dispatch`: dry-run or scheduled Resonance push dispatch through an injectable sender; optional `siteLocation`.
-- `POST /api/resonance/subscribe`: in-memory push subscription registration.
-- `GET /api/resonance/vapid`: public VAPID key when configured.
+- `POST /api/resonance/check`: current wind alignment evaluation; returns a `banner` payload with a stable `alignmentEventId` for client-side dedup. Optional `siteLocation` selects nearest shared NEA station. **Phase 1 surface.**
+- `GET|POST /api/resonance/dispatch`, `POST /api/resonance/subscribe`, `GET /api/resonance/vapid`: VAPID web-push scaffolding for Phase 2. Not used by the Phase 1 `ResonanceBanner`.
 - `GET /api/sketches/hero`: prebaked or generated hero image.
 - `POST /api/sketches/plan`: deterministic SVG fallback, cached/generated PNG when configured.
 - `POST /api/sketches/life`: cached Three.js anchor PNG seam, deterministic SVG fallback, optional OpenAI materialization.
@@ -142,10 +143,13 @@ Local `.env*` files are ignored and must stay out of git.
 
 | Variable | Use |
 | --- | --- |
-| `NEA_API_KEY` | Optional higher-rate access for `api-open.data.gov.sg/v2/real-time/api/wind-direction` and `/wind-speed`; without it, Resonance uses tagged mock wind. |
-| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Enable real web-push readiness and dispatch. |
-| `OPENAI_API_KEY` | Enables optional OpenAI sketch materialization; deterministic fallbacks still work without it. |
-| `R2_*` | Future/external sketch cache wiring; unavailable config must be reported honestly. |
+| `NEA_API_KEY` | Optional higher-rate access for `api-open.data.gov.sg/v2/real-time/api/wind-direction` and `/wind-speed`. Without it, Resonance uses tagged mock wind that rotates every 20 minutes. |
+| `OPENAI_API_KEY` | Enables OpenAI sketch materialization. Without it, deterministic SVG fallbacks render on every sketch route. |
+| `OPENAI_ORG_ID`, `OPENAI_IMAGE_MODEL` | Optional. Default model is `gpt-image-2-2026-04-21`. |
+| `OPENAI_TIMEOUT_MS` | Optional, default 25000. AbortController-driven timeout on the OpenAI call. |
+| `SKETCH_CACHE_PROVIDER` | `memory` (default) or `file`. R2 is rejected at config; the cache is per-process in-memory LRU (default 64 entries / 30 min TTL). |
+| `SKETCH_CACHE_MAX_ENTRIES`, `SKETCH_CACHE_TTL_MS` | Optional cache tuning. |
+| `VAPID_*`, `R2_*` | Phase 2 only. Unused by Phase 1; the Resonance banner is in-app and the sketch cache is in-memory. |
 
 ## Repository Layout
 
@@ -171,20 +175,19 @@ Latest local checks:
 
 ```powershell
 cd app
-.\node_modules\.bin\tsx.cmd --test src/server/resonance/nea.test.ts
 npm.cmd run typecheck
+npm.cmd run test
 npm.cmd run build
 ```
 
-Result: NEA unit tests passed, `typecheck` passed, production `build` passed.
+Result: `typecheck` clean, 188/188 unit tests pass.
 
 ## Remaining Limitations
 
-- WebGPU execution is not live yet; the runtime reports CPU reference use instead of pretending GPU ran.
+- Tier 1 WebGPU LBM dispatch+readback is implemented at the canonical 256x256 grid in `app/src/server/lbm/gpuSolver.ts` and exposed via `buildSimulation`. The browser-side `LiveStudio` consumer that actually awaits this path is the next step; until it lands, Tier 4 serves the visible field. WebGPU support follows browser availability (Chrome / Edge stable; Safari 26+; Firefox 141+ behind a flag on some platforms).
 - Tier 4 has deterministic generated matrix coverage, not 270 physically distinct stored LBM blobs.
 - Life Sketch PNG rendering is a seam: cached PNGs are served if present, deterministic SVG is the fallback.
-- OpenAI sketch production and R2 cache paths require real environment configuration.
-- Resonance uses current data.gov.sg v2 realtime wind shape and converts wind speed from knots to m/s; true nearest-station behavior needs callers to pass `siteLocation`.
-- Resonance dispatch exists with `web-push`; platform scheduling and durable subscription/cooldown storage are still future work.
-- Resonance push readiness reports missing or invalid VAPID keys without attempting to send.
+- OpenAI sketch production requires a real `OPENAI_API_KEY`. The cache is per-process in-memory; cold-start re-fills are expected. R2 cross-instance caching is out of Phase 1.
+- Resonance uses the data.gov.sg v2 realtime wind shape and converts wind speed from knots to m/s; true nearest-station behavior needs callers to pass `siteLocation`.
+- Resonance Hours Phase 1 surface is the in-app banner. Web-push dispatch (`/api/resonance/dispatch`, `/subscribe`, `/vapid`) and durable subscription/cooldown storage are Phase 2 scaffolds.
 

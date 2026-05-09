@@ -1,5 +1,22 @@
 import { expect, test } from "@playwright/test";
 
+interface SimulationStreamlineJson {
+  id: string;
+  material: string;
+  speedMps: number;
+}
+
+interface SimulationParticleJson {
+  kind: string;
+  material: string;
+  delayMs: number;
+}
+
+interface SimulationResponseJson {
+  streamlines: SimulationStreamlineJson[];
+  particles: SimulationParticleJson[];
+}
+
 test.describe("Tier 4 simulation API", () => {
   test("returns deterministic field output with explicit simulation source", async ({ request }) => {
     const payload = {
@@ -14,8 +31,8 @@ test.describe("Tier 4 simulation API", () => {
     expect(first.ok()).toBe(true);
     expect(second.ok()).toBe(true);
 
-    const firstBody = await first.json();
-    const secondBody = await second.json();
+    const firstBody = (await first.json()) as SimulationResponseJson;
+    const secondBody = (await second.json()) as SimulationResponseJson;
 
     expect(firstBody).toEqual(secondBody);
     expect(firstBody).toMatchObject({
@@ -46,15 +63,15 @@ test.describe("Tier 4 simulation API", () => {
     // gray-vs-amber render path needs the directional drift to read as a jet.
     expect(firstBody.particles).toHaveLength(6);
     expect(firstBody.velocitySamples.length).toBeGreaterThanOrEqual(4);
-    expect(firstBody.streamlines.map((line: any) => line.material)).toContain("sumi_ink");
-    expect(firstBody.streamlines.map((line: any) => line.material)).toContain("silk_ribbon");
+    expect(firstBody.streamlines.map((line) => line.material)).toContain("sumi_ink");
+    expect(firstBody.streamlines.map((line) => line.material)).toContain("silk_ribbon");
 
-    const cleanAir = firstBody.particles.filter((p: any) => p.kind === "clean_air");
-    const pipeshaft = firstBody.particles.filter((p: any) => p.kind === "pipeshaft_drift");
+    const cleanAir = firstBody.particles.filter((particle) => particle.kind === "clean_air");
+    const pipeshaft = firstBody.particles.filter((particle) => particle.kind === "pipeshaft_drift");
     expect(cleanAir).toHaveLength(3);
     expect(pipeshaft).toHaveLength(3);
-    expect(cleanAir.every((p: any) => p.material === "sunlit_dust")).toBe(true);
-    expect(pipeshaft.every((p: any) => p.material === "hdb_concrete_dust")).toBe(true);
+    expect(cleanAir.every((particle) => particle.material === "sunlit_dust")).toBe(true);
+    expect(pipeshaft.every((particle) => particle.material === "hdb_concrete_dust")).toBe(true);
     // Jet cascade: each subsequent pipeshaft particle has a later delay so the
     // gray drift reads as a directional wave, not a static cluster.
     for (let i = 1; i < pipeshaft.length; i++) {
@@ -85,8 +102,8 @@ test.describe("Tier 4 simulation API", () => {
       invalid.json(),
       valid.json(),
     ]);
-    const shaftSpeed = (body: any) =>
-      body.streamlines.find((line: any) => line.id === "pipeshaft-drift").speedMps;
+    const shaftSpeed = (body: SimulationResponseJson) =>
+      body.streamlines.find((line) => line.id === "pipeshaft-drift")?.speedMps;
 
     expect(shaftSpeed(invalidBody)).toBe(shaftSpeed(noneBody));
     expect(shaftSpeed(validBody)).toBeLessThan(shaftSpeed(noneBody));

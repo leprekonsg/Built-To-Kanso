@@ -121,9 +121,12 @@ export default function BonesInteractive({
   // the studio once and expect their preset + slider positions to stick across
   // sessions. Hydration runs after first paint to avoid SSR mismatch.
   useEffect(() => {
-    const persisted = readPersistedDesignerControls();
-    if (persisted) setDesignerControls(persisted);
-    setDesignerHydrated(true);
+    const frame = window.requestAnimationFrame(() => {
+      const persisted = readPersistedDesignerControls();
+      if (persisted) setDesignerControls(persisted);
+      setDesignerHydrated(true);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   // Persist Designer controls on every change *after* hydration. Gating on

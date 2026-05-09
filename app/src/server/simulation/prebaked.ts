@@ -369,8 +369,8 @@ function buildGeneratedField(
 function expandPipeshaftJet(
   seed: SimulationParticle,
   plan: ReturnType<typeof getPlanGeometry>,
-  condition: Tier4WeatherCondition,
-  shaftFactor: number,
+  _condition: Tier4WeatherCondition,
+  _shaftFactor: number,
 ): SimulationParticle[] {
   const directionRad = (plan.pipeshaft.openingDirectionDeg * Math.PI) / 180;
   const dirX = Math.cos(directionRad);

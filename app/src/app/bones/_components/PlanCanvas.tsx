@@ -46,6 +46,7 @@ export default function PlanCanvas({
   onRemovePlaced,
 }: PlanCanvasProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const pointerCommitRef = useRef(false);
   const { bounds } = plan;
   const viewBox = `${bounds.x - 0.4} ${bounds.y - 0.4} ${bounds.width + 0.8} ${bounds.height + 0.8}`;
   const showShaftCircle = draggingTokenId === "shaft_buffer" || selectedTokenId === "shaft_buffer";
@@ -102,8 +103,25 @@ export default function PlanCanvas({
     onPointerHover(null);
   }, [onPointerHover]);
 
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent<SVGSVGElement>) => {
+      if (!selectedTokenId || event.button !== 0) return;
+      if (event.target !== event.currentTarget) return;
+      const point = eventToPlanPoint(event);
+      if (!point) return;
+      pointerCommitRef.current = true;
+      event.preventDefault();
+      onCanvasClick(point);
+    },
+    [selectedTokenId, eventToPlanPoint, onCanvasClick],
+  );
+
   const handleClick = useCallback(
     (event: React.MouseEvent<SVGSVGElement>) => {
+      if (pointerCommitRef.current) {
+        pointerCommitRef.current = false;
+        return;
+      }
       if (!selectedTokenId) return;
       const point = eventToPlanPoint(event);
       if (point) onCanvasClick(point);
@@ -124,6 +142,7 @@ export default function PlanCanvas({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
       onClick={handleClick}

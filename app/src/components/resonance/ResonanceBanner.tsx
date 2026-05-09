@@ -11,7 +11,7 @@
 // sees each event ONCE per browser session — re-opening the studio surfaces
 // the next event, not the previous one.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { PlanGeometry } from "@/server/geometry/types";
 import type { FloorTier } from "@/server/resonance/types";
 import styles from "./ResonanceBanner.module.css";
@@ -53,31 +53,30 @@ export default function ResonanceBanner({
 }: ResonanceBannerProps) {
   const [banner, setBanner] = useState<ResonanceBannerPayload | null>(null);
   const [windSource, setWindSource] = useState<"nea" | "mock" | null>(null);
-  // Live ref to the dismissed-id set so the polling loop can read the latest
-  // value without re-subscribing on every change.
-  const dismissedIdsRef = useRef<Set<string>>(new Set());
-  const [dismissedRev, setDismissedRev] = useState(0);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set());
   const [quietDismissed, setQuietDismissed] = useState(false);
 
   // Hydrate dismissed sets from sessionStorage on mount. SSR-safe: window check.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      const raw = window.sessionStorage.getItem(SESSION_DISMISSED_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as unknown;
-        if (Array.isArray(parsed)) {
-          dismissedIdsRef.current = new Set(parsed.filter((id): id is string => typeof id === "string"));
-          setDismissedRev((rev) => rev + 1);
+    const frame = window.requestAnimationFrame(() => {
+      try {
+        const raw = window.sessionStorage.getItem(SESSION_DISMISSED_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as unknown;
+          if (Array.isArray(parsed)) {
+            setDismissedIds(new Set(parsed.filter((id): id is string => typeof id === "string")));
+          }
         }
+        const quiet = window.sessionStorage.getItem(SESSION_QUIET_DISMISSED_KEY);
+        if (quiet === "1") setQuietDismissed(true);
+      } catch {
+        // sessionStorage may be disabled (private browsing, sandboxed iframe).
+        // The banner still works for the current session, just without dedup
+        // persistence. Failing silently keeps the calm voice intact.
       }
-      const quiet = window.sessionStorage.getItem(SESSION_QUIET_DISMISSED_KEY);
-      if (quiet === "1") setQuietDismissed(true);
-    } catch {
-      // sessionStorage may be disabled (private browsing, sandboxed iframe).
-      // The banner still works for the current session, just without dedup
-      // persistence. Failing silently keeps the calm voice intact.
-    }
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   // Polling loop. fetch on mount, then on the configured cadence. Cleans up
@@ -132,29 +131,31 @@ export default function ResonanceBanner({
       // Defensive: if the server forgot the id, treat as silent rather than
       // re-firing every poll.
       if (!id) return null;
-      if (dismissedIdsRef.current.has(id)) return null;
+      if (dismissedIds.has(id)) return null;
       return banner;
     }
     return null;
-  }, [banner, quietDismissed, dismissedRev]);
+  }, [banner, dismissedIds, quietDismissed]);
 
   const onDismiss = () => {
     if (!banner) return;
     if (banner.kind === "alignment" && banner.alignmentEventId) {
-      const next = new Set(dismissedIdsRef.current);
-      next.add(banner.alignmentEventId);
-      dismissedIdsRef.current = next;
-      setDismissedRev((rev) => rev + 1);
-      try {
-        if (typeof window !== "undefined") {
-          window.sessionStorage.setItem(
-            SESSION_DISMISSED_KEY,
-            JSON.stringify(Array.from(next)),
-          );
+      const dismissedId = banner.alignmentEventId;
+      setDismissedIds((current) => {
+        const next = new Set(current);
+        next.add(dismissedId);
+        try {
+          if (typeof window !== "undefined") {
+            window.sessionStorage.setItem(
+              SESSION_DISMISSED_KEY,
+              JSON.stringify(Array.from(next)),
+            );
+          }
+        } catch {
+          // sessionStorage unavailable — accept in-memory dedup only.
         }
-      } catch {
-        // sessionStorage unavailable — accept in-memory dedup only.
-      }
+        return next;
+      });
       return;
     }
     if (banner.kind === "quiet_floor") {

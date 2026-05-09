@@ -129,8 +129,7 @@ test.describe("Reading the Bones", () => {
     await expect(page.getByText("Cane, shade cloth, pale timber, strong cross-breeze.")).toBeVisible();
 
     await page.getByRole("button", { name: /Wind Gate/ }).click();
-    const blockedPoint = await planPointToViewport(page, { x: 13.25, y: 7.25 });
-    await page.mouse.click(blockedPoint.x, blockedPoint.y);
+    await clickPlanPoint(page, { x: 13.25, y: 7.25 });
     await expect(page.getByText("This wall is not asking to be changed. HDB fixed elements stay untouched.")).toBeVisible();
   });
 
@@ -214,30 +213,35 @@ test.describe("Reading the Bones", () => {
     const reserveValue = reserveCard.getByText(/^\d+% empty$/);
     const beforeReserve = await reserveValue.textContent();
     await page.getByRole("button", { name: /Shaft Buffer/ }).click();
-    const point = await planPointToViewport(page, { x: 5.4, y: 3.95 });
-    await page.mouse.click(point.x, point.y);
+    await clickPlanPoint(page, { x: 5.4, y: 3.95 });
 
     await expect(page.getByText(/Watch Damp Risk/)).toBeVisible();
     await expect(page.getByText("1 bedroom shares this damp recommendation.")).toBeVisible();
     await expect(page.getByText("pipeshaft jet deflected.")).toBeVisible();
-    await expect(page.getByText(/Damp Risk is a layout-based comfort estimate/)).toHaveCount(2);
+    await expect(page.getByText(/Damp Risk is a layout-based comfort estimate/).first()).toBeVisible();
+    await expect(page.locator('svg[role="application"]')).toHaveAttribute("aria-label", /with 1 placed tokens/);
 
     const afterReserve = await reserveValue.textContent();
     expect(afterReserve).not.toBe(beforeReserve);
   });
 });
 
-async function planPointToViewport(page: import("@playwright/test").Page, point: { x: number; y: number }) {
+async function clickPlanPoint(page: import("@playwright/test").Page, point: { x: number; y: number }) {
   const canvas = page.locator('svg[role="application"]');
   await canvas.scrollIntoViewIfNeeded();
-  return canvas.evaluate((svg, target) => {
+  const position = await canvas.evaluate((svg, target) => {
     const planSvg = svg as SVGSVGElement;
+    const rect = planSvg.getBoundingClientRect();
     const svgPoint = planSvg.createSVGPoint();
     svgPoint.x = target.x;
     svgPoint.y = target.y;
     const matrix = planSvg.getScreenCTM();
     if (!matrix) throw new Error("plan canvas is not mounted");
     const viewportPoint = svgPoint.matrixTransform(matrix);
-    return { x: viewportPoint.x, y: viewportPoint.y };
+    return {
+      x: viewportPoint.x - rect.left,
+      y: viewportPoint.y - rect.top,
+    };
   }, point);
+  await canvas.click({ position });
 }

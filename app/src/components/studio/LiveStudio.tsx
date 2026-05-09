@@ -4,7 +4,9 @@ import type { CSSProperties } from "react";
 import { useEffect, useId, useMemo, useState } from "react";
 import { useVoiceStore } from "@/lib/voice";
 import type { DesignerMaterialControls } from "@/lib/designerControls";
+import { getPlanGeometry } from "@/server/geometry/registry";
 import type { PlanGeometry } from "@/server/geometry/types";
+import { runTier1IfAvailable } from "@/server/lbm/gpuSolver";
 import { evaluateGlow, type GlowReading } from "@/server/rules/glow";
 import { buildGlowWashPolygons } from "@/server/rules/glowRender";
 import { evaluateQuiet, type QuietReading } from "@/server/rules/quiet";
@@ -17,6 +19,11 @@ import {
   type KitchenShadowSpec,
   type LeafSpec,
 } from "@/server/scene/sceneElements";
+import {
+  composeTier1Field,
+  WEATHER_TRIALS,
+  withPlanCondition,
+} from "@/server/simulation/fieldBuilders";
 import type {
   SimulationParticle,
   SimulationStreamline,
@@ -24,6 +31,10 @@ import type {
   WeatherTrialConditionId,
 } from "@/server/simulation/types";
 import styles from "./LiveStudio.module.css";
+
+/** Browser-side Tier 1 LBM iteration count. Mirrors server tier4.TIER1_ITERATIONS. */
+const CLIENT_TIER1_ITERATIONS = 600;
+const DEFAULT_TIER1_CONDITION: WeatherTrialConditionId = "baseline_monsoon";
 
 type VisibilityMode = "resident" | "designer" | "audit";
 
@@ -90,13 +101,11 @@ export function LiveStudio({
     // initialField was rendered at the default condition and would shadow the
     // trial's distinct field. Always re-fetch when a trial is active.
     if (initialField && !weatherTrial) {
-      setField(initialField);
-      setStatus("ready");
       return;
     }
 
     const controller = new AbortController();
-    setStatus("loading");
+    const loadingTimer = setTimeout(() => setStatus("loading"), 0);
 
     async function loadField() {
       try {
@@ -121,8 +130,57 @@ export function LiveStudio({
 
     loadField();
 
-    return () => controller.abort();
+    return () => {
+      clearTimeout(loadingTimer);
+      controller.abort();
+    };
   }, [initialField, plan.templateId, placementKey, requestBody, weatherTrial]);
+
+  // Tier 1 client upgrade: when WebGPU is available in the browser, run the
+  // canonical 256x256 D2Q9 LBM and replace the SSR/API field with the live
+  // velocity field. Silent on failure — the existing CPU/prebake field stays
+  // visible (brief Section 11: "Tier 4 lookup runs silently; user never sees
+  // the difference"). Re-runs when template / placements / trial change.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("gpu" in navigator)) return;
+
+    let cancelled = false;
+    const conditionId = weatherTrial ?? DEFAULT_TIER1_CONDITION;
+    const placements = JSON.parse(placementKey) as TokenPlacement[];
+
+    async function upgradeToTier1() {
+      const planGeometry = getPlanGeometry(plan.templateId);
+      const condition = withPlanCondition(WEATHER_TRIALS[conditionId], planGeometry.westSunFacadeDeg);
+
+      const tier1 = await runTier1IfAvailable({
+        templateId: plan.templateId,
+        compassDeg: condition.compassDeg,
+        ambientWindMps: condition.ambientWindMps,
+        iterations: CLIENT_TIER1_ITERATIONS,
+      });
+
+      if (!tier1 || cancelled) return;
+
+      const tier1Field = composeTier1Field({
+        templateId: plan.templateId,
+        field: tier1,
+        condition,
+        tokenPlacements: placements,
+        iterations: CLIENT_TIER1_ITERATIONS,
+      });
+
+      if (!cancelled) {
+        setField(tier1Field);
+        setStatus("ready");
+      }
+    }
+
+    void upgradeToTier1();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [plan.templateId, placementKey, weatherTrial]);
 
   // Designer mode hands its visibility value through; otherwise the local
   // slider drives, gated by the audit/designer floor.

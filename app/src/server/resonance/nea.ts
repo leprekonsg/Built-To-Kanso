@@ -2,10 +2,13 @@ import { cache } from "react";
 import { cacheGet, cacheSet } from "./cache";
 import type { WindReading } from "./types";
 
-// Env var: NEA_API_KEY (optional).
-//   - Present: hit api-open.data.gov.sg /v2/real-time/api wind endpoints
-//             and pick a shared station when both endpoints expose one.
-//   - Missing: rotate plausible monsoon mock vectors. Tag source: "mock".
+// Env var: NEA_API_KEY (required for live data, optional in code).
+//   - Present (normal): hit api-open.data.gov.sg /v2/real-time/api wind
+//             endpoints and pick a shared station when both endpoints expose
+//             one. Tag source: "nea".
+//   - Missing or transient network failure: return a single deterministic
+//             monsoon vector so the in-app banner state is stable. Tag source:
+//             "mock". Not used in production (.env.local pins the key).
 //
 // Caching: 60-second LRU keyed by url (cross-request) plus React.cache() for
 // per-request dedup (Vercel server-component pattern).
@@ -214,21 +217,15 @@ function toRad(deg: number): number {
   return (deg * Math.PI) / 180;
 }
 
-// Mock vectors picked to exercise the alignment math: NE monsoon, SW monsoon,
-// near-still inter-monsoon. Rotation keyed off the calendar minute so repeated
-// dev calls within a minute are stable.
-const MOCK_VECTORS: Array<{ directionDeg: number; speedMps: number }> = [
-  { directionDeg: 30, speedMps: 2.4 },
-  { directionDeg: 240, speedMps: 1.8 },
-  { directionDeg: 90, speedMps: 0.4 },
-];
+// Deterministic NE monsoon vector used only when the live NEA call is
+// unavailable (no key, network failure). Pinned so the in-app banner does not
+// flap during local testing; dev/prod normally read source: "nea".
+const FALLBACK_WIND_VECTOR = { directionDeg: 30, speedMps: 2.4 } as const;
 
 function mockWindReading(now: Date): WindReading {
-  const index = Math.floor(now.getMinutes() / 20) % MOCK_VECTORS.length;
-  const vector = MOCK_VECTORS[index];
   return {
-    directionDeg: vector.directionDeg,
-    speedMps: vector.speedMps,
+    directionDeg: FALLBACK_WIND_VECTOR.directionDeg,
+    speedMps: FALLBACK_WIND_VECTOR.speedMps,
     timestamp: now.toISOString(),
     source: "mock",
   };

@@ -171,7 +171,7 @@ export function validateTokenPlacement(
   };
 }
 
-function goldenFailure(element: FixedElementGeometry): TokenPlacementResult {
+function goldenFailure(_element: FixedElementGeometry): TokenPlacementResult {
   return {
     allowed: false,
     code: "black_state_blocked",

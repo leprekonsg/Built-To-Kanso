@@ -17,12 +17,14 @@
   fill: rgba(246, 243, 238, 0.5);
   stroke: var(--line-2);
   stroke-width: 0.03;
+  pointer-events: none;
 }
 
 .room {
   fill: rgba(246, 243, 238, 0.55);
   stroke-width: 0.045;
   vector-effect: non-scaling-stroke;
+  pointer-events: none;
 }
 
 .green { stroke: var(--monsoon-sage); }
@@ -45,6 +47,7 @@
   stroke-width: 0.08;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
+  pointer-events: none;
 }
 
 .openingOperable { stroke: var(--west-sun-amber); }
@@ -55,6 +58,7 @@
   stroke: var(--ink-black);
   stroke-width: 0.04;
   vector-effect: non-scaling-stroke;
+  pointer-events: none;
 }
 
 .bufferEligible { fill: rgba(17, 17, 17, 0.72); }
@@ -80,7 +84,11 @@
 }
 
 /* Placed tokens — circle with hairline border, serif initial. Never amber paint. */
-.placedGroup { cursor: pointer; outline: none; }
+.placedGroup {
+  cursor: pointer;
+  outline: none;
+  pointer-events: auto;
+}
 .placedGroup:hover .placedDot,
 .placedGroup:focus-visible .placedDot { fill: var(--ink-black); }
 .placedGroup:hover .placedInitial,

@@ -342,8 +342,8 @@ async function importOptionalWebPush(): Promise<WebPushModule | null> {
 
   try {
     const imported = await dynamicImport("web-push");
-    const module = (imported as { default?: unknown }).default ?? imported;
-    return module as WebPushModule;
+    const webPushModule = (imported as { default?: unknown }).default ?? imported;
+    return webPushModule as WebPushModule;
   } catch {
     return null;
   }

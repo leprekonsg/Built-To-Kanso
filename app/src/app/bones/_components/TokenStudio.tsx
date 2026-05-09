@@ -47,6 +47,7 @@ export default function TokenStudio({
   const [hoverPoint, setHoverPoint] = useState<Point | null>(null);
   const [ghostData, setGhostData] = useState<GhostPreviewData | GhostPreviewData[] | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isCommitting, setIsCommitting] = useState<boolean>(false);
   const [refusal, setRefusal] = useState<string | null>(null);
   const [variant, setVariant] = useState<TokenPersonalityVariant>("wabi_sabi");
 
@@ -55,6 +56,7 @@ export default function TokenStudio({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refusalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fetchAbortRef = useRef<AbortController | null>(null);
+  const commitAbortRef = useRef<AbortController | null>(null);
   const refusalIdRef = useRef<number>(0);
   const isCommittingRef = useRef<boolean>(false);
   const placed = controlledPlaced ?? internalPlaced;
@@ -99,6 +101,7 @@ export default function TokenStudio({
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (refusalTimeoutRef.current) clearTimeout(refusalTimeoutRef.current);
       if (fetchAbortRef.current) fetchAbortRef.current.abort();
+      if (commitAbortRef.current) commitAbortRef.current.abort();
     };
   }, []);
 
@@ -138,9 +141,12 @@ export default function TokenStudio({
   }, [plan.templateId, compassDeg, floor, placed]);
 
   useEffect(() => {
-    if (draggingTokenId || selectedTokenId || refusal) return;
-    void fetchGhostComparison();
-  }, [draggingTokenId, selectedTokenId, refusal, fetchGhostComparison]);
+    if (isCommitting || draggingTokenId || selectedTokenId || refusal) return;
+    const timer = setTimeout(() => {
+      void fetchGhostComparison();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [isCommitting, draggingTokenId, selectedTokenId, refusal, fetchGhostComparison]);
 
   const fetchGhostFuture = useCallback(
     async (tokenId: TokenId, point: Point) => {
@@ -252,8 +258,9 @@ export default function TokenStudio({
       // the commit's ghostData after this returns.
       if (fetchAbortRef.current) fetchAbortRef.current.abort();
       isCommittingRef.current = true;
+      setIsCommitting(true);
       const controller = new AbortController();
-      fetchAbortRef.current = controller;
+      commitAbortRef.current = controller;
       let timedOut = false;
       const timeoutId = setTimeout(() => {
         timedOut = true;
@@ -311,8 +318,9 @@ export default function TokenStudio({
         surfaceRefusal("The home could not read this placement. Try again.");
       } finally {
         clearTimeout(timeoutId);
-        if (fetchAbortRef.current === controller) fetchAbortRef.current = null;
+        if (commitAbortRef.current === controller) commitAbortRef.current = null;
         isCommittingRef.current = false;
+        setIsCommitting(false);
       }
     },
     [placed, setPlaced, plan.templateId, compassDeg, floor, surfaceRefusal],
@@ -340,10 +348,13 @@ export default function TokenStudio({
     [selectedTokenId, commitPlacement],
   );
 
-  const handleRemovePlaced = useCallback((placementId: string) => {
-    setPlaced((current) => current.filter((token) => token.placementId !== placementId));
-    setRefusal(null);
-  }, []);
+  const handleRemovePlaced = useCallback(
+    (placementId: string) => {
+      setPlaced((current) => current.filter((token) => token.placementId !== placementId));
+      setRefusal(null);
+    },
+    [setPlaced],
+  );
 
   const idle = !armedTokenId && !ghostData;
 
