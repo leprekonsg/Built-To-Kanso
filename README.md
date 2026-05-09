@@ -1,7 +1,7 @@
 # Built-To-Kanso
 
 <p align="center">
-  <img src="assets/logo-black.png" alt="Built-To-Kanso logo" width="320">
+  <img src="assets/logo-white.png" alt="Built-To-Kanso logo" width="320">
 </p>
 
 Wind-aware feng shui studio for Singapore HDB homes.

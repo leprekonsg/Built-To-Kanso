@@ -18,12 +18,17 @@ export interface AskingPoint {
   recommendation?: string;
 }
 
+export type DampRiskBand = "clear" | "watch" | "high";
+
 export interface DampRiskReading {
   roomId: string;
+  band: DampRiskBand;
+  recommendation: string;
+}
+
+interface DampRiskEstimate extends DampRiskReading {
   predictedRhPct: number;
   thresholdPct: 75;
-  flag: "clear" | "high";
-  recommendation: string;
 }
 
 export interface ScoutPassResult {
@@ -33,7 +38,12 @@ export interface ScoutPassResult {
 }
 
 export function runScoutPass(input: ScoutInput): ScoutPassResult {
-  const dampRisk = estimateDampRisk(input.plan, input.tokenPlacements);
+  const dampRiskEstimates = estimateDampRisk(input.plan, input.tokenPlacements);
+  const dampRisk = dampRiskEstimates.map(({ roomId, band, recommendation }) => ({
+    roomId,
+    band,
+    recommendation,
+  }));
   const openingAreaBadge = evaluateOpeningArea(input.plan);
   const bathroomDownwind = evaluateBathroomDownwind(input.plan, input.compassDeg);
   const askingPoints: AskingPoint[] = [];
@@ -57,13 +67,13 @@ export function runScoutPass(input: ScoutInput): ScoutPassResult {
     });
   }
 
-  const highDamp = dampRisk.find((reading) => reading.flag === "high");
+  const highDamp = dampRiskEstimates.find((reading) => reading.band === "high");
   if (highDamp) {
     askingPoints.push({
       id: `damp-${highDamp.roomId}`,
       scout: "damp",
       copy: "Pillow-level humidity wants a buffer.",
-      designerDetail: `Predicted RH at pillow level: ${highDamp.predictedRhPct}%. ${highDamp.recommendation}`,
+      designerDetail: `Damp Risk is High for this bedroom. ${highDamp.recommendation}`,
     });
   }
 
@@ -93,7 +103,7 @@ export function runScoutPass(input: ScoutInput): ScoutPassResult {
   };
 }
 
-function estimateDampRisk(plan: PlanGeometry, tokenPlacements: TokenPlacement[]): DampRiskReading[] {
+function estimateDampRisk(plan: PlanGeometry, tokenPlacements: TokenPlacement[]): DampRiskEstimate[] {
   const hasShaftBuffer = tokenPlacements.some((placement) => placement.tokenId === "shaft_buffer");
   const shaftPenalty = hasShaftBuffer ? -5 : 0;
 
@@ -102,18 +112,24 @@ function estimateDampRisk(plan: PlanGeometry, tokenPlacements: TokenPlacement[])
     .map((room) => {
       const downwindPenalty = plan.pipeshaft.downwindRoomIds.includes(room.id) ? 3 : 0;
       const predictedRhPct = 75 + downwindPenalty + shaftPenalty;
-      const flag = predictedRhPct >= 75 ? "high" : "clear";
+      const band = bandDampRisk(predictedRhPct);
       return {
         roomId: room.id,
         predictedRhPct,
         thresholdPct: 75,
-        flag,
+        band,
         recommendation:
-          flag === "high"
+          band !== "clear"
             ? "Place a Shaft Buffer, move the bed away from the pipeshaft path, or run bathroom exhaust on a timer."
             : "Keep the current buffer and bathroom exhaust habit.",
       };
     });
+}
+
+function bandDampRisk(predictedRhPct: number): DampRiskBand {
+  if (predictedRhPct >= 78) return "high";
+  if (predictedRhPct >= 75) return "watch";
+  return "clear";
 }
 
 function isWestSunExposed(facadeDeg: number, compassDeg: number): boolean {

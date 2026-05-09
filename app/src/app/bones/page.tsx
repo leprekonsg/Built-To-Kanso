@@ -64,8 +64,8 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
           <span className={styles.eyebrow}>Architect-curated template</span>
           <h1>The house is listening.</h1>
           <p>
-            {template?.name ?? templateId} loads as compliance truth. Black HDB and SCDF elements are
-            fixed; the first read surfaces only what needs attention now.
+            We are reading the locked plan for {template?.name ?? templateId}. HDB and SCDF areas stay
+            untouched. The first read points to the few places worth checking.
           </p>
         </div>
         <aside className={styles.inputStrip} aria-label="Threshold inputs">
@@ -79,11 +79,11 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
         <div className={styles.planPanel}>
           <div className={styles.panelHead}>
             <div>
-              <span className={styles.eyebrow}>Plan truth</span>
+              <span className={styles.eyebrow}>Locked plan</span>
               <h2>{template?.shortName ?? templateId}</h2>
             </div>
             <span className={plan.openingAreaPct >= 12 ? styles.goodBadge : styles.warnBadge}>
-              {plan.openingAreaPct}% openings · {plan.openingAreaPct >= 12 ? "capable" : "marginal"}
+              {openingBadgeCopy(plan.openingAreaPct)}
             </span>
           </div>
           <PlanSvg plan={plan} />
@@ -97,25 +97,25 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
 
         <aside className={styles.sideStack}>
           <section className={styles.panel}>
-            <span className={styles.eyebrow}>Fixed elements</span>
+            <span className={styles.eyebrow}>What stays untouched</span>
             <dl className={styles.metrics}>
-              <Metric label="Green" value={counts.green} />
-              <Metric label="Amber" value={counts.amber} />
-              <Metric label="Red" value={counts.red} />
-              <Metric label="Black" value={plan.fixedElements.length} />
+              <Metric label="Ready" value={counts.green} />
+              <Metric label="Check" value={counts.amber} />
+              <Metric label="Caution" value={counts.red} />
+              <Metric label="Fixed" value={plan.fixedElements.length} />
             </dl>
             <p className={styles.smallCopy}>
-              Black covers {blackKinds.map(formatKind).join(", ")}. Tokens cannot alter these elements;
-              Shaft Buffer can only attach within the 0.6m pipeshaft clearance.
+              Fixed areas include {blackKinds.map(formatKind).join(", ")}. Tokens cannot alter these
+              areas. Shaft Buffer is the only exception, and only within the 0.6m pipeshaft clearance.
             </p>
           </section>
 
           <section className={styles.panel}>
-            <span className={styles.eyebrow}>Asking points</span>
+            <span className={styles.eyebrow}>What the home is asking</span>
             <ul className={styles.askingList}>
               {scout.askingPoints.map((point) => (
                 <li key={point.id}>
-                  <span>{point.scout}</span>
+                  <span>{formatScout(point.scout)}</span>
                   {point.copy}
                 </li>
               ))}
@@ -139,7 +139,7 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
                   </p>
                   <span>
                     {dampSummary.highCount > 0
-                      ? `${dampSummary.highCount} bedroom${dampSummary.highCount === 1 ? "" : "s"} asking for the same action.`
+                      ? `${dampSummary.highCount} bedroom${dampSummary.highCount === 1 ? "" : "s"} share this damp recommendation.`
                       : "All bedrooms sit below the damp-risk flag after current buffers."}
                   </span>
                 </div>
@@ -151,7 +151,7 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
             <Link href="/threshold" className={styles.secondaryLink}>
               Adjust inputs
             </Link>
-            <span>Next: Qi Weather Map</span>
+            <span>Next: see how air moves</span>
           </div>
         </aside>
       </section>
@@ -162,13 +162,91 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
 function MissingInputs() {
   return (
     <main className={styles.missingPage}>
-      <section className={styles.missingCard}>
-        <span className={styles.eyebrow}>Stage Two needs Threshold</span>
-        <h1>The house is listening.</h1>
-        <p>Choose a template, set the door, floor, and scenario before Reading the Bones.</p>
-        <Link href="/threshold" className={styles.primaryLink}>
-          Back to Threshold
+      <header className={styles.masthead}>
+        <Link href="/threshold" className={styles.brand} aria-label="Built-To-Kanso, return to Threshold">
+          <span className={styles.brandMark}>
+            Built<span className={styles.brandHyphen}>-</span>To<span className={styles.brandHyphen}>-</span>Kanso
+          </span>
+          <span className={styles.brandSub}>Stage Two · Anteroom</span>
         </Link>
+        <nav className={styles.crumbs} aria-label="Journey">
+          <span className={styles.crumbDim}><span className={styles.crumbNum}>01</span> Threshold</span>
+          <span className={styles.crumbDot} aria-hidden />
+          <span className={styles.crumbActive}><span className={styles.crumbNum}>02</span> Bones</span>
+          <span className={styles.crumbDot} aria-hidden />
+          <span className={styles.crumbDim}><span className={styles.crumbNum}>03</span> Weather</span>
+        </nav>
+      </header>
+
+      <section className={styles.missingHero}>
+        <span className={styles.eyebrow}>Stage Two · Anteroom</span>
+        <h1 className={styles.missingHeadline}>
+          The house has not yet<br />
+          <em>heard you</em>.
+        </h1>
+        <p className={styles.missingLede}>
+          Bones reads a unit&rsquo;s plan after the threshold lands. It cannot listen until it
+          knows which home to listen to. Choose a template, set the door and floor; ninety
+          seconds will do it.
+        </p>
+        <Link href="/threshold" className={styles.missingPrimary}>
+          Step back to the threshold
+          <span className={styles.missingArrow} aria-hidden>&rarr;</span>
+        </Link>
+      </section>
+
+      <hr className={styles.missingDivider} aria-hidden />
+
+      <section className={styles.missingMethod} aria-labelledby="bones-anteroom-method">
+        <svg
+          className={styles.methodGlyph}
+          viewBox="0 0 96 36"
+          role="img"
+          aria-label="Streamline mark"
+        >
+          <path d="M4 10 C 24 4, 44 16, 64 10 S 92 6, 92 6" />
+          <path d="M4 20 C 28 14, 48 26, 68 20 S 92 16, 92 16" />
+          <path d="M4 30 C 22 26, 42 32, 62 28 S 88 26, 92 26" />
+        </svg>
+        <span id="bones-anteroom-method" className={styles.eyebrow}>Method</span>
+        <p className={styles.methodBody}>
+          We are the <em>Nanyang</em> tropical school: wind welcomed, not hidden. Calibrated for
+          1.35°&nbsp;N, not transplanted from Hong Kong or Beijing. The compass logic is
+          Form-School feng shui (峦头派), an environment-driven tradition. <em>Kansō</em> names
+          the aesthetic (Japanese, restraint); it is not <em>kasō</em> (Japanese house
+          astrology). Every claim is physical: opening areas, pillow-level humidity, west-sun
+          heat path. Nothing is metaphysical.
+        </p>
+      </section>
+
+      <hr className={styles.missingDivider} aria-hidden />
+
+      <section className={styles.missingPreview} aria-label="What Bones will read">
+        <span className={styles.eyebrow}>Preview · Bones will read</span>
+        <ul className={styles.previewList}>
+          <li className={styles.previewItem}>
+            <span className={styles.previewKey}>Air</span>
+            <h2 className={styles.previewTitle}>The first cross-vent corridor</h2>
+            <p className={styles.previewBody}>
+              Drawn from the locked plan and the door angle you set, before any token lands.
+            </p>
+          </li>
+          <li className={styles.previewItem}>
+            <span className={styles.previewKey}>Damp</span>
+            <h2 className={styles.previewTitle}>The bedroom most likely to mould</h2>
+            <p className={styles.previewBody}>
+              Pillow-level humidity, paired with the buffer that prevents it. One bedroom, one
+              recommendation.
+            </p>
+          </li>
+          <li className={styles.previewItem}>
+            <span className={styles.previewKey}>Quiet</span>
+            <h2 className={styles.previewTitle}>The corner to leave alone</h2>
+            <p className={styles.previewBody}>
+              Anti-cure: one corner the home is asking you not to fill for ninety days.
+            </p>
+          </li>
+        </ul>
       </section>
     </main>
   );
@@ -290,6 +368,22 @@ function countConfidence(plan: PlanGeometry): Record<ConfidenceState, number> {
   );
 }
 
+function openingBadgeCopy(openingAreaPct: number): string {
+  return openingAreaPct >= 12
+    ? `${openingAreaPct}% openings. Wind Gate ready.`
+    : `${openingAreaPct}% openings. Fan Anchor likely.`;
+}
+
+function formatScout(scout: "breath" | "glow" | "quiet" | "damp"): string {
+  const labels = {
+    breath: "Air",
+    glow: "Heat",
+    quiet: "Quiet",
+    damp: "Damp",
+  };
+  return labels[scout];
+}
+
 function summarizeDampRisk(readings: DampRiskReading[]) {
   if (readings.length === 0) return null;
   const worst = readings.reduce((currentWorst, reading) =>
@@ -306,5 +400,8 @@ function formatKind(kind: FixedElementGeometry["kind"]): string {
 }
 
 function formatRoom(roomId: string): string {
-  return roomId.replaceAll("_", " ");
+  return roomId
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }

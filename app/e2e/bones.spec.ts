@@ -4,9 +4,10 @@ test.describe("Reading the Bones", () => {
   test("asks for Threshold inputs when opened directly", async ({ page }) => {
     await page.goto("/bones");
 
-    await expect(page.getByRole("heading", { name: "The house is listening." })).toBeVisible();
-    await expect(page.getByText("Choose a template, set the door, floor, and scenario")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Back to Threshold" })).toHaveAttribute("href", "/threshold");
+    await expect(page.getByRole("heading", { name: "The house has not yet heard you." })).toBeVisible();
+    await expect(page.getByText(/Bones reads a unit/)).toBeVisible();
+    await expect(page.getByText(/Form-School feng shui/)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Step back to the threshold" })).toHaveAttribute("href", "/threshold");
   });
 
   test("renders template geometry, fixed elements, asking points, and paired Damp Risk", async ({ page }) => {
@@ -14,14 +15,14 @@ test.describe("Reading the Bones", () => {
 
     await expect(page.getByRole("heading", { name: "The house is listening." })).toBeVisible();
     await expect(page.getByLabel("Threshold inputs")).toContainText("255°");
-    await expect(page.getByText("9% openings · marginal")).toBeVisible();
+    await expect(page.getByText("9% openings. Fan Anchor likely.")).toBeVisible();
     await expect(page.getByLabel("resale-exec-1990s geometry plan")).toBeVisible();
 
     await expect(page.getByText("HDB / SCDF fixed")).toBeVisible();
-    await expect(page.getByText(/Shaft Buffer can only attach within the 0\.6m pipeshaft clearance/)).toBeVisible();
-    await expect(page.getByText("Asking points", { exact: true })).toBeVisible();
+    await expect(page.getByText(/Shaft Buffer is the only exception/)).toBeVisible();
+    await expect(page.getByText("What the home is asking", { exact: true })).toBeVisible();
     await expect(page.getByText("Pillow-level humidity wants a buffer.")).toBeVisible();
     await expect(page.getByText(/78% RH at pillow\. Place a Shaft Buffer/)).toBeVisible();
-    await expect(page.getByText("4 bedrooms asking for the same action.")).toBeVisible();
+    await expect(page.getByText("4 bedrooms share this damp recommendation.")).toBeVisible();
   });
 });
