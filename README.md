@@ -10,6 +10,10 @@ Built-To-Kanso helps a resident read an HDB home before adding more things to it
 
 The product is calm by design: it protects fixed HDB/SCDF elements, keeps Damp Risk in simple bands, refuses unsafe placements, and occasionally listens for real outdoor wind so the home can say when it is breathing well.
 
+## Phase 1 Demo
+
+[![Built-To-Kanso Phase 1 demo](https://leprekonsg.github.io/Built-To-Kanso/phase1-demo/media/demo-poster.png)](https://leprekonsg.github.io/Built-To-Kanso/phase1-demo/built-to-kanso-phase1-demo.mp4)
+
 For a visual map of how the pieces fit together, open [built-to-kanso-architecture.html](built-to-kanso-architecture.html).
 
 ## What You Can Try

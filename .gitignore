@@ -51,3 +51,11 @@ built-to-kanso-product-brief-v4_0.md
 skills-lock.json
 AGENTS.md
 /demos
+
+# Phase 1 demo publishing
+phase1-demo/*
+!phase1-demo/
+!phase1-demo/built-to-kanso-phase1-demo.mp4
+!phase1-demo/media/
+phase1-demo/media/*
+!phase1-demo/media/demo-poster.png
