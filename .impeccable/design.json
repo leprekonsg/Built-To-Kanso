@@ -1,0 +1,259 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-09T00:00:00Z",
+  "title": "Design System: Built-To-Kanso",
+  "extensions": {
+    "colorMeta": {
+      "west-sun-amber": {
+        "role": "primary",
+        "displayName": "West Sun Amber",
+        "canonical": "oklch(74% 0.13 75)",
+        "tonalRamp": ["#2A1E0B", "#4A3514", "#6E4F1F", "#95692A", "#BB8338", "#D8A24A", "#E5C37A", "#F0DEB1"]
+      },
+      "monsoon-sage": {
+        "role": "secondary",
+        "displayName": "Monsoon Sage",
+        "canonical": "oklch(56% 0.025 130)",
+        "tonalRamp": ["#1F2419", "#2F3729", "#44503A", "#5E6B4C", "#7C856D", "#9CA38E", "#BFC4B5", "#DFE2D6"]
+      },
+      "terracotta-tray": {
+        "role": "tertiary",
+        "displayName": "Terracotta Tray",
+        "canonical": "oklch(60% 0.12 35)",
+        "tonalRamp": ["#2A130A", "#492418", "#6F3A28", "#93513A", "#B96F4D", "#CC9079", "#DDB6A2", "#ECDBCC"]
+      },
+      "ink-black": {
+        "role": "neutral",
+        "displayName": "Ink Black",
+        "canonical": "oklch(13% 0.005 80)",
+        "tonalRamp": ["#050504", "#111111", "#1F1E1B", "#2D2B26", "#3D3A33", "#534F46", "#75705F", "#B0AC9F"]
+      },
+      "bone-white": {
+        "role": "neutral",
+        "displayName": "Bone White",
+        "canonical": "oklch(95% 0.01 80)",
+        "tonalRamp": ["#B0A998", "#CFC9B6", "#DDD7C4", "#E6E0CD", "#EFE9DC", "#F5F1E8", "#F9F6EE", "#FCFAF4"]
+      },
+      "bg-card": {
+        "role": "neutral",
+        "displayName": "Card Cream",
+        "canonical": "oklch(93% 0.012 80)",
+        "tonalRamp": ["#A89F8B", "#C4BBA6", "#D5CDB8", "#E2DBC6", "#EFE9DC", "#F4EFE5", "#F8F4EC", "#FBF8F2"]
+      },
+      "void-deck-grey": {
+        "role": "neutral",
+        "displayName": "Void Deck Grey",
+        "canonical": "oklch(80% 0.005 80)",
+        "tonalRamp": ["#3A3833", "#55524C", "#716D66", "#8C8881", "#A8A39B", "#C9C4BA", "#DEDACF", "#EBE7DD"]
+      },
+      "hdb-concrete": {
+        "role": "neutral",
+        "displayName": "HDB Concrete",
+        "canonical": "oklch(67% 0.008 60)",
+        "tonalRamp": ["#312E2A", "#4A4641", "#615C56", "#79736C", "#918B82", "#A79F93", "#C2BCB1", "#DCD7CD"]
+      },
+      "fg-secondary": {
+        "role": "neutral",
+        "displayName": "Fg Secondary",
+        "canonical": "oklch(25% 0.012 70)",
+        "tonalRamp": ["#15110A", "#211D14", "#2D281D", "#3A352C", "#4A453A", "#5C5648", "#7C7461", "#9F9786"]
+      },
+      "fg-mute": {
+        "role": "neutral",
+        "displayName": "Fg Mute",
+        "canonical": "oklch(57% 0.008 70)",
+        "tonalRamp": ["#211E18", "#36322B", "#4D483F", "#646055", "#7C766A", "#8A8377", "#A7A095", "#C2BBB0"]
+      },
+      "banyan-green": {
+        "role": "secondary",
+        "displayName": "Banyan Green",
+        "canonical": "oklch(43% 0.04 130)",
+        "tonalRamp": ["#181B14", "#252A1F", "#363D2D", "#48513C", "#5E6B4C", "#7B8862", "#9CA882", "#BFC9A8"]
+      },
+      "rattan-true": {
+        "role": "tertiary",
+        "displayName": "Rattan Beige",
+        "canonical": "oklch(76% 0.06 80)",
+        "tonalRamp": ["#3A3220", "#564A30", "#75663F", "#94824F", "#B19A60", "#C9B68C", "#DAC9A6", "#EADCC0"]
+      },
+      "teak-brown": {
+        "role": "tertiary",
+        "displayName": "Teak Brown",
+        "canonical": "oklch(50% 0.06 50)",
+        "tonalRamp": ["#1F1610", "#2F2118", "#452F22", "#5C402F", "#75533D", "#8A664B", "#A4836A", "#BFA48F"]
+      },
+      "heat-haze-gold": {
+        "role": "primary",
+        "displayName": "Heat Haze Gold",
+        "canonical": "oklch(82% 0.10 80)",
+        "tonalRamp": ["#3D2F0E", "#5C4818", "#7E6324", "#A07F33", "#C19D45", "#E5C37A", "#EED7A4", "#F6E8C8"]
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "Amber Hover",
+        "canonical": "oklch(68% 0.13 75)",
+        "tonalRamp": ["#251A09", "#3F2E11", "#5F451A", "#825D27", "#A47634", "#C68F35", "#D7AF6B", "#E8CC9F"]
+      },
+      "accent-press": {
+        "role": "primary",
+        "displayName": "Amber Press",
+        "canonical": "oklch(63% 0.13 70)",
+        "tonalRamp": ["#1F1607", "#37260E", "#553A16", "#765023", "#9A6B30", "#B07F2A", "#CCA158", "#E0C28D"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Hero headline once per surface. UPPERCASE, with one italic amber accent word. STEP OVER THE threshold."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Studio section titles (Choose the unit, Turn the door). Lower-case under a display."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card titles, reading-panel titles. Cormorant without italics for clarity."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Primary reading text. Inter at 16px holds 65–75ch on bone ground."
+      },
+      "body-italic-serif": {
+        "displayName": "Lede",
+        "purpose": "Editorial italic lede paragraphs. The voice of the brand. Cormorant italic 22px."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Mono caps for eyebrows, section numbers, breadcrumbs, scale ticks, units. JetBrains Mono 11px wide-tracked."
+      }
+    },
+    "shadows": [
+      { "name": "hairline", "value": "0 0 0 1px rgba(17,17,17,0.12)", "purpose": "Default 'shadow' for surfaces that should read separate without lifting. Equivalent to a 1px border, expressed as shadow so it can be added without changing layout." },
+      { "name": "sh-1", "value": "0 1px 2px rgba(17,17,17,0.06), 0 1px 1px rgba(17,17,17,0.04)", "purpose": "Smallest ambient. Bone-white floor-slider thumb lifts 1px off the track." },
+      { "name": "sh-2", "value": "0 6px 18px -6px rgba(17,17,17,0.18), 0 2px 4px rgba(17,17,17,0.06)", "purpose": "Hover lift on cards. Pairs with translateY(-2px); the card visibly rises when the cursor lands." },
+      { "name": "sh-3", "value": "0 24px 48px -16px rgba(17,17,17,0.22), 0 4px 8px rgba(17,17,17,0.06)", "purpose": "Reserved for the largest interactive frames (studio canvas, full-screen modal). At most one per screen." },
+      { "name": "sh-inner", "value": "inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(17,17,17,0.06)", "purpose": "Subtle inset for slider tracks and inset wells." }
+    ],
+    "motion": [
+      { "name": "ease-kanso", "value": "cubic-bezier(0.22, 0.61, 0.36, 1)", "purpose": "Settled, breath-out. Default easing for state transitions, hover lifts, selection fills." },
+      { "name": "ease-wind", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Drifting motion. Used for streamlines, particles, and continuous flow animations." },
+      { "name": "dur-fast", "value": "140ms", "purpose": "Micro-interactions: thumb scale on hover, tick highlight." },
+      { "name": "dur-base", "value": "240ms", "purpose": "Default state transition. Card hover, chip selection, button hover." },
+      { "name": "dur-slow", "value": "480ms", "purpose": "Reading meter fill, panel reveal." },
+      { "name": "dur-breath", "value": "1800ms", "purpose": "Breath-rate loop: the eyebrow pulse, the compass settling animation, Resonance Hours notification glow." }
+    ],
+    "breakpoints": [
+      { "name": "xs", "value": "680px" },
+      { "name": "sm", "value": "720px" },
+      { "name": "md", "value": "880px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1100px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The Continue / Place Token / Generate Sketch CTA. Ink Black background, the inline arrow is the feedback animation.",
+      "html": "<a class=\"ds-btn-primary\" href=\"#\"><span>Continue</span><span class=\"ds-btn-primary__arrow\" aria-hidden=\"true\">&rarr;</span></a>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 12px; padding: 16px 24px; border-radius: 8px; background: #111111; color: #F5F1E8; font-family: 'Inter', -apple-system, sans-serif; font-weight: 500; font-size: 14px; letter-spacing: 0.02em; border: 1px solid #111111; text-decoration: none; transition: transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1); }\n.ds-btn-primary:hover { transform: translateX(2px); }\n.ds-btn-primary__arrow { transition: transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1); display: inline-block; }\n.ds-btn-primary:hover .ds-btn-primary__arrow { transform: translateX(4px); }\n.ds-btn-primary:focus-visible { outline: 2px solid #D8A24A; outline-offset: 3px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Back, Skip, Methodology. Bone background with ink hairline; hover swaps to the inverse.",
+      "html": "<a class=\"ds-btn-ghost\" href=\"#\">Back to Threshold</a>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 8px; background: #F5F1E8; color: #111111; font-family: 'Inter', -apple-system, sans-serif; font-weight: 500; font-size: 13px; border: 1px solid #111111; text-decoration: none; transition: background 240ms cubic-bezier(0.22, 0.61, 0.36, 1), color 240ms cubic-bezier(0.22, 0.61, 0.36, 1); }\n.ds-btn-ghost:hover { background: #111111; color: #F5F1E8; }\n.ds-btn-ghost:focus-visible { outline: 2px solid #D8A24A; outline-offset: 3px; }"
+    },
+    {
+      "name": "Scenario Chip",
+      "kind": "chip",
+      "refersTo": "chip-scenario",
+      "description": "Selectable card with serif label + sans hint. Selected state inverts to ink fill, bone text.",
+      "html": "<button class=\"ds-chip\" type=\"button\" aria-pressed=\"false\"><span class=\"ds-chip__label\">Just moved in</span><span class=\"ds-chip__hint\">Within the first 90 days. Anti-Cure recommendations stay live.</span></button>\n<button class=\"ds-chip ds-chip--on\" type=\"button\" aria-pressed=\"true\"><span class=\"ds-chip__label\">Mid-renovation</span><span class=\"ds-chip__hint\">Walls open, decisions reversible. Designer mode favored.</span></button>",
+      "css": ".ds-chip { text-align: left; padding: 24px; border-radius: 8px; border: 1px solid rgba(17,17,17,0.12); background: #EFE9DC; display: flex; flex-direction: column; gap: 6px; cursor: pointer; transition: background 240ms cubic-bezier(0.22, 0.61, 0.36, 1), border-color 240ms cubic-bezier(0.22, 0.61, 0.36, 1), color 240ms cubic-bezier(0.22, 0.61, 0.36, 1); }\n.ds-chip:hover { border-color: rgba(17,17,17,0.22); }\n.ds-chip:focus-visible { outline: 2px solid #D8A24A; outline-offset: 3px; }\n.ds-chip__label { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 500; font-size: 18px; letter-spacing: -0.005em; color: #111111; }\n.ds-chip__hint { font-family: 'Inter', -apple-system, sans-serif; font-size: 12px; line-height: 18px; color: #A79F93; }\n.ds-chip--on { background: #111111; border-color: #111111; }\n.ds-chip--on .ds-chip__label { color: #F5F1E8; }\n.ds-chip--on .ds-chip__hint { color: rgba(245,241,232,0.6); }"
+    },
+    {
+      "name": "Template Card",
+      "kind": "card",
+      "refersTo": "card-template",
+      "description": "Selectable plan card with hand-drawn SVG glyph, serif name, mono era, status badge. Amber dot top-right marks selection.",
+      "html": "<button class=\"ds-card\" type=\"button\" aria-pressed=\"true\"><span class=\"ds-card__thumb\"><svg viewBox=\"0 0 120 80\" aria-hidden=\"true\"><rect x=\"6\" y=\"6\" width=\"108\" height=\"68\" fill=\"none\" stroke=\"#111111\" stroke-width=\"2.4\"/><line x1=\"6\" y1=\"42\" x2=\"74\" y2=\"42\" stroke=\"#111111\" stroke-width=\"2.4\"/><line x1=\"74\" y1=\"6\" x2=\"74\" y2=\"74\" stroke=\"#111111\" stroke-width=\"2.4\"/><line x1=\"40\" y1=\"6\" x2=\"40\" y2=\"42\" stroke=\"#111111\" stroke-width=\"2.4\"/><line x1=\"74\" y1=\"38\" x2=\"86\" y2=\"38\" stroke=\"#F5F1E8\" stroke-width=\"5\"/><circle cx=\"100\" cy=\"14\" r=\"2\" fill=\"#B96F4D\"/></svg></span><span class=\"ds-card__body\"><span class=\"ds-card__era\">BTO &middot; Tampines North</span><span class=\"ds-card__name\">Tampines GreenWeave</span><span class=\"ds-card__rooms\">4-room &middot; 93 m&sup2;</span><span class=\"ds-card__badge ds-card__badge--good\">Cross-vent &middot; capable</span></span><span class=\"ds-card__dot\" aria-hidden=\"true\"></span></button>",
+      "css": ".ds-card { position: relative; display: flex; flex-direction: column; text-align: left; background: #EFE9DC; border: 1px solid rgba(17,17,17,0.12); border-radius: 14px; overflow: hidden; cursor: pointer; transition: border-color 240ms cubic-bezier(0.22, 0.61, 0.36, 1), transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1), box-shadow 240ms cubic-bezier(0.22, 0.61, 0.36, 1); }\n.ds-card:hover { border-color: rgba(17,17,17,0.22); transform: translateY(-2px); box-shadow: 0 6px 18px -6px rgba(17,17,17,0.18), 0 2px 4px rgba(17,17,17,0.06); }\n.ds-card[aria-pressed=\"true\"] { border-color: #111111; box-shadow: 0 0 0 1px #111111, 0 6px 18px -6px rgba(17,17,17,0.18); }\n.ds-card__thumb { aspect-ratio: 3 / 2; background: #F5F1E8; border-bottom: 1px solid rgba(17,17,17,0.12); padding: 24px; display: flex; align-items: center; justify-content: center; }\n.ds-card__thumb svg { width: 100%; height: 100%; }\n.ds-card__body { padding: 16px 24px 24px; display: flex; flex-direction: column; gap: 4px; }\n.ds-card__era { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: #A79F93; }\n.ds-card__name { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 500; font-size: 22px; line-height: 1.15; letter-spacing: -0.01em; color: #111111; margin-top: 2px; }\n.ds-card__rooms { font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; color: #3A352C; }\n.ds-card__badge { margin-top: 12px; align-self: flex-start; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; padding: 4px 8px; border-radius: 4px; }\n.ds-card__badge--good { background: rgba(124,133,109,0.18); color: #5E6B4C; }\n.ds-card__dot { position: absolute; top: 16px; right: 16px; width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid rgba(17,17,17,0.22); background: #F5F1E8; transition: background 240ms cubic-bezier(0.22, 0.61, 0.36, 1), border-color 240ms cubic-bezier(0.22, 0.61, 0.36, 1); }\n.ds-card[aria-pressed=\"true\"] .ds-card__dot { background: #D8A24A; border-color: #111111; }"
+    },
+    {
+      "name": "Eyebrow with Breath Dot",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Section eyebrow with the signature amber breath-pulse. The dot animates a soft halo at 1800ms breath rate.",
+      "html": "<span class=\"ds-eyebrow\"><span class=\"ds-eyebrow__breath\" aria-hidden=\"true\"></span> Stage One</span>",
+      "css": ".ds-eyebrow { display: inline-flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: #A79F93; }\n.ds-eyebrow__breath { width: 7px; height: 7px; border-radius: 50%; background: #D8A24A; box-shadow: 0 0 0 4px rgba(216,162,74,0.16); animation: ds-breath 1800ms cubic-bezier(0.22, 0.61, 0.36, 1) infinite; }\n@keyframes ds-breath { 0%, 100% { box-shadow: 0 0 0 4px rgba(216,162,74,0.16); } 50% { box-shadow: 0 0 0 9px rgba(216,162,74,0.04); } }\n@media (prefers-reduced-motion: reduce) { .ds-eyebrow__breath { animation: none; } }"
+    },
+    {
+      "name": "Compass Readout",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Signature paired display. 96px Cormorant degree number, italic amber facing word, mono caps label. Reads as instrument readout, not form field.",
+      "html": "<div class=\"ds-readout\"><span class=\"ds-readout__deg\">000&deg;</span><span class=\"ds-readout__facing\">North</span><span class=\"ds-readout__hint\">Door facing</span></div>",
+      "css": ".ds-readout { display: flex; flex-direction: column; gap: 6px; }\n.ds-readout__deg { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 500; font-size: 96px; line-height: 1; letter-spacing: -0.04em; color: #111111; }\n.ds-readout__facing { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-weight: 400; font-size: 28px; color: #D8A24A; }\n.ds-readout__hint { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: #A79F93; margin-top: 8px; }"
+    },
+    {
+      "name": "Floor Slider",
+      "kind": "input",
+      "refersTo": null,
+      "description": "Horizontal slider with tier-banded track and amber-glow thumb. The Golden Floors band reads brighter than its neighbours; this is intentional.",
+      "html": "<label class=\"ds-slider\"><span class=\"ds-slider__readout\"><span class=\"ds-slider__pre\">floor</span><span class=\"ds-slider__big\">11</span><span class=\"ds-slider__badge\">Golden Floors</span></span><span class=\"ds-slider__track\"><span class=\"ds-slider__seg ds-slider__seg--ground\" style=\"left:0%;width:6%\"></span><span class=\"ds-slider__seg ds-slider__seg--transition\" style=\"left:6%;width:14.3%\"></span><span class=\"ds-slider__seg ds-slider__seg--golden\" style=\"left:20.4%;width:14.3%\"></span><span class=\"ds-slider__seg ds-slider__seg--turbulent\" style=\"left:34.7%;width:65.3%\"></span></span><input class=\"ds-slider__range\" type=\"range\" min=\"1\" max=\"50\" value=\"11\" /></label>",
+      "css": ".ds-slider { display: flex; flex-direction: column; gap: 24px; max-width: 760px; }\n.ds-slider__readout { display: flex; align-items: baseline; gap: 24px; }\n.ds-slider__pre { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #A79F93; font-weight: 500; }\n.ds-slider__big { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 500; font-size: 96px; line-height: 1; letter-spacing: -0.04em; color: #111111; margin-left: 12px; }\n.ds-slider__badge { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; padding: 5px 10px; border-radius: 4px; color: #6b4d18; background: rgba(216,162,74,0.16); border: 1px solid #D8A24A; }\n.ds-slider__track { position: relative; height: 10px; background: #EFE9DC; border: 1px solid rgba(17,17,17,0.12); border-radius: 999px; overflow: hidden; }\n.ds-slider__seg { position: absolute; top: 0; bottom: 0; }\n.ds-slider__seg--ground { background: #A79F93; opacity: 0.35; }\n.ds-slider__seg--transition { background: #7C856D; opacity: 0.25; }\n.ds-slider__seg--golden { background: #D8A24A; opacity: 0.4; }\n.ds-slider__seg--turbulent { background: #B96F4D; opacity: 0.25; }\n.ds-slider__range { position: relative; appearance: none; width: 100%; height: 22px; margin: -16px 0 0 0; background: transparent; cursor: pointer; }\n.ds-slider__range::-webkit-slider-thumb { appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #F5F1E8; border: 2px solid #111111; box-shadow: 0 0 0 4px rgba(216,162,74,0.20), 0 1px 2px rgba(17,17,17,0.06); cursor: grab; transition: transform 140ms cubic-bezier(0.22, 0.61, 0.36, 1); }\n.ds-slider__range::-webkit-slider-thumb:hover { transform: scale(1.1); }\n.ds-slider__range::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #F5F1E8; border: 2px solid #111111; box-shadow: 0 0 0 4px rgba(216,162,74,0.20), 0 1px 2px rgba(17,17,17,0.06); cursor: grab; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Monsoon Atelier",
+    "overview": "Built-To-Kanso reads as a quiet drafting room with the louvres open. Air moves through it. Hands have been here recently, but the surface is mostly empty. The instruments on the table (compass, slider, plan) are precise and sit one to a row. Type does the explaining; chrome stays hairline. The single warmth in the room is the late-afternoon light coming in from the west, and the system uses that light as its only accent. Everything else is bone, ink, and hand-mixed earth.\n\nThe system rejects three lanes by name. It is not a Hong Kong or Beijing feng shui app: there is no red lacquer, no dragon iconography, no luopan chrome, no fortune-teller register. It is not PropertyGuru / 99.co / Qanvast catalog UX: no listing density, no filter sidebars, no card grids of identical cards. It is not Modsy or any 3D-render SaaS: no glossy photoreal rooms, no AI-render rainbow gradients, no 'preview your decor' framing. A standing brief-level rule also applies: not generic Pinterest Japandi. Singapore-tropical Japandi reads warmer, more woven, more humid.",
+    "keyCharacteristics": [
+      "One accent only (West Sun Amber #D8A24A), used on ≤10% of any given screen.",
+      "Editorial type pairing (Cormorant Garamond display, Inter body, JetBrains Mono labels).",
+      "Hairline borders carry depth; shadows are quiet and earned.",
+      "Generous whitespace as a load-bearing element, not a leftover.",
+      "Motion at breath-rate, never UI-rate. The compass needle settles; it does not snap.",
+      "Hand-rendered SVG for plans, streamlines, and the compass. Photoreal renders are reference imagery only."
+    ],
+    "rules": [
+      { "name": "The One-Light Rule", "body": "West Sun Amber is the only accent the system ships. It appears on ≤10% of any given screen, and it appears as cast light, never as paint. Surfaces are not tinted amber. The amber sits on the surface (a needle, a pulse, a glow, a fill on one button), not in it. If you find yourself reaching for a second accent colour, the surface is wrong, not the palette.", "section": "colors" },
+      { "name": "The No-Pure-Black, No-Pure-White Rule", "body": "#000000 and #FFFFFF are forbidden. Every neutral is tinted toward warmth: Ink Black is #111111, Bone White is #F5F1E8. The system's calm depends on this; pure black on pure white reads as a printer page, not an atelier.", "section": "colors" },
+      { "name": "The Tropical Inversion Rule", "body": "West Sun Amber names the worst heat exposure for a Singapore unit (the 16:00-18:30 west-facing afternoon load), not the best light. When the colour appears on a façade callout, it is a warning surface; when it appears as cast light in the studio, it is a quality signal. The doubled meaning is intentional.", "section": "colors" },
+      { "name": "The Two-Voice Rule", "body": "The system speaks in two voices and never mixes them. Cormorant Garamond is the human voice (display, headlines, lede italic, named values like floor numbers). JetBrains Mono is the instrument voice (degrees, percentages, ACH, RH, m/s, hex, ISO times). Inter is the narrator between them. If a surface needs a third voice, the surface is wrong, not the type system.", "section": "typography" },
+      { "name": "The Lining-Figure Rule", "body": "Cormorant Garamond's display-size digits are tabular and narrow. The floor reading '11' deliberately renders close to 'II'; the compass '000°' deliberately renders as three precise rings. This is the typographic signature. Do not swap a tabular face in to fix it.", "section": "typography" },
+      { "name": "The 65-75ch Rule", "body": "Body copy stays inside 65-75ch line length. Lede italic copy may go to 540px max-width on display sizes; never beyond.", "section": "typography" },
+      { "name": "The Earned-Shadow Rule", "body": "Cards rest flat with a hairline border. Shadow appears on hover, focus, drag, drop. Never on first paint. A card with a shadow at rest is a SaaS card; a card with a shadow on hover is an atelier card.", "section": "elevation" },
+      { "name": "The One-sh-3-Per-Screen Rule", "body": "The dramatic 24px shadow lifts at most one element on any given surface. Two of them cancels both. Reserve it for the largest interactive frame (studio canvas), the next-most-important element gets sh-2, the rest get hairline.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use West Sun Amber (#D8A24A) on ≤10% of any given screen, and only as cast light: needles, pulses, glows, single-button fills.",
+      "Do tint every neutral toward the brand warmth: Ink Black is #111111, Bone White is #F5F1E8, never #000 or #fff.",
+      "Do lead with hairline borders for separation; let shadows appear only on hover/focus/drag/drop.",
+      "Do carry the Cormorant Garamond display + Inter body + JetBrains Mono label triplet across every surface. Three faces, three jobs.",
+      "Do set body line length to 65-75ch.",
+      "Do ease motion with cubic-bezier(.22,.61,.36,1) (--ease-kanso) for settled state changes, cubic-bezier(.4,.0,.2,1) (--ease-wind) for drifting motion.",
+      "Do respect prefers-reduced-motion: reduce globally; the breath dot, framer-motion transitions, and stream-flow animations all collapse to a single static frame when the OS asks.",
+      "Do preserve generous whitespace as a load-bearing element. Kanso Reserve (≥73% empty) applies visually as well as physically.",
+      "Do keep the etymology disclosure (kansō ≠ kasō; Form-School ≠ mainland) on every surface that names the tradition."
+    ],
+    "donts": [
+      "Don't ship anything that could be mistaken for a Hong Kong or Beijing feng shui app. No red lacquer, no gold, no dragon iconography, no luopan chrome with rotating rings, no fortune-teller register.",
+      "Don't ship anything that reads like PropertyGuru, 99.co, or the Qanvast catalog. No listing density, no filter sidebars, no card grids of identical cards.",
+      "Don't ship anything that reads like Modsy or any 3D-render SaaS. No glossy photoreal rooms in the chrome, no AI-render rainbow gradients, no 'preview your decor' framing.",
+      "Don't default to generic Pinterest Japandi. Singapore-tropical Japandi reads warmer, more woven, more humid. If the surface looks like Muji, it has missed the tropical reading.",
+      "Don't introduce a second accent colour. There is one. If a surface seems to need a second, the surface is wrong.",
+      "Don't use side-stripe borders (border-left or border-right greater than 1px as a coloured accent on cards, list items, callouts, alerts). Use full hairline borders or background tints.",
+      "Don't use gradient text (background-clip: text on a gradient background). Emphasis comes from weight and size, not from rainbow.",
+      "Don't use glassmorphism as a default. The disclosure card uses a 6px backdrop-blur on a translucent bone background; that is the one earned exception. Anywhere else, blur is decoration and prohibited.",
+      "Don't use the SaaS hero-metric template (big number, small label, supporting stats, gradient accent).",
+      "Don't rely on shadows to indicate state. Borders, fills, and the amber dot do that work. Shadows only respond to interaction.",
+      "Don't use the em dash or its -- substitute. Use commas, colons, semicolons, periods, or parentheses.",
+      "Don't invent a fourth font. Three is the system; a fourth is a smell.",
+      "Don't narrate state with severity language (red error meters, ranked defect backlogs, FAIL pills). Asking Points only; max three per surface; calm voice always."
+    ]
+  }
+}

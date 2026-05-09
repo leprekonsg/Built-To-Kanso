@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "templateId": "resale-exec-1990s",
+  "units": "meters",
+  "source": "architect_curated_template",
+  "bounds": { "x": 0, "y": 0, "width": 14.4, "height": 10.2 },
+  "openingAreaPct": 9,
+  "westSunFacadeDeg": 260,
+  "defaultDoorFacingDeg": 45,
+  "rooms": [
+    { "id": "entry", "label": "Entry", "kind": "entry", "confidence": "green", "x": 11.8, "y": 7.2, "width": 1.3, "height": 1.4 },
+    { "id": "living_dining", "label": "Living / Dining", "kind": "living", "confidence": "green", "x": 8.3, "y": 1.1, "width": 5.4, "height": 5.9 },
+    { "id": "kitchen", "label": "Kitchen", "kind": "kitchen", "confidence": "green", "x": 7.2, "y": 7, "width": 3.4, "height": 2.5 },
+    { "id": "service_yard", "label": "Service Yard", "kind": "service", "confidence": "green", "x": 6, "y": 7, "width": 1.2, "height": 2.5 },
+    { "id": "main_bedroom", "label": "Master Bedroom", "kind": "bedroom", "confidence": "green", "x": 0.5, "y": 0.5, "width": 3.6, "height": 4.1 },
+    { "id": "bedroom_2", "label": "Bedroom 2", "kind": "bedroom", "confidence": "green", "x": 4.1, "y": 0.5, "width": 3, "height": 3.2 },
+    { "id": "bedroom_3", "label": "Bedroom 3", "kind": "bedroom", "confidence": "green", "x": 0.5, "y": 4.6, "width": 3.2, "height": 3.3 },
+    { "id": "study", "label": "Study", "kind": "bedroom", "confidence": "amber", "x": 3.7, "y": 4.6, "width": 2.7, "height": 3.3 },
+    { "id": "corridor", "label": "Long Corridor", "kind": "corridor", "confidence": "green", "x": 6.4, "y": 3.7, "width": 2, "height": 4.6 },
+    { "id": "bath_common", "label": "Common Bath", "kind": "bathroom", "confidence": "black", "x": 6.4, "y": 8.3, "width": 1.5, "height": 1.5 },
+    { "id": "bath_master", "label": "Master Bath", "kind": "bathroom", "confidence": "black", "x": 4.1, "y": 3.7, "width": 1.5, "height": 1.5 },
+    { "id": "household_shelter", "label": "Household Shelter", "kind": "shelter", "confidence": "black", "x": 13.1, "y": 7, "width": 1, "height": 2.5 }
+  ],
+  "openings": [
+    { "id": "main_door", "kind": "door", "roomIds": ["entry"], "start": { "x": 12, "y": 8.6 }, "end": { "x": 12.9, "y": 8.6 }, "operable": true },
+    { "id": "living_window", "kind": "window", "roomIds": ["living_dining"], "start": { "x": 8.7, "y": 1.1 }, "end": { "x": 13.2, "y": 1.1 }, "operable": true },
+    { "id": "service_yard_louver", "kind": "louver", "roomIds": ["service_yard"], "start": { "x": 6.2, "y": 9.5 }, "end": { "x": 7, "y": 9.5 }, "operable": true },
+    { "id": "master_window", "kind": "window", "roomIds": ["main_bedroom"], "start": { "x": 0.5, "y": 1.3 }, "end": { "x": 0.5, "y": 3.7 }, "operable": true }
+  ],
+  "fixedElements": [
+    { "id": "household_shelter_black", "kind": "household_shelter", "confidence": "black", "x": 13.1, "y": 7, "width": 1, "height": 2.5 },
+    { "id": "wet_zone_common", "kind": "wet_zone", "confidence": "black", "x": 6.4, "y": 8.3, "width": 1.5, "height": 1.5 },
+    { "id": "wet_zone_master", "kind": "wet_zone", "confidence": "black", "x": 4.1, "y": 3.7, "width": 1.5, "height": 1.5 },
+    { "id": "master_bath_pipeshaft_opening", "kind": "pipeshaft_opening", "confidence": "black", "x": 5.25, "y": 3.7, "width": 0.35, "height": 0.55, "bufferEligible": true }
+  ],
+  "pipeshaft": {
+    "id": "master_bath_pipeshaft",
+    "roomId": "bath_master",
+    "openingPoint": { "x": 5.4, "y": 3.95 },
+    "openingDirectionDeg": 180,
+    "jetVelocityMps": [0.15, 0.25],
+    "bufferRadiusM": 0.6,
+    "downwindRoomIds": ["main_bedroom"]
+  },
+  "bathrooms": [
+    { "roomId": "bath_common", "exhaustPoint": { "x": 7.1, "y": 9 } },
+    { "roomId": "bath_master", "exhaustPoint": { "x": 4.8, "y": 4.4 } }
+  ]
+}

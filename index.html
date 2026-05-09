@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Built-To-Kanso — Wind-aware design for HDB homes</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+  *,*::before,*::after{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg-1);color:var(--fg-1);font-family:var(--font-sans);font-size:16px;line-height:24px;-webkit-font-smoothing:antialiased;}
+  img{max-width:100%;display:block;}
+  a{color:inherit;text-decoration:none;}
+  button{font-family:inherit;cursor:pointer;}
+
+  /* layout */
+  .wrap{max-width:1320px;margin:0 auto;padding:0 32px;}
+  .wrap--narrow{max-width:1100px;}
+
+  /* serif helpers */
+  .serif{font-family:var(--font-serif);font-weight:500;letter-spacing:-0.01em;}
+  .mono{font-family:var(--font-mono);}
+  .eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg-3);font-weight:500;}
+  .hr{height:1px;background:var(--line-1);border:0;margin:0;}
+  .num{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;color:var(--fg-3);text-transform:uppercase;font-weight:500;}
+
+  /* ============== TOP NAV ============== */
+  .nav{position:sticky;top:0;z-index:50;background:rgba(245,241,232,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line-1);}
+  .nav__inner{display:flex;align-items:center;justify-content:space-between;height:64px;}
+  .nav__logo{display:flex;flex-direction:column;gap:2px;line-height:1;}
+  .nav__brand{font-family:var(--font-serif);font-size:22px;font-weight:600;letter-spacing:-0.01em;}
+  .nav__hyphen{color:var(--accent);margin:0 1px;font-style:italic;}
+  .nav__sub{font-family:var(--font-mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg-3);}
+  .nav__links{display:flex;gap:28px;}
+  .nav__links a{font-size:13px;color:var(--fg-2);font-weight:500;}
+  .nav__links a:hover{color:var(--fg-1);}
+  .nav__right{display:flex;align-items:center;gap:14px;}
+  .nav__time{font-family:var(--font-mono);font-size:11px;color:var(--fg-3);letter-spacing:.1em;}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:4px;font-size:13px;font-weight:500;border:1px solid transparent;transition:all .2s var(--ease-kanso);}
+  .btn--primary{background:var(--ink-black);color:var(--bone-white);border-color:var(--ink-black);}
+  .btn--primary:hover{background:#000;}
+  .btn--ghost{background:transparent;color:var(--fg-1);border-color:var(--line-strong);}
+  .btn--ghost:hover{background:var(--ink-black);color:var(--bone-white);}
+  .btn--accent{background:var(--accent);color:var(--ink-black);border-color:var(--accent);}
+  .btn--accent:hover{background:var(--accent-hover);border-color:var(--accent-hover);}
+  .btn--lg{padding:14px 26px;font-size:14px;}
+  .btn .arr{display:inline-block;transition:transform .25s var(--ease-kanso);}
+  .btn:hover .arr{transform:translateX(3px);}
+
+  /* ============== HERO ============== */
+  .hero{position:relative;padding:64px 0 0;border-bottom:1px solid var(--line-1);overflow:hidden;}
+  .hero__grid{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:start;}
+  .hero__lhs{padding:32px 0 80px;}
+  .hero__eyebrow{display:flex;align-items:center;gap:14px;margin-bottom:32px;}
+  .hero__eyebrow .dot{width:6px;height:6px;border-radius:999px;background:var(--accent);box-shadow:0 0 0 4px rgba(216,162,74,.15);animation:breath 2.4s var(--ease-kanso) infinite;}
+  @keyframes breath{0%,100%{box-shadow:0 0 0 4px rgba(216,162,74,.15);}50%{box-shadow:0 0 0 8px rgba(216,162,74,.05);}}
+  h1.hero__title{font-family:var(--font-serif);font-weight:500;font-size:84px;line-height:0.92;letter-spacing:-0.025em;margin:0 0 32px;text-transform:uppercase;}
+  h1.hero__title .l2{display:block;}
+  h1.hero__title .accent{color:var(--accent);font-style:italic;font-weight:400;text-transform:none;letter-spacing:-0.01em;}
+  .hero__lede{font-family:var(--font-serif);font-size:22px;line-height:32px;color:var(--fg-2);max-width:520px;margin:0 0 36px;font-style:italic;font-weight:400;}
+  .hero__sub{font-size:15px;line-height:24px;color:var(--fg-2);max-width:480px;margin:0 0 40px;}
+  .hero__ctas{display:flex;align-items:center;gap:16px;margin-bottom:48px;}
+  .hero__meta{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:520px;border-top:1px solid var(--line-1);padding-top:24px;}
+  .hero__meta-item .k{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;color:var(--fg-3);text-transform:uppercase;margin-bottom:4px;}
+  .hero__meta-item .v{font-family:var(--font-serif);font-size:18px;color:var(--fg-1);}
+
+  /* hero canvas — wind sketch demo */
+  .hero__rhs{position:relative;}
+  .windsketch{position:relative;background:#EFE9DC;border:1px solid var(--line-2);border-radius:14px;overflow:hidden;box-shadow:var(--sh-2);aspect-ratio:5/6;}
+  .windsketch__chrome{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line-1);background:var(--bg-1);}
+  .windsketch__dots{display:flex;gap:5px;}
+  .windsketch__dots span{width:8px;height:8px;border-radius:999px;background:var(--line-2);}
+  .windsketch__title{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;color:var(--fg-3);text-transform:uppercase;}
+  .windsketch__live{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10px;color:var(--fg-2);}
+  .windsketch__live .pulse{width:6px;height:6px;border-radius:999px;background:var(--accent);animation:breath 2.4s var(--ease-kanso) infinite;}
+
+  .windsketch__art{position:relative;height:calc(100% - 38px);background:
+    radial-gradient(120% 80% at 100% 0%, rgba(216,162,74,.18) 0%, transparent 55%),
+    repeating-linear-gradient(0deg,rgba(17,17,17,.05) 0 1px,transparent 1px 32px),
+    repeating-linear-gradient(90deg,rgba(17,17,17,.05) 0 1px,transparent 1px 32px),
+    #EFE9DC;}
+
+  .ws-svg{position:absolute;inset:0;width:100%;height:100%;}
+  .wall{fill:none;stroke:var(--ink-black);stroke-width:2.4;stroke-linejoin:miter;}
+  .wall-thin{fill:none;stroke:var(--ink-black);stroke-width:1.2;opacity:.6;}
+  .door{stroke:#EFE9DC;stroke-width:5;}
+  .room-lbl{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.18em;fill:var(--fg-3);text-transform:uppercase;}
+  .stream{fill:none;stroke:var(--ink-black);stroke-width:1.2;stroke-linecap:round;opacity:.55;stroke-dasharray:14 200;animation:flow 8s linear infinite;}
+  .stream--soft{opacity:.32;stroke-width:.9;animation-duration:11s;}
+  .stream--bold{opacity:.7;stroke-width:1.6;animation-duration:7s;}
+  @keyframes flow{from{stroke-dashoffset:0;}to{stroke-dashoffset:-214;}}
+  .token-mark{}
+  .token-mark circle{fill:var(--bg-1);stroke:var(--ink-black);stroke-width:1.2;}
+  .token-mark.is-active circle{stroke:var(--accent);stroke-width:2;}
+  .token-mark.is-active .ring{fill:none;stroke:var(--accent);stroke-width:1;opacity:.5;animation:ping 2.4s var(--ease-kanso) infinite;}
+  @keyframes ping{0%{r:14;opacity:.6;}100%{r:30;opacity:0;}}
+  .token-mark text{font-family:var(--font-mono);font-size:8px;text-anchor:middle;fill:var(--fg-1);letter-spacing:.1em;text-transform:uppercase;}
+
+  .ws-cap{position:absolute;left:14px;bottom:14px;right:14px;display:flex;justify-content:space-between;align-items:flex-end;pointer-events:none;}
+  .ws-cap__left{font-family:var(--font-mono);font-size:10px;color:var(--fg-3);letter-spacing:.16em;text-transform:uppercase;}
+  .ws-cap__left b{color:var(--fg-1);font-weight:500;}
+  .ws-cap__score{display:flex;align-items:baseline;gap:6px;background:var(--bg-1);border:1px solid var(--line-1);padding:6px 10px;border-radius:6px;}
+  .ws-cap__score .n{font-family:var(--font-mono);font-size:24px;font-weight:500;line-height:1;}
+  .ws-cap__score .d{font-family:var(--font-mono);font-size:10px;color:var(--fg-3);}
+  .ws-cap__score .lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--good);font-weight:600;margin-left:4px;}
+
+  /* compass overlay */
+  .compass{position:absolute;top:50px;right:18px;width:62px;height:62px;}
+  .compass__ring{fill:none;stroke:var(--ink-black);stroke-width:1;opacity:.5;}
+  .compass__n{font-family:var(--font-mono);font-size:8px;text-anchor:middle;fill:var(--fg-3);letter-spacing:.1em;}
+  .compass__needle{fill:var(--accent);}
+  .compass__arrow{stroke:var(--ink-black);stroke-width:1;}
+
+  /* ============== PILLARS ============== */
+  .pillars{padding:80px 0;border-bottom:1px solid var(--line-1);}
+  .pillars__hd{display:flex;justify-content:space-between;align-items:end;margin-bottom:48px;}
+  .pillars__hd-l{max-width:560px;}
+  .pillars__title{font-family:var(--font-serif);font-size:44px;line-height:1.05;letter-spacing:-0.02em;margin:14px 0 0;font-weight:500;}
+  .pillars__title em{color:var(--accent);font-style:italic;font-weight:400;}
+  .pillars__hd-r{font-family:var(--font-serif);font-size:18px;line-height:28px;color:var(--fg-2);max-width:380px;font-style:italic;}
+  .pillars__grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line-1);border:1px solid var(--line-1);}
+  .pillar{background:var(--bg-1);padding:32px 28px;display:flex;flex-direction:column;gap:18px;min-height:260px;transition:background .3s var(--ease-kanso);}
+  .pillar:hover{background:var(--bg-2);}
+  .pillar__glyph{width:56px;height:56px;display:flex;align-items:center;justify-content:center;color:var(--ink-black);}
+  .pillar__glyph svg{width:100%;height:100%;}
+  .pillar__title{font-family:var(--font-serif);font-size:26px;font-weight:500;letter-spacing:-0.01em;}
+  .pillar__title .it{color:var(--fg-3);font-style:italic;font-weight:400;font-size:18px;}
+  .pillar__body{font-size:14px;line-height:22px;color:var(--fg-2);margin-top:auto;}
+
+  /* ============== STUDIO PREVIEW ============== */
+  .studio{padding:96px 0;background:var(--bg-2);border-bottom:1px solid var(--line-1);}
+  .studio__hd{display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-bottom:48px;align-items:end;}
+  .studio__title{font-family:var(--font-serif);font-size:56px;line-height:1;letter-spacing:-0.025em;margin:14px 0 0;font-weight:500;text-transform:uppercase;}
+  .studio__title em{color:var(--accent);font-style:italic;font-weight:400;text-transform:none;}
+  .studio__copy{font-size:16px;line-height:26px;color:var(--fg-2);max-width:480px;}
+  .studio__frame{background:var(--bg-1);border:1px solid var(--line-2);border-radius:14px;overflow:hidden;box-shadow:var(--sh-3);}
+  .studio__chrome{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--line-1);}
+  .studio__chrome-l{display:flex;align-items:center;gap:14px;}
+  .studio__chrome-l .eye{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg-3);font-weight:500;}
+  .studio__tabs{display:flex;gap:2px;}
+  .studio__tab{padding:6px 14px;font-size:12px;color:var(--fg-3);font-weight:500;border-radius:4px;}
+  .studio__tab.is-on{color:var(--fg-1);position:relative;}
+  .studio__tab.is-on::after{content:"";position:absolute;left:14px;right:14px;bottom:-13px;height:2px;background:var(--accent);}
+  .studio__chrome-r{font-family:var(--font-mono);font-size:10px;color:var(--fg-3);letter-spacing:.1em;}
+
+  .studio__body{display:grid;grid-template-columns:64px 1fr 280px;height:560px;}
+  .stu-side{border-right:1px solid var(--line-1);display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 0;background:var(--bg-2);}
+  .stu-side__btn{width:40px;height:40px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--fg-2);}
+  .stu-side__btn.is-on{background:var(--ink-black);color:var(--bone-white);}
+  .stu-side__btn svg{width:18px;height:18px;}
+
+  .stu-canvas{position:relative;background:var(--bg-1);
+    background-image:
+      radial-gradient(120% 80% at 100% 0%, rgba(216,162,74,.12) 0%, transparent 55%),
+      repeating-linear-gradient(0deg,rgba(17,17,17,.05) 0 1px,transparent 1px 28px),
+      repeating-linear-gradient(90deg,rgba(17,17,17,.05) 0 1px,transparent 1px 28px);}
+  .stu-canvas svg{width:100%;height:100%;}
+
+  .stu-tray{position:absolute;left:14px;bottom:14px;display:flex;gap:8px;}
+  .stu-tray__chip{display:flex;align-items:center;gap:8px;padding:6px 12px 6px 6px;background:var(--bg-1);border:1px solid var(--line-1);border-radius:999px;font-size:12px;color:var(--fg-2);font-weight:500;}
+  .stu-tray__chip.is-on{border-color:var(--ink-black);color:var(--ink-black);}
+  .stu-tray__chip .dot{width:22px;height:22px;border-radius:999px;background:var(--bone-white);border:1px solid var(--line-2);display:flex;align-items:center;justify-content:center;font-size:11px;}
+  .stu-tray__chip.is-on .dot{background:var(--accent);border-color:var(--accent);}
+
+  .stu-insp{border-left:1px solid var(--line-1);background:var(--bg-2);padding:18px;display:flex;flex-direction:column;gap:18px;overflow:auto;}
+  .stu-insp__sect{display:flex;align-items:baseline;gap:10px;padding-bottom:8px;border-bottom:1px solid var(--line-1);}
+  .stu-insp__sect .n{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;color:var(--fg-3);}
+  .stu-insp__sect h4{font-family:var(--font-serif);font-size:16px;font-weight:500;margin:0;}
+  .stu-score{display:flex;align-items:baseline;gap:10px;}
+  .stu-score__n{font-family:var(--font-mono);font-size:42px;font-weight:500;line-height:1;}
+  .stu-score__n span{font-size:14px;color:var(--fg-3);}
+  .stu-score__lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:600;padding:3px 8px;border-radius:2px;background:rgba(124,133,109,.18);color:var(--banyan-green);}
+  .stu-metrics{list-style:none;padding:0;margin:0;}
+  .stu-metrics li{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--line-1);font-size:12px;}
+  .stu-metrics li span{color:var(--fg-3);}
+  .stu-metrics li b{font-weight:500;}
+  .stu-metrics .good{color:var(--banyan-green);}
+  .stu-metrics .warn{color:#8a6020;}
+  .stu-metrics .warm{color:var(--terracotta-tray);}
+  .stu-kanso{padding:12px;background:var(--bg-1);border:1px solid var(--line-1);border-radius:8px;}
+  .stu-kanso__hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;}
+  .stu-kanso__hd .l{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg-3);}
+  .stu-kanso__hd .r{font-family:var(--font-mono);font-size:14px;font-weight:500;}
+  .stu-kanso__bar{height:4px;background:var(--bg-3);border-radius:999px;overflow:hidden;}
+  .stu-kanso__bar i{display:block;height:100%;width:73%;background:var(--accent);}
+  .stu-kanso__note{font-size:11px;color:var(--fg-3);margin-top:8px;font-style:italic;line-height:16px;}
+
+  /* ============== RESONANCE HOURS ============== */
+  .resonance{padding:96px 0;border-bottom:1px solid var(--line-1);background:var(--bg-1);}
+  .resonance__hd{display:grid;grid-template-columns:1.1fr 1fr;gap:48px;margin-bottom:48px;align-items:end;}
+  .resonance__title{font-family:var(--font-serif);font-size:56px;line-height:1;letter-spacing:-0.025em;margin:14px 0 0;font-weight:500;}
+  .resonance__title em{color:var(--accent);font-style:italic;font-weight:400;}
+  .resonance__copy{font-size:15px;line-height:24px;color:var(--fg-2);max-width:460px;}
+  .clock{position:relative;border:1px solid var(--line-1);border-radius:14px;background:var(--bg-2);padding:36px 36px 28px;overflow:hidden;}
+  .clock__sun{position:absolute;top:-180px;right:-120px;width:520px;height:520px;border-radius:999px;background:radial-gradient(circle,rgba(216,162,74,.25) 0%,rgba(216,162,74,0) 60%);pointer-events:none;}
+  .clock__top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:18px;position:relative;}
+  .clock__top .lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg-3);}
+  .clock__top .now{font-family:var(--font-serif);font-size:18px;color:var(--fg-1);}
+  .clock__top .now b{color:var(--accent);font-weight:500;font-style:italic;}
+  .clock__track{position:relative;height:120px;border-top:1px solid var(--line-1);border-bottom:1px solid var(--line-1);background:
+    repeating-linear-gradient(90deg, var(--line-1) 0 1px, transparent 1px calc(100%/24));}
+  .clock__hours{position:absolute;inset:0;display:grid;grid-template-columns:repeat(24,1fr);align-items:end;padding-bottom:6px;font-family:var(--font-mono);font-size:9px;color:var(--fg-3);}
+  .clock__hours span{text-align:center;}
+  .clock__hours span.is-key{color:var(--fg-1);font-weight:500;}
+  .clock__band{position:absolute;top:8px;bottom:8px;border-radius:8px;display:flex;align-items:center;padding:0 12px;font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:500;color:var(--fg-1);}
+  .clock__band.b-breath{background:rgba(124,133,109,.32);border:1px solid rgba(124,133,109,.55);left:25%;width:8.33%;}
+  .clock__band.b-glow{background:rgba(216,162,74,.28);border:1px solid rgba(216,162,74,.6);left:62.5%;width:12.5%;color:#6b4d18;}
+  .clock__band.b-quiet{background:rgba(94,107,76,.18);border:1px solid rgba(94,107,76,.4);left:87.5%;width:12.5%;color:var(--banyan-green);}
+  .clock__band.b-quiet-2{background:rgba(94,107,76,.18);border:1px solid rgba(94,107,76,.4);left:0;width:25%;color:var(--banyan-green);}
+  .clock__band.b-routine{background:rgba(17,17,17,.06);border:1px dashed var(--line-strong);left:77%;width:8.5%;color:var(--ink-black);}
+  .clock__now{position:absolute;top:-10px;bottom:-10px;width:1px;background:var(--accent);left:68.75%;}
+  .clock__now::before{content:"NOW · 16:30";position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-family:var(--font-mono);font-size:9px;letter-spacing:.18em;color:var(--accent);background:var(--bg-2);padding:0 6px;white-space:nowrap;}
+  .clock__legend{margin-top:18px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px;position:relative;}
+  .clock__leg{display:flex;flex-direction:column;gap:4px;padding:12px 14px;background:var(--bg-1);border:1px solid var(--line-1);border-radius:8px;}
+  .clock__leg-hd{display:flex;align-items:center;gap:8px;}
+  .clock__leg-sw{width:10px;height:10px;border-radius:2px;}
+  .sw-breath{background:rgba(124,133,109,.6);}
+  .sw-glow{background:var(--accent);}
+  .sw-quiet{background:var(--banyan-green);}
+  .sw-routine{background:var(--ink-black);background-image:repeating-linear-gradient(45deg,rgba(245,241,232,.4) 0 2px,transparent 2px 5px);}
+  .clock__leg-name{font-family:var(--font-serif);font-size:16px;font-weight:500;}
+  .clock__leg-time{font-family:var(--font-mono);font-size:11px;color:var(--fg-3);letter-spacing:.1em;}
+  .clock__leg-d{font-size:12px;line-height:18px;color:var(--fg-2);margin-top:4px;}
+
+  .seasons{margin-top:36px;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line-1);border:1px solid var(--line-1);border-radius:14px;overflow:hidden;}
+  .season{background:var(--bg-1);padding:22px 22px;display:flex;flex-direction:column;gap:6px;}
+  .season__hd{display:flex;justify-content:space-between;align-items:baseline;}
+  .season__hd .when{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;color:var(--fg-3);text-transform:uppercase;}
+  .season__hd .deg{font-family:var(--font-mono);font-size:11px;color:var(--fg-2);}
+  .season__name{font-family:var(--font-serif);font-size:20px;font-weight:500;letter-spacing:-0.01em;margin-top:2px;}
+  .season__d{font-size:12px;line-height:18px;color:var(--fg-2);}
+  .season.is-now{background:var(--bg-2);position:relative;}
+  .season.is-now::before{content:"NOW";position:absolute;top:14px;right:14px;font-family:var(--font-mono);font-size:9px;letter-spacing:.18em;color:var(--accent);font-weight:600;}
+
+  /* ============== MATERIAL SYSTEM ============== */
+  .material{padding:96px 0;border-bottom:1px solid var(--line-1);background:var(--bg-1);}
+  .material__hd{display:grid;grid-template-columns:1.1fr 1fr;gap:48px;margin-bottom:48px;align-items:end;}
+  .material__title{font-family:var(--font-serif);font-size:56px;line-height:1;letter-spacing:-0.025em;margin:14px 0 0;font-weight:500;}
+  .material__title em{color:var(--accent);font-style:italic;font-weight:400;}
+  .material__copy{font-size:15px;line-height:24px;color:var(--fg-2);max-width:480px;}
+
+  .vis{position:relative;border:1px solid var(--line-2);border-radius:14px;background:var(--bg-2);overflow:hidden;margin-bottom:36px;display:grid;grid-template-columns:1.4fr 1fr;}
+  .vis__art{position:relative;aspect-ratio:5/3;background:linear-gradient(180deg,#3A2D1E 0%, #1F1812 100%);overflow:hidden;}
+  .vis__art svg{position:absolute;inset:0;width:100%;height:100%;}
+  .vis__pane{padding:32px;display:flex;flex-direction:column;gap:20px;background:var(--bg-2);border-left:1px solid var(--line-1);}
+  .vis__eye{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;color:var(--fg-3);text-transform:uppercase;}
+  .vis__h{font-family:var(--font-serif);font-size:28px;font-weight:500;letter-spacing:-0.01em;line-height:1.1;}
+  .vis__h em{color:var(--accent);font-style:italic;font-weight:400;}
+  .vis__d{font-size:13px;line-height:20px;color:var(--fg-2);}
+  .vis__slider{display:flex;flex-direction:column;gap:8px;padding:14px;background:var(--bg-1);border:1px solid var(--line-1);border-radius:10px;}
+  .vis__slider-hd{display:flex;justify-content:space-between;align-items:baseline;}
+  .vis__slider-hd .l{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg-3);}
+  .vis__slider-hd .v{font-family:var(--font-mono);font-size:14px;color:var(--fg-1);font-weight:500;}
+  .vis__bar{position:relative;height:6px;background:var(--bg-3);border-radius:999px;overflow:hidden;}
+  .vis__bar i{display:block;height:100%;width:62%;background:var(--accent);border-radius:999px;}
+  .vis__handle{position:absolute;top:50%;left:62%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:999px;background:var(--bg-1);border:2px solid var(--accent);box-shadow:0 0 0 4px rgba(216,162,74,.15);}
+  .vis__ticks{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:9px;color:var(--fg-3);letter-spacing:.14em;text-transform:uppercase;}
+
+  .swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line-1);border:1px solid var(--line-1);border-radius:14px;overflow:hidden;}
+  .sw{background:var(--bg-1);padding:0;display:flex;flex-direction:column;}
+  .sw__chip{aspect-ratio:5/4;position:relative;}
+  .sw__chip::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 60%, rgba(0,0,0,.18));}
+  .sw__chip .label{position:absolute;left:14px;bottom:12px;font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--bone-white);font-weight:500;mix-blend-mode:normal;text-shadow:0 1px 2px rgba(0,0,0,.4);}
+  .sw__chip .label.is-dark{color:var(--ink-black);text-shadow:none;}
+  .sw__body{padding:16px 18px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line-1);}
+  .sw__name{font-family:var(--font-serif);font-size:18px;font-weight:500;letter-spacing:-0.01em;}
+  .sw__hex{font-family:var(--font-mono);font-size:11px;color:var(--fg-3);letter-spacing:.1em;}
+  .sw__d{font-size:12px;line-height:18px;color:var(--fg-2);margin-top:2px;}
+
+  .mat-c-rattan{background:#C9B68C;}
+  .mat-c-teak{background:#8A664B;}
+  .mat-c-concrete{background:#A79F93;}
+  .mat-c-voiddeck{background:#C9C4BA;}
+  .mat-c-sage{background:#7C856D;}
+  .mat-c-banyan{background:#5E6B4C;}
+  .mat-c-amber{background:#D8A24A;}
+  .mat-c-terracotta{background:#B96F4D;}
+
+  /* ============== STAGES (journey) ============== */
+  .journey{padding:96px 0;border-bottom:1px solid var(--line-1);}
+  .journey__hd{margin-bottom:56px;display:grid;grid-template-columns:1.1fr 1fr;gap:48px;align-items:end;}
+  .journey__title{font-family:var(--font-serif);font-size:56px;line-height:1;letter-spacing:-0.025em;margin:14px 0 0;font-weight:500;}
+  .journey__copy{font-size:15px;line-height:24px;color:var(--fg-2);max-width:420px;}
+  .journey__list{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid var(--line-1);}
+  .stage{padding:32px 28px 32px 0;border-right:1px solid var(--line-1);min-height:260px;display:flex;flex-direction:column;gap:14px;position:relative;}
+  .stage:last-child{border-right:0;padding-right:0;}
+  .stage__row{padding:0 28px;}
+  .stage__num{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;color:var(--fg-3);}
+  .stage__title{font-family:var(--font-serif);font-size:22px;line-height:1.15;font-weight:500;letter-spacing:-0.01em;}
+  .stage__copy{font-size:13px;line-height:20px;color:var(--fg-2);}
+  .stage__tag{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg-3);margin-top:auto;}
+  .stage__tag b{color:var(--accent);font-weight:500;}
+  .journey-row2{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid var(--line-1);}
+  .journey-row2 .stage{padding-top:32px;}
+
+  /* ============== SKETCHES ============== */
+  .sketches{padding:96px 0;background:var(--bg-2);border-bottom:1px solid var(--line-1);}
+  .sketches__hd{margin-bottom:48px;}
+  .sketches__title{font-family:var(--font-serif);font-size:56px;line-height:1;letter-spacing:-0.025em;margin:14px 0 16px;font-weight:500;}
+  .sketches__lede{font-family:var(--font-serif);font-size:20px;line-height:30px;color:var(--fg-2);max-width:680px;font-style:italic;}
+  .sketches__grid{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:24px;}
+  .sketch{background:var(--bg-1);border:1px solid var(--line-1);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;}
+  .sketch__art{position:relative;aspect-ratio:4/5;background:#EFE9DC;
+    background-image:repeating-linear-gradient(0deg,rgba(17,17,17,.05) 0 1px,transparent 1px 24px),repeating-linear-gradient(90deg,rgba(17,17,17,.05) 0 1px,transparent 1px 24px);}
+  .sketch--hero{grid-column:span 1;}
+  .sketch--hero .sketch__art{background:linear-gradient(180deg,#3A2D1E 0%, #1F1812 100%);background-image:none;}
+  .sketch__art svg{position:absolute;inset:0;width:100%;height:100%;}
+  .sketch__meta{padding:18px 20px;border-top:1px solid var(--line-1);}
+  .sketch__num{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;color:var(--fg-3);text-transform:uppercase;}
+  .sketch__name{font-family:var(--font-serif);font-size:22px;font-weight:500;letter-spacing:-0.01em;margin:6px 0 6px;}
+  .sketch__desc{font-size:13px;line-height:20px;color:var(--fg-2);}
+  .sketch__badge{position:absolute;top:14px;left:14px;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--bg-1);border:1px solid var(--line-1);border-radius:999px;font-family:var(--font-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-2);}
+  .sketch__badge .d{width:5px;height:5px;border-radius:999px;background:var(--accent);}
+  .sketch--hero .sketch__badge{background:rgba(245,241,232,.1);color:var(--bone-white);border-color:rgba(245,241,232,.2);}
+  .sketch--hero .sketch__name{color:var(--fg-1);}
+
+  /* ============== EVIDENCE ============== */
+  .evidence{padding:96px 0;border-bottom:1px solid var(--line-1);}
+  .evidence__hd{display:grid;grid-template-columns:1fr 1.4fr;gap:48px;margin-bottom:56px;align-items:end;}
+  .evidence__title{font-family:var(--font-serif);font-size:48px;line-height:1.05;letter-spacing:-0.02em;font-weight:500;margin:14px 0 0;}
+  .evidence__copy{font-size:15px;line-height:24px;color:var(--fg-2);max-width:520px;}
+  .badges{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line-1);border:1px solid var(--line-1);}
+  .badge{background:var(--bg-1);padding:24px 22px;display:flex;flex-direction:column;gap:8px;min-height:170px;}
+  .badge__pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:500;width:fit-content;padding:4px 10px;border-radius:999px;border:1px solid var(--line-2);color:var(--fg-1);}
+  .badge__pill .d{width:6px;height:6px;border-radius:999px;}
+  .badge .d-prev{background:var(--accent);}
+  .badge .d-meas{background:var(--monsoon-sage);}
+  .badge .d-aud{background:var(--banyan-green);}
+  .badge .d-design{background:var(--ink-black);}
+  .badge .d-trad{background:var(--teak-brown);}
+  .badge .d-ritual{background:var(--terracotta-tray);}
+  .badge .d-spec{background:var(--hdb-concrete);}
+  .badge__name{font-family:var(--font-serif);font-size:18px;font-weight:500;margin:6px 0 4px;}
+  .badge__desc{font-size:12px;line-height:18px;color:var(--fg-2);}
+
+  /* ============== KANSO MANIFESTO (remove not place) ============== */
+  .kanso-belt{padding:120px 0;background:var(--ink-black);color:var(--bone-white);text-align:center;border-bottom:1px solid var(--ink-black);position:relative;overflow:hidden;}
+  .kanso-belt::before{content:"";position:absolute;inset:0;background:radial-gradient(80% 60% at 50% 100%,rgba(216,162,74,.18) 0%,transparent 70%);}
+  .kanso-belt__inner{position:relative;}
+  .kanso-belt .num{color:rgba(245,241,232,.5);}
+  .kanso-belt h2{font-family:var(--font-serif);font-size:96px;line-height:.9;letter-spacing:-0.03em;font-weight:500;margin:24px 0 32px;text-transform:uppercase;}
+  .kanso-belt h2 .strike{position:relative;display:inline-block;color:rgba(245,241,232,.4);}
+  .kanso-belt h2 .strike::after{content:"";position:absolute;left:-4%;right:-4%;top:50%;height:3px;background:var(--accent);transform:rotate(-3deg);}
+  .kanso-belt h2 .em{color:var(--accent);font-style:italic;font-weight:400;}
+  .kanso-belt p{font-family:var(--font-serif);font-size:24px;line-height:34px;color:rgba(245,241,232,.7);max-width:780px;margin:0 auto 40px;font-style:italic;}
+  .kanso-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(245,241,232,.12);border:1px solid rgba(245,241,232,.12);max-width:980px;margin:0 auto;}
+  .kanso-stat{background:var(--ink-black);padding:32px;text-align:left;}
+  .kanso-stat__k{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:rgba(245,241,232,.5);margin-bottom:14px;}
+  .kanso-stat__v{font-family:var(--font-serif);font-size:48px;font-weight:500;letter-spacing:-0.02em;color:var(--bone-white);}
+  .kanso-stat__v .u{font-size:18px;color:rgba(245,241,232,.5);font-weight:400;}
+  .kanso-stat__d{font-size:13px;color:rgba(245,241,232,.65);margin-top:8px;line-height:20px;}
+
+  /* ============== TOKENS ============== */
+  .tokens{padding:96px 0;border-bottom:1px solid var(--line-1);}
+  .tokens__hd{display:grid;grid-template-columns:1.1fr 1fr;gap:48px;margin-bottom:48px;align-items:end;}
+  .tokens__title{font-family:var(--font-serif);font-size:48px;line-height:1.05;letter-spacing:-0.02em;font-weight:500;margin:14px 0 0;}
+  .tokens__copy{font-size:15px;line-height:24px;color:var(--fg-2);max-width:480px;}
+  .tokens__grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
+  .tokc{border:1px solid var(--line-1);border-radius:14px;padding:28px;background:var(--bg-1);display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden;}
+  .tokc--phase1{border-color:var(--ink-black);background:var(--bg-2);}
+  .tokc__hd{display:flex;justify-content:space-between;align-items:flex-start;}
+  .tokc__icon{width:54px;height:54px;border-radius:999px;border:1px solid var(--line-2);display:flex;align-items:center;justify-content:center;background:var(--bone-white);}
+  .tokc__icon svg{width:26px;height:26px;}
+  .tokc__phase{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg-3);padding:3px 8px;border:1px solid var(--line-1);border-radius:999px;}
+  .tokc--phase1 .tokc__phase{color:var(--accent);border-color:var(--accent);}
+  .tokc__name{font-family:var(--font-serif);font-size:24px;font-weight:500;letter-spacing:-0.01em;}
+  .tokc__what{font-size:13px;line-height:20px;color:var(--fg-2);}
+  .tokc__ex{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .tokc__chip{padding:4px 10px;font-size:11px;background:var(--bg-2);border:1px solid var(--line-1);border-radius:999px;color:var(--fg-2);}
+  .tokc--phase1 .tokc__chip{background:var(--bg-1);}
+
+  /* ============== COMPLIANCE ============== */
+  .comply{padding:96px 0;background:var(--bg-2);border-bottom:1px solid var(--line-1);}
+  .comply__hd{margin-bottom:48px;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:end;}
+  .comply__title{font-family:var(--font-serif);font-size:48px;line-height:1.05;letter-spacing:-0.02em;font-weight:500;margin:14px 0 0;}
+  .comply__copy{font-size:15px;line-height:24px;color:var(--fg-2);max-width:520px;}
+  .comply__grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line-1);border:1px solid var(--line-1);}
+  .state{background:var(--bg-1);padding:28px;display:flex;flex-direction:column;gap:14px;min-height:260px;}
+  .state__hd{display:flex;align-items:center;gap:10px;}
+  .state__sw{width:18px;height:18px;border-radius:4px;}
+  .state--green .state__sw{background:var(--monsoon-sage);}
+  .state--amber .state__sw{background:var(--accent);}
+  .state--red   .state__sw{background:var(--terracotta-tray);}
+  .state--black .state__sw{background:var(--ink-black);background-image:repeating-linear-gradient(45deg,rgba(245,241,232,.4) 0 2px,transparent 2px 6px);}
+  .state__lbl{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:500;}
+  .state__title{font-family:var(--font-serif);font-size:22px;font-weight:500;}
+  .state__copy{font-size:13px;line-height:20px;color:var(--fg-2);}
+  .state__tag{margin-top:auto;font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg-3);}
+
+  /* ============== CTA ============== */
+  .cta{padding:120px 0;text-align:center;border-bottom:1px solid var(--line-1);}
+  .cta__eye{margin-bottom:24px;}
+  .cta__title{font-family:var(--font-serif);font-size:84px;line-height:0.95;letter-spacing:-0.025em;font-weight:500;margin:0 0 28px;text-transform:uppercase;}
+  .cta__title .em{color:var(--accent);font-style:italic;font-weight:400;text-transform:none;}
+  .cta__lede{font-family:var(--font-serif);font-size:22px;line-height:32px;color:var(--fg-2);max-width:680px;margin:0 auto 36px;font-style:italic;}
+  .cta__row{display:flex;justify-content:center;gap:14px;}
+
+  /* ============== FOOTER ============== */
+  .foot{background:var(--bg-1);padding:64px 0 24px;}
+  .foot__top{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:48px;margin-bottom:48px;}
+  .foot__brand{font-family:var(--font-serif);font-size:24px;font-weight:500;letter-spacing:-0.01em;}
+  .foot__lede{font-size:14px;line-height:22px;color:var(--fg-2);max-width:320px;margin-top:14px;}
+  .foot__col h5{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg-3);font-weight:500;margin:0 0 16px;}
+  .foot__col ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px;}
+  .foot__col a{font-size:14px;color:var(--fg-2);}
+  .foot__col a:hover{color:var(--fg-1);}
+  .foot__manifesto{display:flex;justify-content:space-between;align-items:center;padding:20px 0;border-top:1px solid var(--line-1);border-bottom:1px solid var(--line-1);}
+  .foot__pillar{display:flex;align-items:center;gap:10px;font-family:var(--font-serif);font-size:18px;}
+  .foot__pillar svg{width:22px;height:22px;}
+  .foot__pillar.tropical{color:var(--accent);font-style:italic;font-weight:400;}
+  .foot__bot{display:flex;justify-content:space-between;align-items:center;padding-top:24px;font-family:var(--font-mono);font-size:11px;color:var(--fg-3);letter-spacing:.1em;}
+
+  /* responsive */
+  @media (max-width: 1100px){
+    h1.hero__title{font-size:64px;}
+    .hero__grid{grid-template-columns:1fr;}
+    .pillars__grid,.journey__list,.journey-row2,.badges,.comply__grid{grid-template-columns:repeat(2,1fr);}
+    .stage{border-right:0;border-bottom:1px solid var(--line-1);}
+    .sketches__grid,.tokens__grid,.foot__top{grid-template-columns:1fr 1fr;}
+    .studio__body{grid-template-columns:48px 1fr;}
+    .stu-insp{display:none;}
+    .kanso-belt h2{font-size:64px;}
+    .kanso-stats{grid-template-columns:1fr;}
+    .cta__title{font-size:56px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     NAV
+============================================================ -->
+<nav class="nav">
+  <div class="wrap nav__inner">
+    <a href="#" class="nav__logo" aria-label="Built-To-Kanso">
+      <span class="nav__brand">Built<span class="nav__hyphen">·</span>To<span class="nav__hyphen">·</span>Kanso</span>
+      <span class="nav__sub">wind-aware studio</span>
+    </a>
+    <div class="nav__links">
+      <a href="#studio">Studio</a>
+      <a href="#material">Material System</a>
+      <a href="#how">How it works</a>
+      <a href="#tokens">Tokens</a>
+      <a href="#resonance">Resonance</a>
+      <a href="#compliance">HDB</a>
+    </div>
+    <div class="nav__right">
+      <span class="nav__time">16:30 · ANG MO KIO</span>
+      <a class="btn btn--primary" href="#studio">Open Studio <span class="arr">→</span></a>
+    </div>
+  </div>
+</nav>
+
+<!-- ============================================================
+     HERO
+============================================================ -->
+<section class="hero">
+  <div class="wrap hero__grid">
+    <div class="hero__lhs">
+      <div class="hero__eyebrow">
+        <span class="dot"></span>
+        <span class="num">001 · A wind-aware Feng Shui studio</span>
+      </div>
+      <h1 class="hero__title">
+        Built for<br>
+        better air.<br>
+        <span class="l2"><span class="accent">Better life.</span></span>
+      </h1>
+      <p class="hero__lede">Place a token. See the air move. Then let the wind tell you when to open the window.</p>
+      <p class="hero__sub">Nanyang Feng Shui for HDB homes — the tropical school that welcomes wind instead of hiding from it. Every rule is calibrated for 1.35° N, not 39.9° N. Calm by design, structured by intent, fluid in motion, tropical by context.</p>
+      <div class="hero__ctas">
+        <a class="btn btn--primary btn--lg" href="#studio">Open the Studio <span class="arr">→</span></a>
+        <a class="btn btn--ghost btn--lg" href="#how">How it works</a>
+      </div>
+      <div class="hero__meta">
+        <div class="hero__meta-item">
+          <div class="k">Substrate</div>
+          <div class="v">Material System</div>
+        </div>
+        <div class="hero__meta-item">
+          <div class="k">School</div>
+          <div class="v">Nanyang · 1.35° N</div>
+        </div>
+        <div class="hero__meta-item">
+          <div class="k">Listens for</div>
+          <div class="v">Resonance Hours</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WIND SKETCH HERO ART -->
+    <div class="hero__rhs">
+      <div class="windsketch">
+        <div class="windsketch__chrome">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div class="windsketch__dots"><span></span><span></span><span></span></div>
+            <span class="windsketch__title">Wind Sketch · Tampines GreenWeave 4-room</span>
+          </div>
+          <span class="windsketch__live"><span class="pulse"></span>LIVE · NE BREEZE 2.4 m/s</span>
+        </div>
+        <div class="windsketch__art">
+          <svg class="ws-svg" viewBox="0 0 500 600" preserveAspectRatio="xMidYMid meet">
+            <!-- compass top-right -->
+            <g transform="translate(440 60)">
+              <circle r="32" class="compass__ring"/>
+              <circle r="24" class="compass__ring"/>
+              <text x="0" y="-26" class="compass__n">N</text>
+              <text x="0" y="32" class="compass__n">S</text>
+              <text x="-28" y="3" class="compass__n">W</text>
+              <text x="28" y="3" class="compass__n">E</text>
+              <polygon points="0,-22 4,0 0,4 -4,0" class="compass__needle"/>
+              <line x1="0" y1="0" x2="14" y2="-14" class="compass__arrow"/>
+            </g>
+
+            <!-- floor plan walls (4-room) -->
+            <!-- outer perimeter -->
+            <rect x="60" y="80" width="380" height="460" class="wall"/>
+
+            <!-- internal walls -->
+            <line x1="60"  y1="260" x2="240" y2="260" class="wall"/>
+            <line x1="240" y1="80"  x2="240" y2="380" class="wall"/>
+            <line x1="240" y1="380" x2="440" y2="380" class="wall"/>
+            <line x1="340" y1="260" x2="340" y2="380" class="wall"/>
+            <line x1="240" y1="180" x2="340" y2="180" class="wall-thin"/>
+
+            <!-- door breaks -->
+            <line x1="120" y1="260" x2="170" y2="260" class="door"/>
+            <line x1="240" y1="200" x2="240" y2="240" class="door"/>
+            <line x1="280" y1="380" x2="320" y2="380" class="door"/>
+            <!-- main door (entry, south) -->
+            <line x1="200" y1="540" x2="260" y2="540" class="door"/>
+            <line x1="200" y1="540" x2="260" y2="540" stroke="var(--accent)" stroke-width="3"/>
+
+            <!-- room labels -->
+            <text x="80"  y="120" class="room-lbl">Master Bedroom</text>
+            <text x="80"  y="290" class="room-lbl">Living</text>
+            <text x="260" y="105" class="room-lbl">Bedroom 2</text>
+            <text x="260" y="210" class="room-lbl">Bedroom 3</text>
+            <text x="260" y="410" class="room-lbl">Kitchen</text>
+            <text x="360" y="290" class="room-lbl">Service Yard</text>
+
+            <!-- streamlines -->
+            <path class="stream stream--bold" d="M 60 480 Q 180 460 230 420 T 360 360 T 440 300"/>
+            <path class="stream"             d="M 60 420 Q 180 400 220 360 T 340 300 T 440 240"/>
+            <path class="stream stream--soft" d="M 60 360 Q 200 340 230 300 T 360 240 T 440 180"/>
+            <path class="stream stream--soft" d="M 60 300 Q 180 280 220 250 T 340 200 T 440 140"/>
+            <path class="stream stream--bold" d="M 100 540 Q 160 480 200 440 T 300 380 T 420 340"/>
+            <path class="stream"             d="M 230 540 Q 250 460 280 420 T 360 360 T 420 280"/>
+            <path class="stream stream--soft" d="M 80 200 Q 140 180 180 200 T 220 140"/>
+            <path class="stream stream--soft" d="M 280 100 Q 310 130 330 130 T 420 110"/>
+
+            <!-- tokens -->
+            <g class="token-mark is-active" transform="translate(230 320)">
+              <circle class="ring" r="14"/>
+              <circle r="14"/>
+              <text y="2">WG</text>
+            </g>
+            <g class="token-mark" transform="translate(140 200)">
+              <circle r="11"/>
+              <text y="3">SS</text>
+            </g>
+            <g class="token-mark" transform="translate(300 460)">
+              <circle r="11"/>
+              <text y="3">WA</text>
+            </g>
+          </svg>
+
+          <div class="ws-cap">
+            <div class="ws-cap__left">
+              <div>Active token · <b>Wind Gate · Kitchen</b></div>
+              <div style="margin-top:4px;">Routine · open 18:30—20:30</div>
+            </div>
+            <div class="ws-cap__score">
+              <span class="n">78</span><span class="d">/100</span><span class="lbl">Good</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PILLARS — four-axis brand triad
+============================================================ -->
+<section class="pillars" id="pillars">
+  <div class="wrap">
+    <div class="pillars__hd">
+      <div class="pillars__hd-l">
+        <div class="num">002 · The four pillars</div>
+        <h2 class="pillars__title">Calm. Structured. Fluid. <em>Tropical.</em></h2>
+      </div>
+      <p class="pillars__hd-r">Four axes. One register. The brand thesis sits beneath every line of code, every render, every recommendation.</p>
+    </div>
+    <div class="pillars__grid">
+      <div class="pillar">
+        <div class="pillar__glyph">
+          <svg viewBox="0 0 56 56" fill="none">
+            <path d="M6 38 L28 14 L50 38" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="num">∧ Roof</div>
+          <h3 class="pillar__title">Calm <span class="it">by design</span></h3>
+        </div>
+        <p class="pillar__body">Restraint as the default. Whitespace earns its place. The page should breathe. Useful objects don't count as clutter — a piano is enoughness.</p>
+      </div>
+      <div class="pillar">
+        <div class="pillar__glyph">
+          <svg viewBox="0 0 56 56" fill="none">
+            <rect x="10" y="10" width="36" height="36" stroke="currentColor" stroke-width="2"/>
+            <line x1="10" y1="28" x2="46" y2="28" stroke="currentColor" stroke-width="2"/>
+            <line x1="28" y1="10" x2="28" y2="46" stroke="currentColor" stroke-width="2"/>
+          </svg>
+        </div>
+        <div>
+          <div class="num">▦ Window grid</div>
+          <h3 class="pillar__title">Structured <span class="it">by intent</span></h3>
+        </div>
+        <p class="pillar__body">8pt grid. Numbered sections. Compass dial snaps to 24 directions. The Black state is non-negotiable: HDB safety elements are never modifiable.</p>
+      </div>
+      <div class="pillar">
+        <div class="pillar__glyph">
+          <svg viewBox="0 0 56 56" fill="none">
+            <path d="M6 22 Q18 10 28 22 T50 22 M6 34 Q18 22 28 34 T50 34" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="num">∽ Wind path</div>
+          <h3 class="pillar__title">Fluid <span class="it">in motion</span></h3>
+        </div>
+        <p class="pillar__body">Live WebGPU airflow. Sumi-e streamlines drift continuously at low opacity. Motion is purposeful — the air actually moves; nothing wiggles for fun.</p>
+      </div>
+      <div class="pillar">
+        <div class="pillar__glyph">
+          <svg viewBox="0 0 56 56" fill="none">
+            <path d="M8 36 Q28 14 48 36" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <path d="M14 36 Q28 22 42 36" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="num">◞ Tropical overhang</div>
+          <h3 class="pillar__title">Tropical <span class="it">by context</span></h3>
+        </div>
+        <p class="pillar__body">Singapore-specific, not generic Asian minimalist. NE monsoon. West sun at 16:30. Banyan shade. Void deck grey. Rattan, teak, concrete.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     STUDIO PREVIEW
+============================================================ -->
+<section class="studio" id="studio">
+  <div class="wrap">
+    <div class="studio__hd">
+      <div>
+        <div class="num">003 · Studio Canvas</div>
+        <h2 class="studio__title">See the air. <em>Shape the home.</em></h2>
+      </div>
+      <p class="studio__copy">Pick a unit. Rotate the compass to your front door's bearing. Place three tokens. The simulation rebalances in real time — Ghost Futures preview the consequence before you drop.</p>
+    </div>
+
+    <div class="studio__frame">
+      <div class="studio__chrome">
+        <div class="studio__chrome-l">
+          <div class="windsketch__dots"><span></span><span></span><span></span></div>
+          <span class="eye">Studio · Tampines GreenWeave 4-room</span>
+        </div>
+        <div class="studio__tabs">
+          <div class="studio__tab">Plan</div>
+          <div class="studio__tab">Tokens</div>
+          <div class="studio__tab is-on">Wind Sketch</div>
+          <div class="studio__tab">Render</div>
+        </div>
+        <div class="studio__chrome-r">NE 2.4 m/s · 16:30 · 24 dir</div>
+      </div>
+      <div class="studio__body">
+        <!-- side -->
+        <div class="stu-side">
+          <div class="stu-side__btn is-on" title="Plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 12h18M12 3v18"/></svg></div>
+          <div class="stu-side__btn" title="Compass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><polygon points="14 9 12 14 10 9 12 4" fill="currentColor" stroke="none"/></svg></div>
+          <div class="stu-side__btn" title="Wind"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 9h13a3 3 0 1 0-3-3M3 15h17a3 3 0 1 1-3 3"/></svg></div>
+          <div class="stu-side__btn" title="Sun"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/></svg></div>
+          <div class="stu-side__btn" title="Compare"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="3" width="8" height="18"/><rect x="13" y="3" width="8" height="18"/></svg></div>
+        </div>
+
+        <!-- canvas -->
+        <div class="stu-canvas">
+          <svg viewBox="0 0 700 560" preserveAspectRatio="xMidYMid meet">
+            <!-- plan -->
+            <rect x="80" y="60" width="540" height="440" class="wall"/>
+            <line x1="80"  y1="280" x2="320" y2="280" class="wall"/>
+            <line x1="320" y1="60"  x2="320" y2="380" class="wall"/>
+            <line x1="320" y1="380" x2="620" y2="380" class="wall"/>
+            <line x1="460" y1="280" x2="460" y2="380" class="wall"/>
+            <line x1="320" y1="180" x2="460" y2="180" class="wall-thin"/>
+
+            <line x1="160" y1="280" x2="220" y2="280" class="door"/>
+            <line x1="320" y1="220" x2="320" y2="260" class="door"/>
+            <line x1="380" y1="380" x2="420" y2="380" class="door"/>
+            <line x1="280" y1="500" x2="340" y2="500" class="door"/>
+            <line x1="280" y1="500" x2="340" y2="500" stroke="var(--accent)" stroke-width="3"/>
+
+            <!-- HS shelter (Black state) -->
+            <g>
+              <rect x="490" y="60" width="130" height="100" fill="rgba(17,17,17,.05)" stroke="var(--ink-black)" stroke-width="2" stroke-dasharray="0"/>
+              <rect x="490" y="60" width="130" height="100" fill="url(#hatch)" stroke="none"/>
+              <text x="498" y="78" class="room-lbl" style="fill:var(--ink-black)">HS · SCDF protected</text>
+            </g>
+            <defs>
+              <pattern id="hatch" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+                <line x1="0" y1="0" x2="0" y2="8" stroke="rgba(17,17,17,.25)" stroke-width="1"/>
+              </pattern>
+            </defs>
+
+            <!-- room labels -->
+            <text x="100" y="100" class="room-lbl">Master Bedroom</text>
+            <text x="100" y="310" class="room-lbl">Living</text>
+            <text x="340" y="85" class="room-lbl">Bedroom 2</text>
+            <text x="340" y="210" class="room-lbl">Bedroom 3</text>
+            <text x="340" y="410" class="room-lbl">Kitchen</text>
+            <text x="480" y="410" class="room-lbl">Service Yard</text>
+
+            <!-- streamlines -->
+            <path class="stream stream--bold" d="M 80 460 Q 220 440 280 400 T 460 340 T 620 280"/>
+            <path class="stream"             d="M 80 400 Q 220 380 280 340 T 460 280 T 620 220"/>
+            <path class="stream stream--soft" d="M 80 340 Q 240 320 280 280 T 460 220 T 620 160"/>
+            <path class="stream stream--soft" d="M 80 280 Q 220 260 280 230 T 460 180 T 620 120"/>
+            <path class="stream stream--bold" d="M 130 500 Q 220 440 260 400 T 380 340 T 580 320"/>
+            <path class="stream"             d="M 300 500 Q 320 420 360 380 T 460 320 T 580 260"/>
+
+            <!-- tokens -->
+            <g class="token-mark is-active" transform="translate(310 360)">
+              <circle class="ring" r="16"/>
+              <circle r="16"/>
+              <text y="3">WG</text>
+            </g>
+            <g class="token-mark" transform="translate(180 220)">
+              <circle r="13"/>
+              <text y="3">SS</text>
+            </g>
+            <g class="token-mark" transform="translate(400 460)">
+              <circle r="13"/>
+              <text y="3">WA</text>
+            </g>
+
+            <!-- ghost futures -->
+            <g opacity=".55">
+              <circle cx="240" cy="360" r="12" fill="none" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="3 3"/>
+              <text x="240" y="338" class="room-lbl" style="fill:var(--accent);font-weight:600;">A · 81</text>
+              <circle cx="380" cy="320" r="12" fill="none" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="3 3"/>
+              <text x="380" y="298" class="room-lbl" style="fill:var(--accent);font-weight:600;">C · 75</text>
+            </g>
+          </svg>
+
+          <div class="stu-tray">
+            <div class="stu-tray__chip is-on"><span class="dot">⌘</span>Wind Gate</div>
+            <div class="stu-tray__chip"><span class="dot">▦</span>Soft Screen</div>
+            <div class="stu-tray__chip"><span class="dot">❀</span>Wood Anchor</div>
+          </div>
+        </div>
+
+        <!-- inspector -->
+        <div class="stu-insp">
+          <div>
+            <div class="stu-insp__sect"><span class="n">01</span><h4>MingTang Index</h4></div>
+            <div class="stu-score">
+              <div class="stu-score__n">78<span>/100</span></div>
+              <div class="stu-score__lbl">Good</div>
+            </div>
+            <div class="stu-kanso">
+              <div class="stu-kanso__hd">
+                <span class="l">Kanso Reserve</span>
+                <span class="r">73%</span>
+              </div>
+              <div class="stu-kanso__bar"><i></i></div>
+              <p class="stu-kanso__note">"Useful objects don't count as clutter. A piano is enoughness."</p>
+            </div>
+          </div>
+
+          <div>
+            <div class="stu-insp__sect"><span class="n">02</span><h4>Diagnosis</h4></div>
+            <ul class="stu-metrics">
+              <li><span>Breath · cross-vent</span><b class="good">Strong</b></li>
+              <li><span>Glow · west sun 16:30</span><b class="warm">Moderate</b></li>
+              <li><span>Quiet · RT60 living</span><b class="good">0.5 s</b></li>
+              <li><span>Damp · pillow RH</span><b class="warn">73% · ok</b></li>
+              <li><span>Kanso Reserve</span><b class="good">73%</b></li>
+            </ul>
+          </div>
+
+          <div>
+            <div class="stu-insp__sect"><span class="n">03</span><h4>Active Token</h4></div>
+            <div style="font-family:var(--font-serif);font-size:18px;margin-bottom:6px;">Wind Gate · Kitchen</div>
+            <ul class="stu-metrics">
+              <li><span>Type</span><b>Routine</b></li>
+              <li><span>Window</span><b>Service yard</b></li>
+              <li><span>Schedule</span><b>18:30—20:30</b></li>
+              <li><span>Effect</span><b class="good">+11 Breath</b></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     MATERIAL SYSTEM
+============================================================ -->
+<section class="material" id="material">
+  <div class="wrap">
+    <div class="material__hd">
+      <div>
+        <div class="num">004 · The material system</div>
+        <h2 class="material__title">Eight materials. <em>One climate.</em></h2>
+      </div>
+      <p class="material__copy">Every surface in the studio comes from a closed palette. Rattan, teak, concrete, sage — the things a Tampines void deck already wears. The Wind Visibility slider lets you tune how much of the air becomes ink in any sketch.</p>
+    </div>
+
+    <div class="vis">
+      <div class="vis__art">
+        <svg viewBox="0 0 600 360" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <radialGradient id="matamber" cx="82%" cy="18%" r="70%">
+              <stop offset="0%" stop-color="#D8A24A" stop-opacity=".55"/>
+              <stop offset="100%" stop-color="#D8A24A" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <rect width="600" height="360" fill="url(#matamber)"/>
+          <!-- HDB silhouette -->
+          <g opacity=".22">
+            <rect x="0"   y="230" width="60"  height="130" fill="#F5F1E8"/>
+            <rect x="60"  y="210" width="70"  height="150" fill="#F5F1E8"/>
+            <rect x="130" y="190" width="80"  height="170" fill="#F5F1E8"/>
+            <rect x="210" y="220" width="60"  height="140" fill="#F5F1E8"/>
+            <rect x="270" y="200" width="80"  height="160" fill="#F5F1E8"/>
+            <rect x="350" y="230" width="60"  height="130" fill="#F5F1E8"/>
+            <rect x="410" y="210" width="100" height="150" fill="#F5F1E8"/>
+            <rect x="510" y="230" width="90"  height="130" fill="#F5F1E8"/>
+          </g>
+          <!-- streamlines at 62% visibility -->
+          <path class="stream stream--bold" d="M 0 290 Q 150 250 240 230 T 440 170 T 600 110" stroke="#F5F1E8" opacity=".7"/>
+          <path class="stream stream--bold" d="M 0 250 Q 150 210 240 190 T 440 130 T 600 70"  stroke="#F5F1E8" opacity=".62"/>
+          <path class="stream"             d="M 0 210 Q 150 170 240 150 T 440 90  T 600 30"  stroke="#F5F1E8" opacity=".5"/>
+          <path class="stream stream--soft" d="M 0 170 Q 150 130 240 110 T 440 50"  stroke="#F5F1E8" opacity=".34"/>
+          <path class="stream"             d="M 0 330 Q 150 290 240 270 T 440 210 T 600 150" stroke="#F5F1E8" opacity=".46"/>
+        </svg>
+      </div>
+      <div class="vis__pane">
+        <span class="vis__eye">Wind Visibility · demo control</span>
+        <h3 class="vis__h">How much of the air <em>becomes ink?</em></h3>
+        <p class="vis__d">A single slider tunes the streamline density on every sketch the studio renders. Restraint by default — too much ink turns physics into decoration.</p>
+        <div class="vis__slider">
+          <div class="vis__slider-hd"><span class="l">Streamline ink</span><span class="v">62%</span></div>
+          <div class="vis__bar"><i></i><div class="vis__handle"></div></div>
+          <div class="vis__ticks"><span>Empty</span><span>Whisper</span><span>Calm</span><span>Read</span><span>Storm</span></div>
+        </div>
+        <p class="vis__d" style="font-style:italic;color:var(--fg-3);">Default sits at Calm. Storm is for the engineer. Whisper is for the print folio.</p>
+      </div>
+    </div>
+
+    <div class="swatches">
+      <div class="sw">
+        <div class="sw__chip mat-c-rattan"><span class="label is-dark">Rattan True</span></div>
+        <div class="sw__body"><div class="sw__name">Rattan True</div><div class="sw__hex">#C9B68C · woven cane</div><p class="sw__d">Soft Screen substrate. The screen the kampung remembers.</p></div>
+      </div>
+      <div class="sw">
+        <div class="sw__chip mat-c-teak"><span class="label">Teak Brown</span></div>
+        <div class="sw__body"><div class="sw__name">Teak Brown</div><div class="sw__hex">#8A664B · material</div><p class="sw__d">Wood Anchor mass. Aged louver. The grain that takes humidity well.</p></div>
+      </div>
+      <div class="sw">
+        <div class="sw__chip mat-c-concrete"><span class="label is-dark">HDB Concrete</span></div>
+        <div class="sw__body"><div class="sw__name">HDB Concrete</div><div class="sw__hex">#A79F93 · base</div><p class="sw__d">The wall that's always there. UI base, never pure grey — always warm.</p></div>
+      </div>
+      <div class="sw">
+        <div class="sw__chip mat-c-voiddeck"><span class="label is-dark">Void Deck Grey</span></div>
+        <div class="sw__body"><div class="sw__name">Void Deck Grey</div><div class="sw__hex">#C9C4BA · surface</div><p class="sw__d">The pause between blocks. Where the chess tables sit. Surface for the studio.</p></div>
+      </div>
+      <div class="sw">
+        <div class="sw__chip mat-c-sage"><span class="label">Monsoon Sage</span></div>
+        <div class="sw__body"><div class="sw__name">Monsoon Sage</div><div class="sw__hex">#7C856D · highlight</div><p class="sw__d">Breath confirmed. The good signal the engine emits when air actually moves.</p></div>
+      </div>
+      <div class="sw">
+        <div class="sw__chip mat-c-banyan"><span class="label">Banyan Green</span></div>
+        <div class="sw__body"><div class="sw__name">Banyan Green</div><div class="sw__hex">#5E6B4C · nature</div><p class="sw__d">The shade tree on the edge of the carpark. Deep green for grounding.</p></div>
+      </div>
+      <div class="sw">
+        <div class="sw__chip mat-c-amber"><span class="label is-dark">West Sun Amber</span></div>
+        <div class="sw__body"><div class="sw__name">West Sun Amber</div><div class="sw__hex">#D8A24A · accent</div><p class="sw__d">16:30 light, made into a token. The only color that earns italic.</p></div>
+      </div>
+      <div class="sw">
+        <div class="sw__chip mat-c-terracotta"><span class="label">Terracotta Tray</span></div>
+        <div class="sw__body"><div class="sw__name">Terracotta Tray</div><div class="sw__hex">#B96F4D · warm accent</div><p class="sw__d">Earthen warning. Used only when the system needs to gently object.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     KANSO MANIFESTO BELT
+============================================================ -->
+<section class="kanso-belt">
+  <div class="wrap kanso-belt__inner">
+    <div class="num">005 · The kanso turn</div>
+    <h2><span class="strike">Buy more.</span><br><span class="em">Place fewer, better.</span></h2>
+    <p>Most home-design tools help users buy more. Built-To-Kanso helps homes breathe with less. Kanso Reserve is the headline metric. The Anti-Cure is a first-class recommendation. Sometimes the right answer is to wait, not to add.</p>
+    <div class="kanso-stats">
+      <div class="kanso-stat">
+        <div class="kanso-stat__k">Kanso Reserve</div>
+        <div class="kanso-stat__v">73<span class="u">%</span></div>
+        <div class="kanso-stat__d">Healthy empty space preserved. Useful objects do not count as clutter.</div>
+      </div>
+      <div class="kanso-stat">
+        <div class="kanso-stat__k">Less-Is-More Counter</div>
+        <div class="kanso-stat__v">11<span class="u"> objects</span></div>
+        <div class="kanso-stat__d">Avoided this session. ~S$1,840 estimated spend, 4.2 m² visual load.</div>
+      </div>
+      <div class="kanso-stat">
+        <div class="kanso-stat__k">The Anti-Cure</div>
+        <div class="kanso-stat__v">90<span class="u"> days</span></div>
+        <div class="kanso-stat__d">Leave the dining corner unbuilt-in after move-in. Wait, then decide.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     RESONANCE HOURS
+============================================================ -->
+<section class="resonance" id="resonance">
+  <div class="wrap">
+    <div class="resonance__hd">
+      <div>
+        <div class="num">006 · Resonance hours</div>
+        <h2 class="resonance__title">A home is a clock. <em>Place by the hour.</em></h2>
+      </div>
+      <p class="resonance__copy">Most design tools care about <em>where</em>. The studio cares about <em>when</em>. NE breeze peaks at dawn. West sun lands at 16:30. Quiet hours start at 22:00. Tokens carry routines, not just positions.</p>
+    </div>
+
+    <div class="clock">
+      <div class="clock__sun"></div>
+      <div class="clock__top">
+        <span class="lbl">A weekday in Ang Mo Kio · Tuesday, October</span>
+        <span class="now">Now: <b>West Sun · 16:30</b></span>
+      </div>
+      <div class="clock__track">
+        <div class="clock__hours">
+          <span>00</span><span>01</span><span>02</span><span>03</span><span>04</span><span>05</span><span class="is-key">06</span><span>07</span><span>08</span><span>09</span><span>10</span><span>11</span><span class="is-key">12</span><span>13</span><span>14</span><span>15</span><span class="is-key">16</span><span>17</span><span class="is-key">18</span><span>19</span><span>20</span><span>21</span><span class="is-key">22</span><span>23</span>
+        </div>
+        <div class="clock__band b-breath">Breath · NE breeze</div>
+        <div class="clock__band b-glow">Glow · west sun</div>
+        <div class="clock__band b-routine">Wind Gate routine</div>
+        <div class="clock__band b-quiet-2">Quiet · Ma</div>
+        <div class="clock__band b-quiet">Quiet</div>
+        <div class="clock__now"></div>
+      </div>
+      <div class="clock__legend">
+        <div class="clock__leg">
+          <div class="clock__leg-hd"><span class="clock__leg-sw sw-breath"></span><span class="clock__leg-name">Breath</span></div>
+          <div class="clock__leg-time">06:00 — 08:00 · NE 2.4 m/s</div>
+          <div class="clock__leg-d">Cross-vent peaks. Open service-yard window before the kettle.</div>
+        </div>
+        <div class="clock__leg">
+          <div class="clock__leg-hd"><span class="clock__leg-sw sw-glow"></span><span class="clock__leg-name">Glow</span></div>
+          <div class="clock__leg-time">15:00 — 18:00 · west sun</div>
+          <div class="clock__leg-d">Bedroom 3 takes the heat. Soft Screen drops moderate to mild.</div>
+        </div>
+        <div class="clock__leg">
+          <div class="clock__leg-hd"><span class="clock__leg-sw sw-routine"></span><span class="clock__leg-name">Routine</span></div>
+          <div class="clock__leg-time">18:30 — 20:30 · Wind Gate</div>
+          <div class="clock__leg-d">A behavior, not an object. Open kitchen louver, close in two hours.</div>
+        </div>
+        <div class="clock__leg">
+          <div class="clock__leg-hd"><span class="clock__leg-sw sw-quiet"></span><span class="clock__leg-name">Quiet</span></div>
+          <div class="clock__leg-time">22:00 — 06:00 · Ma</div>
+          <div class="clock__leg-d">RT60 settles to 0.4s. The home gets to be empty on purpose.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="seasons">
+      <div class="season">
+        <div class="season__hd"><span class="when">Dec — Feb</span><span class="deg">26°C · 88% RH</span></div>
+        <div class="season__name">NE Monsoon</div>
+        <p class="season__d">Strong cross-vent through service yard. Damp pillows are the real risk; check the dehumidifier audit.</p>
+      </div>
+      <div class="season">
+        <div class="season__hd"><span class="when">Mar — May</span><span class="deg">31°C · 82% RH</span></div>
+        <div class="season__name">Inter-Monsoon</div>
+        <p class="season__d">Stagnation hours rise at noon. Soft Screens earn their keep. The Wind Gate routine drifts later.</p>
+      </div>
+      <div class="season is-now">
+        <div class="season__hd"><span class="when">Jun — Sep</span><span class="deg">30°C · 80% RH</span></div>
+        <div class="season__name">SW Monsoon</div>
+        <p class="season__d">Wind reverses. Living-side cross-vent recovers; west sun load climbs hardest. The session you are in.</p>
+      </div>
+      <div class="season">
+        <div class="season__hd"><span class="when">Oct — Nov</span><span class="deg">28°C · 84% RH</span></div>
+        <div class="season__name">Inter-Monsoon</div>
+        <p class="season__d">Sudden squalls. The Threshold Note gets re-read. Anti-Cure: do nothing for ninety days.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SEVEN-STAGE JOURNEY
+============================================================ -->
+<section class="journey" id="how">
+  <div class="wrap">
+    <div class="journey__hd">
+      <div>
+        <div class="num">007 · The seven-stage journey</div>
+        <h2 class="journey__title">From threshold<br>to three voices.</h2>
+      </div>
+      <p class="journey__copy">The first session compresses to four steps to deliver magic in 90 seconds. Cognitive load is the conversion killer — Glow, Shelter and Ma reveal progressively across return visits.</p>
+    </div>
+
+    <div class="journey__list">
+      <div class="stage">
+        <div class="stage__row" style="padding-left:0">
+          <div class="stage__num">Stage 01</div>
+          <h3 class="stage__title">Threshold</h3>
+        </div>
+        <p class="stage__copy stage__row" style="padding-left:0">Pick your HDB archetype. Rotate the compass dial until your main door arrow matches your real bearing. Snaps to 24 directions.</p>
+        <div class="stage__tag stage__row" style="padding-left:0"><b>Phase 1</b> · ships</div>
+      </div>
+      <div class="stage">
+        <div class="stage__row">
+          <div class="stage__num">Stage 02</div>
+          <h3 class="stage__title">Reading the bones</h3>
+        </div>
+        <p class="stage__copy stage__row">Walls render in four confidence states — Green confirmed, Amber to confirm, Red caution, Black do-not-touch SCDF shelter.</p>
+        <div class="stage__tag stage__row"><b>Phase 1</b> · pre-traced</div>
+      </div>
+      <div class="stage">
+        <div class="stage__row">
+          <div class="stage__num">Stage 03</div>
+          <h3 class="stage__title">Qi weather map</h3>
+        </div>
+        <p class="stage__copy stage__row">Four overlays — Breath, Glow, Shelter, Ma. First session unlocks Breath only. The rest reveal across return visits.</p>
+        <div class="stage__tag stage__row"><b>Phase 1</b> · Breath</div>
+      </div>
+      <div class="stage">
+        <div class="stage__row">
+          <div class="stage__num">Stage 04</div>
+          <h3 class="stage__title">Token ritual</h3>
+        </div>
+        <p class="stage__copy stage__row">7–11 valid activation points light up. Pick four from a curated set. Three personality variants: Wabi-Sabi, Japandi, Tropical Modernist.</p>
+        <div class="stage__tag stage__row"><b>Phase 1</b> · 3 of 8</div>
+      </div>
+    </div>
+
+    <div class="journey-row2">
+      <div class="stage">
+        <div class="stage__row" style="padding-left:0">
+          <div class="stage__num">Stage 05</div>
+          <h3 class="stage__title">Ghost futures</h3>
+        </div>
+        <p class="stage__copy stage__row" style="padding-left:0">Drag a token. Three Ghost Futures appear before drop — A ranked highest, B at your finger, C the engine's contrast. See the Breath delta first.</p>
+        <div class="stage__tag stage__row" style="padding-left:0"><b>Phase 1</b> · ~200ms</div>
+      </div>
+      <div class="stage">
+        <div class="stage__row">
+          <div class="stage__num">Stage 06</div>
+          <h3 class="stage__title">The three sketches</h3>
+        </div>
+        <p class="stage__copy stage__row">Plan Sketch, Life Sketch, Wind Sketch — generated as an asynchronous triptych. Two-step pipeline: physics solve, then sumi-e style transfer.</p>
+        <div class="stage__tag stage__row"><b>Phase 1</b> · hero artifact</div>
+      </div>
+      <div class="stage">
+        <div class="stage__row">
+          <div class="stage__num">Stage 07</div>
+          <h3 class="stage__title">Three voices</h3>
+        </div>
+        <p class="stage__copy stage__row">Spouse letter, elder letter (classical Mandarin), designer letter. Plus a Threshold Note to speak aloud at your front door on move-in day.</p>
+        <div class="stage__tag stage__row">Phase 2</div>
+      </div>
+      <div class="stage">
+        <div class="stage__row">
+          <div class="stage__num">+</div>
+          <h3 class="stage__title">The folio export</h3>
+        </div>
+        <p class="stage__copy stage__row">A printable Threshold Note, a contractor brief for your interior designer, and a story-friendly social card. Shareable. Quiet.</p>
+        <div class="stage__tag stage__row">Hand-off</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SKETCHES
+============================================================ -->
+<section class="sketches">
+  <div class="wrap">
+    <div class="sketches__hd">
+      <div class="num">008 · The folio</div>
+      <h2 class="sketches__title">Three sketches.<br>One home.</h2>
+      <p class="sketches__lede">After tokens are committed, the studio generates a triptych. Streamlines never originate from prompt narratives — only from real LBM output. The model is the styling engine. The simulation is the source of truth.</p>
+    </div>
+    <div class="sketches__grid">
+      <article class="sketch">
+        <div class="sketch__art">
+          <div class="sketch__badge"><span class="d"></span>Plan Sketch</div>
+          <svg viewBox="0 0 320 400" preserveAspectRatio="xMidYMid meet">
+            <rect x="40" y="40" width="240" height="320" class="wall"/>
+            <line x1="40"  y1="200" x2="160" y2="200" class="wall"/>
+            <line x1="160" y1="40"  x2="160" y2="280" class="wall"/>
+            <line x1="160" y1="280" x2="280" y2="280" class="wall"/>
+            <line x1="220" y1="200" x2="220" y2="280" class="wall"/>
+            <path class="stream stream--bold" d="M 40 320 Q 110 300 150 280 T 240 240 T 280 200"/>
+            <path class="stream"             d="M 40 270 Q 110 250 150 220 T 240 180 T 280 140"/>
+            <path class="stream stream--soft" d="M 40 220 Q 120 200 160 180 T 240 140 T 280 100"/>
+            <path class="stream stream--soft" d="M 80 360 Q 120 320 150 280 T 220 240 T 270 220"/>
+          </svg>
+        </div>
+        <div class="sketch__meta">
+          <div class="sketch__num">Artifact 01 · Top-down</div>
+          <h3 class="sketch__name">The Plan Sketch</h3>
+          <p class="sketch__desc">Architectural with brushwork airflow streamlines composited over the floor plan. Sumi-e ink, warm Bone White paper, room labels in mono.</p>
+        </div>
+      </article>
+
+      <article class="sketch">
+        <div class="sketch__art" style="background:linear-gradient(180deg,#E8DFD0 0%, #C9B68C 100%);background-image:none;">
+          <div class="sketch__badge"><span class="d"></span>Life Sketch</div>
+          <svg viewBox="0 0 320 400" preserveAspectRatio="xMidYMid meet">
+            <!-- room -->
+            <rect x="0" y="0" width="320" height="400" fill="rgba(255,255,255,.0)"/>
+            <!-- horizon -->
+            <line x1="0" y1="240" x2="320" y2="240" stroke="rgba(17,17,17,.25)" stroke-width="1"/>
+            <!-- window -->
+            <rect x="200" y="60" width="90" height="160" fill="rgba(245,241,232,.7)" stroke="rgba(17,17,17,.4)" stroke-width="1.2"/>
+            <line x1="245" y1="60" x2="245" y2="220" stroke="rgba(17,17,17,.4)" stroke-width="1"/>
+            <line x1="200" y1="140" x2="290" y2="140" stroke="rgba(17,17,17,.4)" stroke-width="1"/>
+            <!-- west sun glow -->
+            <ellipse cx="245" cy="140" rx="80" ry="50" fill="rgba(216,162,74,.5)"/>
+            <!-- floor lines -->
+            <line x1="0" y1="280" x2="320" y2="280" stroke="rgba(17,17,17,.18)"/>
+            <line x1="0" y1="320" x2="320" y2="320" stroke="rgba(17,17,17,.14)"/>
+            <line x1="0" y1="360" x2="320" y2="360" stroke="rgba(17,17,17,.10)"/>
+            <!-- sofa silhouette -->
+            <rect x="40" y="280" width="120" height="50" fill="rgba(58,45,30,.55)" stroke="rgba(17,17,17,.45)"/>
+            <rect x="40" y="270" width="120" height="20" fill="rgba(58,45,30,.7)"/>
+            <!-- plant -->
+            <rect x="190" y="280" width="22" height="30" fill="rgba(58,45,30,.55)"/>
+            <path d="M 200 280 Q 190 250 200 230 Q 210 250 200 280" fill="rgba(94,107,76,.85)"/>
+            <path d="M 205 280 Q 220 245 215 220" stroke="rgba(94,107,76,.85)" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <!-- streamlines overlay -->
+            <path class="stream stream--soft" d="M 290 100 Q 220 130 160 160 T 40 200" stroke="rgba(17,17,17,.5)"/>
+            <path class="stream" d="M 280 160 Q 200 180 140 200 T 30 240" stroke="rgba(17,17,17,.4)"/>
+            <path class="stream stream--soft" d="M 270 220 Q 180 230 120 250 T 20 280" stroke="rgba(17,17,17,.35)"/>
+          </svg>
+        </div>
+        <div class="sketch__meta">
+          <div class="sketch__num">Artifact 02 · Eye-level</div>
+          <h3 class="sketch__name">The Life Sketch</h3>
+          <p class="sketch__desc">Photoreal interior, warm Japandi, light oak, off-white walls, Singapore late-afternoon light, with subtle airflow streamlines as overlay.</p>
+        </div>
+      </article>
+
+      <article class="sketch sketch--hero">
+        <div class="sketch__art">
+          <div class="sketch__badge"><span class="d"></span>Wind Sketch · the hero</div>
+          <svg viewBox="0 0 480 400" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <radialGradient id="amber" cx="80%" cy="20%" r="60%">
+                <stop offset="0%" stop-color="#D8A24A" stop-opacity=".55"/>
+                <stop offset="100%" stop-color="#D8A24A" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <rect width="480" height="400" fill="url(#amber)"/>
+            <!-- distant skyline of HDB -->
+            <g opacity=".25">
+              <rect x="20"  y="240" width="40"  height="120" fill="#F5F1E8"/>
+              <rect x="70"  y="220" width="50"  height="140" fill="#F5F1E8"/>
+              <rect x="130" y="200" width="60"  height="160" fill="#F5F1E8"/>
+              <rect x="200" y="230" width="50"  height="130" fill="#F5F1E8"/>
+              <rect x="260" y="210" width="60"  height="150" fill="#F5F1E8"/>
+              <rect x="330" y="240" width="40"  height="120" fill="#F5F1E8"/>
+              <rect x="380" y="220" width="80"  height="140" fill="#F5F1E8"/>
+            </g>
+            <!-- streamlines as the hero -->
+            <path class="stream stream--bold" d="M 0 320 Q 120 280 200 260 T 360 200 T 480 140" stroke="#F5F1E8" opacity=".75"/>
+            <path class="stream stream--bold" d="M 0 280 Q 120 240 200 220 T 360 160 T 480 100" stroke="#F5F1E8" opacity=".65"/>
+            <path class="stream"             d="M 0 240 Q 120 200 200 180 T 360 120 T 480 60"  stroke="#F5F1E8" opacity=".55"/>
+            <path class="stream stream--soft" d="M 0 200 Q 120 160 200 140 T 360 80  T 480 20"  stroke="#F5F1E8" opacity=".4"/>
+            <path class="stream"             d="M 0 360 Q 120 320 200 300 T 360 240 T 480 180" stroke="#F5F1E8" opacity=".5"/>
+            <path class="stream stream--soft" d="M 60 400 Q 140 360 220 340 T 380 280 T 480 220" stroke="#F5F1E8" opacity=".35"/>
+          </svg>
+        </div>
+        <div class="sketch__meta">
+          <div class="sketch__num">Artifact 03 · The screenshot</div>
+          <h3 class="sketch__name">The Wind Sketch</h3>
+          <p class="sketch__desc">The hero. Sumi-e ink streamlines as the dominant visual element, composited over your home at golden hour. The air, made visible. The shareable proof.</p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     TOKENS
+============================================================ -->
+<section class="tokens" id="tokens">
+  <div class="wrap">
+    <div class="tokens__hd">
+      <div>
+        <div class="num">009 · The qi tokens</div>
+        <h2 class="tokens__title">Six tokens.<br>Curatorial, not catalog.</h2>
+      </div>
+      <p class="tokens__copy">Phase 1 ships six — Wind Gate, Soft Screen, Wood Anchor, Solar Shield, Fan Anchor, and the new Shaft Buffer earned by the pipeshaft mechanic. Five more arrive in private alpha.</p>
+    </div>
+    <div class="tokens__grid">
+      <article class="tokc tokc--phase1">
+        <div class="tokc__hd">
+          <div class="tokc__icon">
+            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+              <path d="M4 12h18a4 4 0 1 0-4-4M4 20h22a4 4 0 1 1-4 4"/>
+            </svg>
+          </div>
+          <span class="tokc__phase">Phase 1 · ships</span>
+        </div>
+        <h3 class="tokc__name">Wind Gate</h3>
+        <p class="tokc__what">Improves airflow without adding clutter. Can be a behavior, not just an object — a window-opening routine turns this into a home OS, not styling.</p>
+        <div class="tokc__ex">
+          <span class="tokc__chip">Perforated screen</span>
+          <span class="tokc__chip">Louver</span>
+          <span class="tokc__chip">Window routine</span>
+        </div>
+      </article>
+      <article class="tokc tokc--phase1">
+        <div class="tokc__hd">
+          <div class="tokc__icon">
+            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4">
+              <rect x="6" y="6" width="20" height="20"/>
+              <line x1="6" y1="13" x2="26" y2="13"/>
+              <line x1="6" y1="20" x2="26" y2="20"/>
+              <line x1="13" y1="6" x2="13" y2="26"/>
+              <line x1="20" y1="6" x2="20" y2="26"/>
+            </svg>
+          </div>
+          <span class="tokc__phase">Phase 1 · ships</span>
+        </div>
+        <h3 class="tokc__name">Soft Screen</h3>
+        <p class="tokc__what">Slows the door-window rush without killing airflow. Lowers visual load at the threshold.</p>
+        <div class="tokc__ex">
+          <span class="tokc__chip">Shoji panel</span>
+          <span class="tokc__chip">Fluted screen</span>
+          <span class="tokc__chip">Sheer curtain</span>
+        </div>
+      </article>
+      <article class="tokc tokc--phase1">
+        <div class="tokc__hd">
+          <div class="tokc__icon">
+            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <path d="M16 28V16M16 16C12 16 9 13 9 9M16 16C20 16 23 13 23 9M16 16C16 13 13 10 10 10M16 16C16 13 19 10 22 10"/>
+            </svg>
+          </div>
+          <span class="tokc__phase">Phase 1 · ships</span>
+        </div>
+        <h3 class="tokc__name">Wood Anchor</h3>
+        <p class="tokc__what">Softens corners, supports biophilia. <em style="color:var(--fg-3);">Plants improve psychological wellbeing. They do not measurably purify residential air.</em></p>
+        <div class="tokc__ex">
+          <span class="tokc__chip">Tall plant</span>
+          <span class="tokc__chip">Bonsai cluster</span>
+          <span class="tokc__chip">Timber stool</span>
+        </div>
+      </article>
+
+      <article class="tokc tokc--phase1">
+        <div class="tokc__hd">
+          <div class="tokc__icon">
+            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <circle cx="16" cy="16" r="5"/>
+              <path d="M16 4v3M16 25v3M4 16h3M25 16h3M7.5 7.5l2 2M22.5 22.5l2 2M7.5 24.5l2-2M22.5 9.5l2-2"/>
+            </svg>
+          </div>
+          <span class="tokc__phase">Phase 1 · ships</span>
+        </div>
+        <h3 class="tokc__name">Solar Shield</h3>
+        <p class="tokc__what">Manages west-sun heat load — the most measurable HDB intervention.</p>
+        <div class="tokc__ex">
+          <span class="tokc__chip">SHGC ≤ 0.30</span>
+          <span class="tokc__chip">TSER ≥ 70%</span>
+          <span class="tokc__chip">Light shelf</span>
+        </div>
+      </article>
+
+      <article class="tokc tokc--phase1">
+        <div class="tokc__hd">
+          <div class="tokc__icon">
+            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+              <circle cx="16" cy="16" r="2.5"/>
+              <path d="M16 13.5C16 9 19 6 22 8 25 10 22 14 16 13.5z"/>
+              <path d="M16 18.5C20 22 17 26 14 24 11 22 12 18 16 18.5z"/>
+              <path d="M13.5 16C9 16 6 19 8 22 10 25 14 22 13.5 16z"/>
+              <path d="M18.5 16C22 12 26 15 24 18 22 21 18 20 18.5 16z"/>
+            </svg>
+          </div>
+          <span class="tokc__phase">Phase 1 · ships</span>
+        </div>
+        <h3 class="tokc__name">Fan Anchor</h3>
+        <p class="tokc__what">Extends thermal comfort upward by 1.5–3 °C. Schedule between 14:00–19:00 for a behavior, not just an object.</p>
+        <div class="tokc__ex">
+          <span class="tokc__chip">Ceiling fan</span>
+          <span class="tokc__chip">Schedule</span>
+        </div>
+      </article>
+
+      <article class="tokc tokc--phase1">
+        <div class="tokc__hd">
+          <div class="tokc__icon">
+            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <rect x="13" y="6" width="6" height="22"/>
+              <path d="M19 12c4 0 6 3 6 6M19 18c3 0 4 2 4 5"/>
+            </svg>
+          </div>
+          <span class="tokc__phase">Phase 1 · NEW</span>
+        </div>
+        <h3 class="tokc__name">Shaft Buffer</h3>
+        <p class="tokc__what">Deflects the 0.15–0.25 m/s pipeshaft jet by 40–60% at the opening. Mitigates vertical pollutant transport from neighbouring floors.</p>
+        <div class="tokc__ex">
+          <span class="tokc__chip">Tall cabinet</span>
+          <span class="tokc__chip">Plant cluster</span>
+          <span class="tokc__chip">Within 0.6 m</span>
+        </div>
+      </article>
+
+      <article class="tokc">
+        <div class="tokc__hd">
+          <div class="tokc__icon" style="opacity:.55;">
+            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+              <circle cx="16" cy="14" r="6"/>
+              <path d="M16 20v8M11 28h10"/>
+            </svg>
+          </div>
+          <span class="tokc__phase">Phase 2 · 5 more</span>
+        </div>
+        <h3 class="tokc__name">Fire Glow, Stillness, Earth, Water, Metal</h3>
+        <p class="tokc__what">Fire Glow activates entry. Stillness Seat creates pause. Earth Hold grounds. Water Quiet cools. Metal Clarity organizes. The full taxonomy unfolds in private alpha.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     EVIDENCE BADGES
+============================================================ -->
+<section class="evidence" id="evidence">
+  <div class="wrap">
+    <div class="evidence__hd">
+      <div>
+        <div class="num">010 · Evidence badges</div>
+        <h2 class="evidence__title">Every recommendation<br>carries one of seven.</h2>
+      </div>
+      <p class="evidence__copy">The Wind Audit is a design simulation report, not professional engineering certification. The system guarantees that displayed options pass the current rule engine and compliance filters. It does not certify renovation feasibility.</p>
+    </div>
+
+    <div class="badges">
+      <div class="badge"><span class="badge__pill"><span class="d d-prev"></span>Previewed</span><h4 class="badge__name">Browser simulation</h4><p class="badge__desc">Live WebGPU LBM. Qualitative design preview, not a measurement of your actual unit.</p></div>
+      <div class="badge"><span class="badge__pill"><span class="d d-meas"></span>Measured</span><h4 class="badge__name">Plan geometry</h4><p class="badge__desc">Daylight angle, clearances, user-entered conditions. Ruler, not promise.</p></div>
+      <div class="badge"><span class="badge__pill"><span class="d d-aud"></span>Audited</span><h4 class="badge__name">Cloud OpenFOAM</h4><p class="badge__desc">Design simulation report from the paid Wind Audit tier. Not a legally certified engineering opinion.</p></div>
+      <div class="badge"><span class="badge__pill"><span class="d d-design"></span>Design-proven</span><h4 class="badge__name">Ergonomics</h4><p class="badge__desc">Environmental psychology, lighting, acoustics. Drawn from peer-reviewed practice.</p></div>
+      <div class="badge"><span class="badge__pill"><span class="d d-trad"></span>Traditional</span><h4 class="badge__name">Classical Feng Shui</h4><p class="badge__desc">MingTang, Genkan, Ma. Kaso framework. Cultural inheritance, framed honestly.</p></div>
+      <div class="badge"><span class="badge__pill"><span class="d d-ritual"></span>Ritual</span><h4 class="badge__name">Cultural practice</h4><p class="badge__desc">Threshold Note. Move-in salt. Spoken aloud, not physically performant.</p></div>
+      <div class="badge"><span class="badge__pill"><span class="d d-spec"></span>Speculative</span><h4 class="badge__name">Weak evidence</h4><p class="badge__desc">Optional only. Surfaced for transparency, never positioned as proof.</p></div>
+      <div class="badge" style="background:var(--bg-2);"><span class="badge__pill" style="background:var(--ink-black);color:var(--bone-white);border-color:var(--ink-black);"><span class="d" style="background:var(--accent);"></span>The honest line</span><h4 class="badge__name">A hypothesis, not a measurement</h4><p class="badge__desc">Any recommendation is a design hypothesis. The studio does not certify renovation, engineering, or Feng Shui.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     COMPLIANCE — FOUR STATES
+============================================================ -->
+<section class="comply" id="compliance">
+  <div class="wrap">
+    <div class="comply__hd">
+      <div>
+        <div class="num">011 · HDB compliance</div>
+        <h2 class="comply__title">Four states.<br>One is non-negotiable.</h2>
+      </div>
+      <p class="comply__copy">Built-To-Kanso never generates renders that imply illegal works. Household shelters are SCDF-protected civil defence shelters; modifications require regulatory review. The system blocks the action with citable language.</p>
+    </div>
+    <div class="comply__grid">
+      <div class="state state--green">
+        <div class="state__hd"><div class="state__sw"></div><div class="state__lbl">Green</div></div>
+        <h3 class="state__title">Decorative · furniture only</h3>
+        <p class="state__copy">Place any token. No structural impact. No contractor needed. The fast path of the studio.</p>
+        <div class="state__tag">Auto-confirm</div>
+      </div>
+      <div class="state state--amber">
+        <div class="state__hd"><div class="state__sw"></div><div class="state__lbl">Amber</div></div>
+        <h3 class="state__title">Check dimensions, clearance</h3>
+        <p class="state__copy">Contractor needed. The studio surfaces clearance bands, schedule notes, and cost-of-change before placement.</p>
+        <div class="state__tag">Confirm with tap</div>
+      </div>
+      <div class="state state--red">
+        <div class="state__hd"><div class="state__sw"></div><div class="state__lbl">Red</div></div>
+        <h3 class="state__title">HDB caution zone</h3>
+        <p class="state__copy">No hacking or fixed works without review. Explicit warning copy. Manual confirm with cited language.</p>
+        <div class="state__tag">Manual confirm</div>
+      </div>
+      <div class="state state--black">
+        <div class="state__hd"><div class="state__sw"></div><div class="state__lbl">Black</div></div>
+        <h3 class="state__title">Do-not-suggest zone</h3>
+        <p class="state__copy">Household shelter walls, floor, ceiling, vents, perimeter. SCDF-controlled. The system hard-blocks token placement.</p>
+        <div class="state__tag">Hard block</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     CTA
+============================================================ -->
+<section class="cta">
+  <div class="wrap">
+    <div class="cta__eye"><span class="num">012 · The signature moment</span></div>
+    <h1 class="cta__title">Place a token.<br><span class="em">See the air move.</span></h1>
+    <p class="cta__lede">Built-To-Kanso shows you the wind you cannot see, protects the space you do not need to fill, and helps your HDB become a home before you buy a single thing.</p>
+    <div class="cta__row">
+      <a class="btn btn--primary btn--lg" href="#studio">Open the Studio <span class="arr">→</span></a>
+      <a class="btn btn--ghost btn--lg" href="#how">Read the brief</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     FOOTER
+============================================================ -->
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot__top">
+      <div>
+        <img src="assets/logo-black.png" alt="Built-To-Kanso" style="height:96px;width:auto;display:block;margin-bottom:18px;">
+        <div class="foot__brand">Built-To-Kanso</div>
+        <p class="foot__lede">Wind-aware design for HDB homes. Built calm with intent. A studio for the day before move-in, every Tuesday morning when the wind matters, and one more time fifteen years later.</p>
+      </div>
+      <div class="foot__col">
+        <h5>Studio</h5>
+        <ul>
+          <li><a href="#">Open Studio</a></li>
+          <li><a href="#">Tampines GreenWeave</a></li>
+          <li><a href="#">Tengah 5-room</a></li>
+          <li><a href="#">Resale Executive</a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h5>Learn</h5>
+        <ul>
+          <li><a href="#">The seven stages</a></li>
+          <li><a href="#">The kanso turn</a></li>
+          <li><a href="#">Evidence badges</a></li>
+          <li><a href="#">HDB compliance</a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h5>Studio</h5>
+        <ul>
+          <li><a href="#">Brand sheet v3</a></li>
+          <li><a href="#">Privacy posture</a></li>
+          <li><a href="#">For ID firms</a></li>
+          <li><a href="#">Press</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="foot__manifesto">
+      <div class="foot__pillar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 16 L12 6 L21 16"/></svg> Calm by design.</div>
+      <div class="foot__pillar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="16" height="16"/><path d="M4 12h16M12 4v16"/></svg> Structured by intent.</div>
+      <div class="foot__pillar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 10 Q9 4 12 10 T21 10 M3 16 Q9 10 12 16 T21 16"/></svg> Fluid in motion.</div>
+      <div class="foot__pillar tropical"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 16 Q12 6 21 16"/><path d="M6 16 Q12 10 18 16"/></svg> Tropical by context.</div>
+    </div>
+
+    <div class="foot__bot">
+      <div>© 2026 BUILT-TO-KANSO · SINGAPORE</div>
+      <div>v1.1 — FROZEN FOR HACKATHON · 16:30 ANG MO KIO</div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

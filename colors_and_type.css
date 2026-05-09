@@ -1,0 +1,199 @@
+/* ============================================================
+   Built-To-Kanso — Colors + Type Tokens
+   Source: brand poster (kanso_asset.png)
+   "Calm by design / Structured by intent / Fluid in motion / Tropical by context"
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* ---------- PRIMARY PALETTE ---------- */
+  --ink-black:      #111111;   /* Text / Structure          */
+  --bone-white:     #F5F1E8;   /* Background                */
+  --void-deck-grey: #C9C4BA;   /* Surface                   */
+  --hdb-concrete:   #A79F93;   /* UI / Base                 */
+
+  /* ---------- SECONDARY PALETTE ---------- */
+  --monsoon-sage:   #7C856D;   /* Highlight                 */
+  --banyan-green:   #5E6B4C;   /* Nature                    */
+  --rattan-beige:   #CB828D;   /* Surface (warm) — poster spelled #CB828D, treated as warm rattan */
+  --rattan-true:    #C9B68C;   /* corrected rattan beige (woven cane) */
+  --teak-brown:     #8A664B;   /* Material                  */
+
+  /* ---------- ACCENT PALETTE ---------- */
+  --west-sun-amber:  #D8A24A;  /* Sun / Highlight           */
+  --terracotta-tray: #B96F4D;  /* Warm Accent               */
+  --heat-haze-gold:  #E5C37A;  /* Glow / Gradient           */
+
+  /* ---------- DARK / NIGHT MODE ---------- */
+  --night-ink:       #111111;
+  --night-bone:      #F5F1E8;  /* used as fg in dark        */
+  --night-soft-grey: #2B1E18;  /* warm dark surface         */
+  --night-mid-grey:  #3D352D;
+  --night-amber-glow:#D8A24A;
+
+  /* ---------- SEMANTIC FG / BG ---------- */
+  --bg-1: var(--bone-white);              /* page             */
+  --bg-2: #EFE9DC;                        /* card/panel       */
+  --bg-3: var(--void-deck-grey);          /* sunken           */
+  --fg-1: var(--ink-black);               /* primary text     */
+  --fg-2: #3A352C;                        /* secondary text   */
+  --fg-3: var(--hdb-concrete);            /* tertiary / meta  */
+  --fg-mute: #8A8377;                     /* placeholder      */
+
+  --line-1: rgba(17,17,17,.12);           /* hairline border  */
+  --line-2: rgba(17,17,17,.22);
+  --line-strong: var(--ink-black);
+
+  --accent: var(--west-sun-amber);
+  --accent-hover: #C68F35;
+  --accent-press: #B07F2A;
+  --accent-warm:  var(--terracotta-tray);
+  --accent-glow:  var(--heat-haze-gold);
+
+  --good:  var(--monsoon-sage);
+  --warn:  var(--west-sun-amber);
+  --bad:   var(--terracotta-tray);
+
+  /* ---------- GRADIENTS (signature) ---------- */
+  --grad-concrete:  linear-gradient(90deg, #111111 0%, #A79F93 100%);
+  --grad-monsoon:   linear-gradient(90deg, #7C856D 0%, #F5F1E8 100%);
+  --grad-heat-haze: linear-gradient(90deg, #D8A24A 0%, #E5C37A 100%);
+  --grad-west-sun:  linear-gradient(180deg, rgba(216,162,74,0) 0%, rgba(216,162,74,.35) 60%, rgba(216,162,74,.55) 100%);
+
+  /* ============================================================
+     TYPE
+     Display: a kanso serif (Cormorant Garamond — substitute, see README)
+     UI/Body: Inter (kanso sans substitute)
+     Mono: JetBrains Mono for tokens / metrics
+     ============================================================ */
+  --font-serif: "Cormorant Garamond", "EB Garamond", Georgia, serif;
+  --font-sans:  "Inter", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  --font-mono:  "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+
+  /* Type scale — directly from poster */
+  --t-display:  64px;  --t-display-lh:  72px;
+  --t-h1:       48px;  --t-h1-lh:       56px;   /* alias of display when needed */
+  --t-h2:       28px;  --t-h2-lh:       36px;
+  --t-h3:       18px;  --t-h3-lh:       26px;
+  --t-body-lg:  16px;  --t-body-lg-lh:  24px;
+  --t-body:     14px;  --t-body-lh:     20px;
+  --t-caption:  12px;  --t-caption-lh:  16px;
+
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0em;
+  --tracking-loose: 0.08em;     /* eyebrows, labels */
+  --tracking-wide:  0.16em;     /* numbered section labels (01 / 02) */
+
+  /* ---------- SPACING (8pt with 4pt half-step) ---------- */
+  --s-0: 0;
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+  --s-10: 128px;
+
+  /* ---------- RADII ---------- */
+  --r-xs: 2px;
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 14px;
+  --r-xl: 22px;
+  --r-pill: 999px;
+
+  /* ---------- SHADOWS / ELEVATION ---------- */
+  --sh-hairline: 0 0 0 1px var(--line-1);
+  --sh-1: 0 1px 2px rgba(17,17,17,.06), 0 1px 1px rgba(17,17,17,.04);
+  --sh-2: 0 6px 18px -6px rgba(17,17,17,.18), 0 2px 4px rgba(17,17,17,.06);
+  --sh-3: 0 24px 48px -16px rgba(17,17,17,.22), 0 4px 8px rgba(17,17,17,.06);
+  --sh-inner: inset 0 1px 0 rgba(255,255,255,.5), inset 0 -1px 0 rgba(17,17,17,.06);
+
+  /* ---------- MOTION ---------- */
+  --ease-kanso: cubic-bezier(.22,.61,.36,1);   /* settled, breath-out */
+  --ease-wind:  cubic-bezier(.4,.0,.2,1);      /* drifting */
+  --dur-fast: 140ms;
+  --dur-base: 240ms;
+  --dur-slow: 480ms;
+  --dur-breath: 1800ms;                         /* compass / airflow loop */
+}
+
+/* ============================================================
+   SEMANTIC ELEMENT STYLES (use sparingly; tokens are primary)
+   ============================================================ */
+.kanso-display, h1.kanso {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: var(--t-display);
+  line-height: var(--t-display-lh);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-1);
+  text-transform: uppercase;        /* poster: BUILT FOR / WEST SUN */
+}
+.kanso-h2 {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: var(--t-h2);
+  line-height: var(--t-h2-lh);
+  color: var(--fg-1);
+}
+.kanso-h3 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: var(--t-h3);
+  line-height: var(--t-h3-lh);
+  color: var(--fg-1);
+}
+.kanso-body {
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: var(--t-body-lg);
+  line-height: var(--t-body-lg-lh);
+  color: var(--fg-2);
+  text-wrap: pretty;
+}
+.kanso-caption {
+  font-family: var(--font-sans);
+  font-size: var(--t-caption);
+  line-height: var(--t-caption-lh);
+  color: var(--fg-3);
+}
+.kanso-eyebrow {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.kanso-section-num {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: var(--tracking-loose);
+  color: var(--fg-3);
+}
+.kanso-mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--fg-2);
+}
+
+/* ============================================================
+   DARK / NIGHT MODE (Studio dark canvas)
+   ============================================================ */
+.kanso-dark {
+  --bg-1: #1A120D;
+  --bg-2: #221812;
+  --bg-3: #2B1E18;
+  --fg-1: #F5F1E8;
+  --fg-2: #D6CDBC;
+  --fg-3: #8A8377;
+  --line-1: rgba(245,241,232,.10);
+  --line-2: rgba(245,241,232,.18);
+  --line-strong: #F5F1E8;
+}
