@@ -1,7 +1,11 @@
 "use client";
 
 import { useId } from "react";
-import type { TokenId } from "@/server/rules/tokens";
+import {
+  getTokenPersonalityProfile,
+  type TokenId,
+  type TokenPersonalityVariant,
+} from "@/server/rules/tokens";
 import styles from "./TokenTray.module.css";
 
 export interface TokenDefinition {
@@ -22,6 +26,7 @@ export const TOKEN_DEFINITIONS: ReadonlyArray<TokenDefinition> = [
 ];
 
 interface TokenTrayProps {
+  variant: TokenPersonalityVariant;
   selectedId: TokenId | null;
   remainingByToken: Record<TokenId, number>;
   onSelect: (id: TokenId | null) => void;
@@ -31,6 +36,7 @@ interface TokenTrayProps {
 }
 
 export default function TokenTray({
+  variant,
   selectedId,
   remainingByToken,
   onSelect,
@@ -39,6 +45,7 @@ export default function TokenTray({
   disabled = false,
 }: TokenTrayProps) {
   const headingId = useId();
+  const profile = getTokenPersonalityProfile(variant);
 
   return (
     <div className={styles.tray} aria-labelledby={headingId}>
@@ -49,12 +56,14 @@ export default function TokenTray({
         <p className={styles.helper}>
           Drag a token onto the plan, or click to select then click the plan to drop.
         </p>
+        <p className={styles.variantCue}>{profile.materialCue}</p>
       </div>
       <ul className={styles.chipList} role="list">
         {TOKEN_DEFINITIONS.map((token) => {
           const remaining = remainingByToken[token.id] ?? 0;
           const isSelected = selectedId === token.id;
           const isDisabled = disabled || remaining <= 0;
+          const hint = profile.tokenHints[token.id] ?? token.hint;
 
           return (
             <li key={token.id}>
@@ -62,7 +71,7 @@ export default function TokenTray({
                 type="button"
                 draggable={!isDisabled}
                 aria-pressed={isSelected}
-                aria-label={`${token.name}. ${token.hint}. ${remaining} of 6 remaining.`}
+                aria-label={`${token.name}. ${hint}. ${remaining} of 6 remaining.`}
                 disabled={isDisabled}
                 className={`${styles.chip} ${isSelected ? styles.chipOn : ""}`}
                 onClick={() => {
@@ -86,7 +95,7 @@ export default function TokenTray({
                 </span>
                 <span className={styles.chipBody}>
                   <span className={styles.name}>{token.name}</span>
-                  <span className={styles.hint}>{token.hint}</span>
+                  <span className={styles.hint}>{hint}</span>
                 </span>
                 <span className={styles.count} aria-hidden>
                   {remaining}

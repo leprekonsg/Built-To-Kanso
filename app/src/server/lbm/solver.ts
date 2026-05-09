@@ -19,10 +19,24 @@ import { CS2, E, OPP, Q, W, writeEquilibrium } from "./lattice";
 import type { ObstacleMask, RawVelocityField, VelocityField } from "./types";
 
 /** BGK relaxation time. tau = 0.6 -> nu = (tau-0.5)/3 ~= 0.033 (lattice units). */
-const TAU = 0.6;
-const RHO0 = 1.0;
+export const TAU = 0.6;
+export const RHO0 = 1.0;
 /** Cap inlet velocity in lattice units to keep BGK stable (Mach < ~0.1). */
-const MAX_INLET_LU = 0.08;
+export const MAX_INLET_LU = 0.08;
+
+/** Compass + ambient wind -> lattice inlet velocity (lu). Shared by CPU + GPU paths. */
+export function computeInletVelocity(
+  compassDeg: number,
+  ambientWindMps: number,
+): { ux: number; uy: number } {
+  const physScale = ambientWindMps > 0 ? Math.min(ambientWindMps / 8, 1) : 0.5;
+  const inletMag = MAX_INLET_LU * physScale;
+  const rad = (compassDeg * Math.PI) / 180;
+  return {
+    ux: -Math.sin(rad) * inletMag,
+    uy: -Math.cos(rad) * inletMag,
+  };
+}
 
 /**
  * Run the CPU reference solver.
@@ -46,16 +60,9 @@ export function runLbmCpu(
   const N = gridSize;
   const NQ = N * N * Q;
 
-  // Convert ambient wind (m/s) into lattice units. The mapping is arbitrary
-  // for visualisation purposes; we just clamp magnitude for stability.
-  const physScale = ambientWindMps > 0 ? Math.min(ambientWindMps / 8, 1) : 0.5;
-  const inletMag = MAX_INLET_LU * physScale;
-
   // Compass bearing -> inlet direction in lattice (+x east, +y north).
   // 0=N -> wind blows southward -> u = (0, -1). 90=E -> u = (-1, 0). etc.
-  const rad = (compassDeg * Math.PI) / 180;
-  const inletUx = -Math.sin(rad) * inletMag;
-  const inletUy = -Math.cos(rad) * inletMag;
+  const { ux: inletUx, uy: inletUy } = computeInletVelocity(compassDeg, ambientWindMps);
 
   const inflowEdge = pickInflowEdge(compassDeg);
   const obstacles = buildObstacleMask(plan, N);
@@ -149,10 +156,10 @@ function stream(f: Float32Array, fNew: Float32Array, _mask: ObstacleMask, N: num
   }
 }
 
-type Edge = "north" | "south" | "east" | "west";
+export type Edge = "north" | "south" | "east" | "west";
 
 /** Pick the edge the wind enters through. Compass: 0=N -> wind enters from north -> "north". */
-function pickInflowEdge(compassDeg: number): Edge {
+export function pickInflowEdge(compassDeg: number): Edge {
   const c = ((compassDeg % 360) + 360) % 360;
   if (c < 45 || c >= 315) return "north";
   if (c < 135) return "east";
@@ -222,8 +229,9 @@ function reduceToVelocity(f: Float32Array, mask: ObstacleMask, N: number): Veloc
  *   - cells outside any room as solid (exterior wall envelope),
  *   - cells inside a fixed element (shelter, structural wall, pipeshaft mouth)
  *     as solid.
- * Wet zones and pipeshaft openings are flagged solid for now; the
- * pipeshaft jet boundary condition is a follow-up — see TODO below.
+ * Wet zones and pipeshaft openings are flagged solid. The pipeshaft jet is
+ * overlaid after field generation so Hard Rule #16 stays visible without
+ * letting a Black-state opening become editable compliance geometry.
  */
 export function buildObstacleMask(plan: PlanGeometry, N: number): ObstacleMask {
   const data = new Uint8Array(N * N);
@@ -256,9 +264,6 @@ export function buildObstacleMask(plan: PlanGeometry, N: number): ObstacleMask {
       data[y * N + x] = solid;
     }
   }
-  // TODO: inject the pipeshaft jet velocity at `plan.pipeshaft.openingPoint`
-  // as a Dirichlet BC. Currently the opening is treated as solid; the jet
-  // shows up in pre-baked simulation streamlines via tier4.ts, not here.
   return { width: N, height: N, data } as unknown as ObstacleMask;
 }
 

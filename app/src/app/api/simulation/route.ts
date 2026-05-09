@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildTier4Simulation, validateSimulationRequest } from "@/server/simulation/tier4";
+import { buildSimulation, validateSimulationRequest } from "@/server/simulation/tier4";
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -20,5 +20,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: validation }, { status: 400 });
   }
 
-  return NextResponse.json(buildTier4Simulation(validation));
+  return NextResponse.json(await buildSimulation(validation));
 }

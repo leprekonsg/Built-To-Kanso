@@ -15,6 +15,39 @@
   min-width: 0;
 }
 
+.variantBar {
+  border: 1px solid var(--line-1);
+  background: var(--bg-2);
+  padding: var(--s-4);
+}
+
+.variantBar label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+  gap: var(--s-4);
+  align-items: center;
+}
+
+.variantBar span {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  line-height: 1.35;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.variantBar select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--bg-1);
+  color: var(--fg-1);
+  padding: 0 var(--s-3);
+  font: inherit;
+}
+
 .previewColumn {
   display: flex;
   flex-direction: column;
@@ -26,5 +59,11 @@
   .studio {
     grid-template-columns: 1fr;
     gap: var(--s-6);
+  }
+}
+
+@media (max-width: 720px) {
+  .variantBar label {
+    grid-template-columns: 1fr;
   }
 }

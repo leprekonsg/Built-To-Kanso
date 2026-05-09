@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Built-To-Kanso, Cultural Positioning Architecture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+  <style>
+    :root {
+      --bone:        #F5F1E8;
+      --card:        #EFE9DC;
+      --void:        #C9C4BA;
+      --hairline:    rgba(17,17,17,0.12);
+      --hairline-2:  rgba(17,17,17,0.22);
+      --ink:         #111111;
+      --fg-2:        #3A352C;
+      --fg-mute:     #8A8377;
+      --concrete:    #A79F93;
+      --amber:       #D8A24A;
+      --amber-dim:   rgba(216,162,74,0.20);
+      --sage:        #7C856D;
+      --banyan:      #5E6B4C;
+      --terracotta:  #B96F4D;
+      --heat:        #E5C37A;
+
+      --serif: 'Cormorant Garamond', Georgia, serif;
+      --sans:  'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono:  'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+
+      --ease-kanso: cubic-bezier(.22,.61,.36,1);
+      --ease-wind:  cubic-bezier(.4,.0,.2,1);
+
+      --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+      --s-5: 24px; --s-6: 32px; --s-7: 48px; --s-8: 64px;
+      --s-9: 96px; --s-10: 128px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: var(--bone);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+      overflow-x: hidden;
+    }
+
+    /* The room. A faint bone-paper texture, no grid, no gradient mesh. */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      opacity: 0.04;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .progress-bar {
+      position: fixed; top: 0; left: 0; height: 2px;
+      background: var(--amber);
+      width: 0%; z-index: 1000;
+      transition: width .12s var(--ease-wind);
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 0 clamp(20px, 4vw, 56px);
+    }
+
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--concrete);
+    }
+
+    .lede {
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 400;
+      font-size: clamp(20px, 2.4vw, 26px);
+      line-height: 1.45;
+      color: var(--fg-2);
+      max-width: 56ch;
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity .9s var(--ease-kanso), transform .9s var(--ease-kanso);
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    .stagger > .reveal:nth-child(1) { transition-delay: .05s; }
+    .stagger > .reveal:nth-child(2) { transition-delay: .12s; }
+    .stagger > .reveal:nth-child(3) { transition-delay: .19s; }
+    .stagger > .reveal:nth-child(4) { transition-delay: .26s; }
+    .stagger > .reveal:nth-child(5) { transition-delay: .33s; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reveal, .reveal.visible { opacity: 1; transform: none; transition: none; }
+      .breath { animation: none !important; }
+    }
+
+    /* Hero */
+    .hero {
+      padding: clamp(80px, 14vw, 144px) 0 clamp(48px, 8vw, 96px);
+      border-bottom: 1px solid var(--hairline);
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: clamp(32px, 5vw, 56px);
+    }
+    @media (min-width: 880px) {
+      .hero-grid { grid-template-columns: 1.4fr 1fr; align-items: end; }
+    }
+
+    .hero-eyebrow-row {
+      display: flex; align-items: center; gap: var(--s-3);
+      margin-bottom: var(--s-5);
+    }
+    .breath {
+      width: 8px; height: 8px;
+      border-radius: 999px;
+      background: var(--amber);
+      box-shadow: 0 0 0 4px var(--amber-dim);
+      animation: breath 4.6s var(--ease-kanso) infinite;
+    }
+    @keyframes breath {
+      0%, 100% { opacity: .55; box-shadow: 0 0 0 4px rgba(216,162,74,0.16); }
+      50%      { opacity: 1;   box-shadow: 0 0 0 6px rgba(216,162,74,0.24); }
+    }
+
+    h1.title {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: clamp(48px, 8vw, 96px);
+      line-height: 0.94;
+      letter-spacing: -0.025em;
+      color: var(--ink);
+      margin: 0;
+      text-transform: uppercase;
+    }
+    h1.title em {
+      font-style: italic;
+      font-weight: 400;
+      color: var(--amber);
+      text-transform: lowercase;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-side {
+      border-left: 1px solid var(--hairline);
+      padding-left: clamp(20px, 3vw, 32px);
+    }
+    @media (max-width: 879px) {
+      .hero-side { border-left: 0; padding-left: 0; border-top: 1px solid var(--hairline); padding-top: var(--s-5); }
+    }
+    .hero-side-row {
+      display: flex; justify-content: space-between;
+      gap: var(--s-4);
+      padding: var(--s-4) 0;
+      border-bottom: 1px dashed var(--hairline);
+    }
+    .hero-side-row:last-child { border-bottom: 0; }
+    .hero-side-row .k { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--concrete); }
+    .hero-side-row .v { font-family: var(--serif); font-size: 22px; line-height: 1.2; color: var(--ink); }
+
+    /* Sections */
+    .section {
+      padding: clamp(56px, 9vw, 112px) 0 clamp(32px, 5vw, 56px);
+    }
+    .section + .section { border-top: 1px solid var(--hairline); }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--s-3);
+      margin-bottom: clamp(32px, 5vw, 56px);
+    }
+    @media (min-width: 880px) {
+      .section-head { grid-template-columns: 200px 1fr; gap: var(--s-7); align-items: start; }
+    }
+    .section-head .num {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .16em;
+      color: var(--concrete);
+      text-transform: uppercase;
+      padding-top: var(--s-2);
+    }
+    .section-head h2 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: clamp(32px, 4.4vw, 48px);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin: 0 0 var(--s-4) 0;
+    }
+    .section-head h2 em { font-style: italic; font-weight: 400; color: var(--amber); }
+    .section-head p {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(18px, 2vw, 22px);
+      line-height: 1.45;
+      color: var(--fg-2);
+      max-width: 60ch;
+      margin: 0;
+    }
+
+    /* Diagram frame */
+    .diagram-card {
+      background: var(--card);
+      border: 1px solid var(--hairline);
+      border-radius: 14px;
+      padding: clamp(16px, 3vw, 32px);
+      overflow: hidden;
+    }
+    .diagram-card svg { display: block; width: 100%; height: auto; }
+
+    /* Trap cards */
+    .trap-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--s-5);
+    }
+    @media (min-width: 760px) { .trap-grid { grid-template-columns: 1fr 1fr 1fr; } }
+
+    .trap-card {
+      background: var(--card);
+      border: 1px solid var(--hairline);
+      border-radius: 14px;
+      padding: var(--s-6) var(--s-5) var(--s-5);
+      display: flex;
+      flex-direction: column;
+      gap: var(--s-4);
+      transition: border-color .4s var(--ease-kanso), transform .4s var(--ease-kanso);
+    }
+    .trap-card:hover { border-color: var(--hairline-2); transform: translateY(-2px); }
+
+    .trap-card .num {
+      font-family: var(--serif);
+      font-size: 56px;
+      line-height: 1;
+      color: var(--terracotta);
+      font-weight: 500;
+    }
+    .trap-card h3 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 24px;
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+      margin: 0;
+      color: var(--ink);
+    }
+    .trap-card p {
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--fg-2);
+      margin: 0;
+    }
+    .trap-card .quote {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 14px;
+      color: var(--concrete);
+      padding-top: var(--s-4);
+      margin-top: auto;
+      border-top: 1px dashed var(--hairline);
+    }
+
+    /* The right frame */
+    .frame-card {
+      background: var(--card);
+      border: 1px solid var(--hairline);
+      border-radius: 14px;
+      padding: clamp(32px, 5vw, 64px);
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--s-7);
+    }
+    @media (min-width: 880px) { .frame-card { grid-template-columns: 1.1fr 1fr; align-items: center; } }
+
+    .frame-card .heading {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(28px, 3.6vw, 42px);
+      line-height: 1.18;
+      color: var(--ink);
+      margin: 0;
+    }
+    .frame-card .heading .pull { color: var(--amber); }
+    .frame-card .body {
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--fg-2);
+    }
+    .frame-card .body p + p { margin-top: var(--s-3); }
+
+    .alt-list {
+      list-style: none;
+      padding: 0;
+      margin: var(--s-4) 0 0 0;
+    }
+    .alt-list li {
+      padding: var(--s-3) 0;
+      border-top: 1px dashed var(--hairline);
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      gap: var(--s-3);
+      align-items: baseline;
+    }
+    .alt-list li:last-child { border-bottom: 1px dashed var(--hairline); }
+    .alt-list li::before { content: ''; }
+    .alt-list .marker {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--concrete);
+      letter-spacing: .12em;
+    }
+    .alt-list .quote {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 19px;
+      line-height: 1.35;
+      color: var(--ink);
+    }
+
+    /* Etymology disclosure */
+    .etym-card {
+      background: var(--bone);
+      border: 1px solid var(--hairline);
+      border-radius: 14px;
+      padding: clamp(28px, 4vw, 48px);
+      position: relative;
+      overflow: hidden;
+    }
+    .etym-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      backdrop-filter: blur(6px);
+      pointer-events: none;
+    }
+    .etym-rows { display: grid; gap: var(--s-5); position: relative; }
+    .etym-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--s-3);
+      padding-bottom: var(--s-5);
+      border-bottom: 1px solid var(--hairline);
+    }
+    .etym-row:last-child { padding-bottom: 0; border-bottom: 0; }
+    @media (min-width: 760px) {
+      .etym-row { grid-template-columns: 200px 1fr 1.2fr; gap: var(--s-6); align-items: baseline; }
+    }
+    .etym-row .label { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--concrete); }
+    .etym-row .lhs { font-family: var(--serif); font-size: 26px; line-height: 1.2; color: var(--ink); }
+    .etym-row .lhs .neq { color: var(--terracotta); font-style: italic; padding: 0 var(--s-2); }
+    .etym-row .lhs .han { font-weight: 600; }
+    .etym-row .gloss { font-family: var(--serif); font-style: italic; font-size: 17px; line-height: 1.45; color: var(--fg-2); }
+
+    /* Voice closing */
+    .voice {
+      padding: clamp(64px, 10vw, 128px) 0 clamp(80px, 12vw, 144px);
+      border-top: 1px solid var(--hairline);
+    }
+    .voice-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--s-5);
+    }
+    @media (min-width: 760px) { .voice-row { grid-template-columns: repeat(4, 1fr); } }
+    .voice-cell { padding: var(--s-4) 0; border-top: 1px solid var(--hairline); }
+    .voice-cell .k { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--concrete); margin-bottom: var(--s-2); }
+    .voice-cell .v { font-family: var(--serif); font-size: 22px; line-height: 1.3; color: var(--ink); }
+
+    .footnote {
+      margin-top: clamp(32px, 5vw, 56px);
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 14px;
+      color: var(--concrete);
+      max-width: 64ch;
+    }
+
+    .animated-line {
+      stroke-linecap: round;
+    }
+  </style>
+</head>
+<body>
+  <div class="progress-bar" id="progressBar"></div>
+
+  <header class="hero wrap">
+    <div class="hero-grid">
+      <div class="reveal">
+        <div class="hero-eyebrow-row">
+          <span class="breath" aria-hidden="true"></span>
+          <span class="eyebrow">Cultural Positioning, v1</span>
+        </div>
+        <h1 class="title">Form-school,<br>not <em>fortune-school</em>.</h1>
+        <p class="lede" style="margin-top: 24px;">
+          Built-To-Kanso reads wind, water, geometry, and sightlines. It is not a Period-9 chart, a luopan rotation, or a colour horoscope. The school we work in is already environmental, and naming it correctly is what keeps the cultural reviewer in the room.
+        </p>
+      </div>
+      <aside class="hero-side reveal">
+        <div class="hero-side-row">
+          <span class="k">School</span>
+          <span class="v">Form (形势派)</span>
+        </div>
+        <div class="hero-side-row">
+          <span class="k">Latitude</span>
+          <span class="v">1.35&deg; N</span>
+        </div>
+        <div class="hero-side-row">
+          <span class="k">Voice</span>
+          <span class="v">Calm, place-rooted</span>
+        </div>
+        <div class="hero-side-row">
+          <span class="k">Audience</span>
+          <span class="v">HDB homeowner first</span>
+        </div>
+      </aside>
+    </div>
+  </header>
+
+  <section class="section wrap">
+    <div class="section-head">
+      <div class="num reveal">01 / Two lanes</div>
+      <div class="reveal">
+        <h2>The school we work in is <em>already</em> environmental.</h2>
+        <p>Form-School (形势派) reads the actual ground. Wind paths, water drainage, room geometry, sightlines, terrain. This is the lane Built-To-Kanso lives in. The metaphysical lane (Period-9 cycles, Bazi birth-charts, luopan rotation rings, colour-element astrology) is a different table altogether.</p>
+      </div>
+    </div>
+
+    <div class="diagram-card reveal" id="diagram-lanes">
+      <svg viewBox="0 0 1140 580" role="img" aria-label="Two lanes: Form-School on the left where Built-To-Kanso lives, metaphysical schools on the right which are not the lane.">
+        <defs>
+          <marker id="arrow-sage" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#7C856D"/>
+          </marker>
+          <marker id="arrow-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#D8A24A"/>
+          </marker>
+          <pattern id="hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="6" stroke="#A79F93" stroke-width="1" opacity="0.18"/>
+          </pattern>
+        </defs>
+
+        <!-- Lane backgrounds -->
+        <rect x="20" y="40" width="520" height="520" rx="14" fill="rgba(124,133,109,0.05)" stroke="rgba(124,133,109,0.18)" stroke-width="1"/>
+        <rect x="600" y="40" width="520" height="520" rx="14" fill="url(#hatch)" stroke="rgba(167,159,147,0.28)" stroke-width="1" stroke-dasharray="4,3"/>
+
+        <!-- Lane labels -->
+        <text x="40" y="72" fill="#5E6B4C" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500" letter-spacing="1.8">FORM-SCHOOL  形势派</text>
+        <text x="40" y="92" fill="#111111" font-family="Cormorant Garamond, serif" font-size="22" font-style="italic">The lane Built-To-Kanso lives in.</text>
+
+        <text x="620" y="72" fill="#A79F93" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500" letter-spacing="1.8">METAPHYSICAL SCHOOLS</text>
+        <text x="620" y="92" fill="#8A8377" font-family="Cormorant Garamond, serif" font-size="22" font-style="italic">Not Built-To-Kanso&rsquo;s table.</text>
+
+        <!-- LEFT LANE: Form-School items, vertical chain centered on x=280 -->
+        <!-- Item 1: WIND -->
+        <g>
+          <rect x="180" y="120" width="200" height="50" rx="10" fill="#F5F1E8" stroke="#7C856D" stroke-width="1"/>
+          <text x="280" y="142" text-anchor="middle" fill="#5E6B4C" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.6">WIND</text>
+          <text x="280" y="160" text-anchor="middle" fill="#111111" font-family="Inter, sans-serif" font-size="13">cross-ventilation paths</text>
+        </g>
+        <line class="animated-line" x1="280" y1="170" x2="280" y2="190" stroke="#7C856D" stroke-width="1.5" marker-end="url(#arrow-sage)"/>
+
+        <!-- Item 2: WATER -->
+        <g>
+          <rect x="180" y="194" width="200" height="50" rx="10" fill="#F5F1E8" stroke="#7C856D" stroke-width="1"/>
+          <text x="280" y="216" text-anchor="middle" fill="#5E6B4C" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.6">WATER</text>
+          <text x="280" y="234" text-anchor="middle" fill="#111111" font-family="Inter, sans-serif" font-size="13">damp, drainage, RH at pillow</text>
+        </g>
+        <line class="animated-line" x1="280" y1="244" x2="280" y2="264" stroke="#7C856D" stroke-width="1.5" marker-end="url(#arrow-sage)"/>
+
+        <!-- Item 3: GEOMETRY -->
+        <g>
+          <rect x="180" y="268" width="200" height="50" rx="10" fill="#F5F1E8" stroke="#7C856D" stroke-width="1"/>
+          <text x="280" y="290" text-anchor="middle" fill="#5E6B4C" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.6">GEOMETRY</text>
+          <text x="280" y="308" text-anchor="middle" fill="#111111" font-family="Inter, sans-serif" font-size="13">plan-geometry.json, openings</text>
+        </g>
+        <line class="animated-line" x1="280" y1="318" x2="280" y2="338" stroke="#7C856D" stroke-width="1.5" marker-end="url(#arrow-sage)"/>
+
+        <!-- Item 4: SIGHTLINES -->
+        <g>
+          <rect x="180" y="342" width="200" height="50" rx="10" fill="#F5F1E8" stroke="#7C856D" stroke-width="1"/>
+          <text x="280" y="364" text-anchor="middle" fill="#5E6B4C" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.6">SIGHTLINES</text>
+          <text x="280" y="382" text-anchor="middle" fill="#111111" font-family="Inter, sans-serif" font-size="13">attention path through the home</text>
+        </g>
+        <line class="animated-line" x1="280" y1="392" x2="280" y2="412" stroke="#7C856D" stroke-width="1.5" marker-end="url(#arrow-sage)"/>
+
+        <!-- Item 5: TERRAIN -->
+        <g>
+          <rect x="180" y="416" width="200" height="50" rx="10" fill="#F5F1E8" stroke="#7C856D" stroke-width="1"/>
+          <text x="280" y="438" text-anchor="middle" fill="#5E6B4C" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.6">TERRAIN</text>
+          <text x="280" y="456" text-anchor="middle" fill="#111111" font-family="Inter, sans-serif" font-size="13">floor tier, west-sun, monsoon vector</text>
+        </g>
+        <line class="animated-line" x1="280" y1="466" x2="280" y2="490" stroke="#D8A24A" stroke-width="2" marker-end="url(#arrow-amber)"/>
+
+        <!-- Anchor: BUILT-TO-KANSO -->
+        <g>
+          <rect x="100" y="492" width="360" height="56" rx="12" fill="#111111"/>
+          <text x="280" y="516" text-anchor="middle" fill="rgba(245,241,232,0.6)" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.8">READS HERE</text>
+          <text x="280" y="538" text-anchor="middle" fill="#F5F1E8" font-family="Cormorant Garamond, serif" font-size="22" font-weight="500">Built-To-Kanso</text>
+        </g>
+
+        <!-- RIGHT LANE: metaphysical items, faded, no arrows, no anchor -->
+        <g opacity="0.55">
+          <rect x="760" y="120" width="200" height="50" rx="10" fill="rgba(245,241,232,0.5)" stroke="#A79F93" stroke-width="1" stroke-dasharray="3,3"/>
+          <text x="860" y="142" text-anchor="middle" fill="#8A8377" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.6">PERIOD-9</text>
+          <text x="860" y="160" text-anchor="middle" fill="#3A352C" font-family="Inter, sans-serif" font-size="13">20-year flying-star cycles</text>
+        </g>
+        <g opacity="0.55">
+          <rect x="760" y="194" width="200" height="50" rx="10" fill="rgba(245,241,232,0.5)" stroke="#A79F93" stroke-width="1" stroke-dasharray="3,3"/>
+          <text x="860" y="216" text-anchor="middle" fill="#8A8377" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.6">BAZI</text>
+          <text x="860" y="234" text-anchor="middle" fill="#3A352C" font-family="Inter, sans-serif" font-size="13">eight-character birth charts</text>
+        </g>
+        <g opacity="0.55">
+          <rect x="760" y="268" width="200" height="50" rx="10" fill="rgba(245,241,232,0.5)" stroke="#A79F93" stroke-width="1" stroke-dasharray="3,3"/>
+          <text x="860" y="290" text-anchor="middle" fill="#8A8377" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.6">LUOPAN</text>
+          <text x="860" y="308" text-anchor="middle" fill="#3A352C" font-family="Inter, sans-serif" font-size="13">rotating-ring chart compass</text>
+        </g>
+        <g opacity="0.55">
+          <rect x="760" y="342" width="200" height="50" rx="10" fill="rgba(245,241,232,0.5)" stroke="#A79F93" stroke-width="1" stroke-dasharray="3,3"/>
+          <text x="860" y="364" text-anchor="middle" fill="#8A8377" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.6">ELEMENT ASTRO</text>
+          <text x="860" y="382" text-anchor="middle" fill="#3A352C" font-family="Inter, sans-serif" font-size="13">colour by birth-element rules</text>
+        </g>
+        <g opacity="0.55">
+          <rect x="760" y="416" width="200" height="50" rx="10" fill="rgba(245,241,232,0.5)" stroke="#A79F93" stroke-width="1" stroke-dasharray="3,3"/>
+          <text x="860" y="438" text-anchor="middle" fill="#8A8377" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.6">FORTUNE</text>
+          <text x="860" y="456" text-anchor="middle" fill="#3A352C" font-family="Inter, sans-serif" font-size="13">prosperity, marriage, health charts</text>
+        </g>
+
+        <!-- Right lane caption -->
+        <text x="860" y="528" text-anchor="middle" fill="#A79F93" font-family="Cormorant Garamond, serif" font-size="18" font-style="italic">No arrows lead from here to our product.</text>
+
+        <!-- Lane separator vertical line, very faint -->
+        <line x1="570" y1="40" x2="570" y2="560" stroke="#C9C4BA" stroke-width="1" stroke-dasharray="2,4"/>
+      </svg>
+    </div>
+
+    <p class="footnote reveal">
+      The metaphysical lane is not pictured to be argued with. It is pictured to mark the boundary. Built-To-Kanso never claims it has been refuted; it claims it has not been entered.
+    </p>
+  </section>
+
+  <section class="section wrap">
+    <div class="section-head">
+      <div class="num reveal">02 / The trap</div>
+      <div class="reveal">
+        <h2>Why <em>&ldquo;distilled wisdom, not age-old superstition&rdquo;</em> fails.</h2>
+        <p>Three failure modes. Any one of them would lose the Cultural-mode homeowner; together they break the brand.</p>
+      </div>
+    </div>
+
+    <div class="trap-grid stagger">
+      <article class="trap-card reveal">
+        <div class="num">01</div>
+        <h3>It mislabels the school you&rsquo;re working in.</h3>
+        <p>Form-School (形势派) is the environment-reading tradition. It is already empirical: wind, water, terrain, geometry, sightlines. The brief picks it precisely because it is not the metaphysical, Period-9, luopan-chart lane.</p>
+        <p>Saying &ldquo;we distilled the wisdom from the superstition&rdquo; tells the cultural reviewer that you don&rsquo;t know which school you&rsquo;re in. The etymology disclosure is non-negotiable for exactly this reason.</p>
+        <div class="quote">Form-School was never the superstition.</div>
+      </article>
+
+      <article class="trap-card reveal">
+        <div class="num">02</div>
+        <h3>It re-centers the thing you&rsquo;re inverting.</h3>
+        <p>The Nanyang positioning works by being something else, not by arguing against mainland feng shui. &ldquo;Wisdom, not superstition&rdquo; makes the superstitious frame your product&rsquo;s reference point.</p>
+        <p>Like a &ldquo;real coffee&rdquo; brand whose tagline is <em>(unlike Starbucks)</em>: you&rsquo;ve made the rival the brand&rsquo;s job. Quietly being a wind-aware studio for HDB homes does the inversion without naming the rival.</p>
+        <div class="quote">Be something else. Don&rsquo;t fight the lane.</div>
+      </article>
+
+      <article class="trap-card reveal">
+        <div class="num">03</div>
+        <h3>It breaks the calm voice.</h3>
+        <p>The voice asks rather than instructs. It reports as receipt, not patch note. It calibrates rather than oversells. It refuses beautifully.</p>
+        <p>&ldquo;This is wisdom, not superstition&rdquo; is argument copy. It defends. It picks a fight on a surface that should be observing the home, not relitigating the field.</p>
+        <div class="quote">The product reports. It does not defend.</div>
+      </article>
+    </div>
+  </section>
+
+  <section class="section wrap">
+    <div class="section-head">
+      <div class="num reveal">03 / The right frame</div>
+      <div class="reveal">
+        <h2>Be the room with the louvres open.</h2>
+        <p>The frame the brief already supports: cultural reading and physical reading, in the same room. Both ride the same physics.</p>
+      </div>
+    </div>
+
+    <div class="frame-card reveal">
+      <div>
+        <p class="heading">
+          The same instinct, with <span class="pull">instruments</span>.
+        </p>
+        <div class="body" style="margin-top: 24px;">
+          <p>Form-school always read the actual environment. The site visit, the wind direction, the slope of the land, the placement of doors. The instruments are new. The reading is not.</p>
+          <p>WebGPU LBM, plan-geometry.json, and Resonance Hours are the new instruments. They give the form-school reader something the masters never had: a 256x256 lattice solving the wind across the actual unit, in real time, against the actual outdoor weather.</p>
+          <p>That is continuity, not correction.</p>
+        </div>
+      </div>
+      <div>
+        <span class="eyebrow">Alternative one-liners that fit the brief</span>
+        <ul class="alt-list" role="list" style="margin-top: 16px;">
+          <li>
+            <span class="marker">A</span>
+            <span class="quote">The same instinct, with instruments.</span>
+          </li>
+          <li>
+            <span class="marker">B</span>
+            <span class="quote">Cultural reading and physical reading, in the same room.</span>
+          </li>
+          <li>
+            <span class="marker">C</span>
+            <span class="quote">Form-school feng shui, with WebGPU airflow.</span>
+          </li>
+          <li>
+            <span class="marker">D</span>
+            <span class="quote">Calm by design. Structured by intent. Fluid in motion. Tropical by context.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="section wrap">
+    <div class="section-head">
+      <div class="num reveal">04 / Etymology</div>
+      <div class="reveal">
+        <h2>The disclosure that earns the credibility.</h2>
+        <p>Three boundaries that must hold on every surface that names the tradition. Cultural-credibility critique is a real risk per PRODUCT.md, not a hypothetical.</p>
+      </div>
+    </div>
+
+    <div class="etym-card reveal">
+      <div class="etym-rows">
+        <div class="etym-row">
+          <span class="label">Aesthetic register</span>
+          <span class="lhs"><span class="han">kansō</span> <span class="neq">&ne;</span> kasō</span>
+          <span class="gloss">Kansō is the Japanese aesthetic of simplicity (remove rather than place). Kasō is house astrology by birth-year. We use the first; we do not practise the second.</span>
+        </div>
+        <div class="etym-row">
+          <span class="label">School of feng shui</span>
+          <span class="lhs"><span class="han">Form-School (形势派)</span> <span class="neq">&ne;</span> Compass / Period-9</span>
+          <span class="gloss">Form-School reads the actual terrain, geometry, and water. Compass-School and its descendants chart by birth-element and 20-year cycles. We are in the first lane. The second is not on our table.</span>
+        </div>
+        <div class="etym-row">
+          <span class="label">Geographic anchor</span>
+          <span class="lhs">1.35&deg; N <span class="neq">&ne;</span> 22&deg;&ndash;40&deg; N</span>
+          <span class="gloss">Singapore latitude inverts the classical south-facing rule. West-sun heat path (16:00&ndash;18:30) and NE/SW monsoon vectors are the rule, not the exception. If a rule does not pass through Singapore, it does not ship.</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="footnote reveal">
+      These three lines, in some form, must appear on every surface that names the tradition. They are not legalese. They are how a Singaporean homeowner forwards the demo to their family without losing face.
+    </p>
+  </section>
+
+  <section class="voice wrap">
+    <div class="section-head">
+      <div class="num reveal">05 / Voice</div>
+      <div class="reveal">
+        <h2>How the calm voice <em>actually</em> sounds.</h2>
+        <p>Four checks for any new copy on any new surface. If a line fails one of these, rewrite it before it ships.</p>
+      </div>
+    </div>
+
+    <div class="voice-row stagger">
+      <div class="voice-cell reveal">
+        <div class="k">01 — Asks</div>
+        <div class="v">&ldquo;The house is listening.&rdquo;<br><span style="color: var(--concrete); font-style: italic;">not</span> &ldquo;Place the buffer here.&rdquo;</div>
+      </div>
+      <div class="voice-cell reveal">
+        <div class="k">02 — Reports</div>
+        <div class="v">&ldquo;Entry rush softened. One corner left empty.&rdquo;<br><span style="color: var(--concrete); font-style: italic;">not</span> &ldquo;Successfully optimised airflow.&rdquo;</div>
+      </div>
+      <div class="voice-cell reveal">
+        <div class="k">03 — Calibrates</div>
+        <div class="v">&ldquo;You&rsquo;re on a low floor; Resonance Hours will be quiet here.&rdquo;<br><span style="color: var(--concrete); font-style: italic;">not</span> &ldquo;Premium results unlocked.&rdquo;</div>
+      </div>
+      <div class="voice-cell reveal">
+        <div class="k">04 — Refuses</div>
+        <div class="v">&ldquo;This wall is not asking to be changed.&rdquo;<br><span style="color: var(--concrete); font-style: italic;">not</span> &ldquo;Error: invalid placement.&rdquo;</div>
+      </div>
+    </div>
+
+    <p class="footnote reveal">
+      The brand poster is normative: <em>Calm by design. Structured by intent. Fluid in motion. Tropical by context.</em> The trap-frame breaks the first two words. The right frame holds all four.
+    </p>
+  </section>
+
+  <script>
+    (function () {
+      const obs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            e.target.classList.add('visible');
+            obs.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+      document.querySelectorAll('.reveal').forEach(function (el) { obs.observe(el); });
+
+      const bar = document.getElementById('progressBar');
+      window.addEventListener('scroll', function () {
+        const h = document.documentElement;
+        const p = h.scrollTop / Math.max(1, (h.scrollHeight - h.clientHeight)) * 100;
+        bar.style.width = p + '%';
+      }, { passive: true });
+
+      const lobs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (!e.isIntersecting) return;
+          const lines = e.target.querySelectorAll('.animated-line');
+          lines.forEach(function (line, i) {
+            const len = line.getTotalLength();
+            line.style.strokeDasharray = len;
+            line.style.strokeDashoffset = len;
+            line.style.transition = 'stroke-dashoffset 0.7s ' + (i * 0.10) + 's cubic-bezier(0.22,0.61,0.36,1)';
+            line.getBoundingClientRect();
+            line.style.strokeDashoffset = '0';
+          });
+          lobs.unobserve(e.target);
+        });
+      }, { threshold: 0.2 });
+      document.querySelectorAll('#diagram-lanes').forEach(function (el) { lobs.observe(el); });
+    })();
+  </script>
+</body>
+</html>

@@ -80,12 +80,16 @@
 }
 
 /* Placed tokens — circle with hairline border, serif initial. Never amber paint. */
-.placedGroup { cursor: pointer; }
-.placedGroup:hover .placedDot { fill: var(--ink-black); }
-.placedGroup:hover .placedInitial { fill: var(--bone-white); }
-.placedGroup:hover .placedHalo {
+.placedGroup { cursor: pointer; outline: none; }
+.placedGroup:hover .placedDot,
+.placedGroup:focus-visible .placedDot { fill: var(--ink-black); }
+.placedGroup:hover .placedInitial,
+.placedGroup:focus-visible .placedInitial { fill: var(--bone-white); }
+.placedGroup:hover .placedHalo,
+.placedGroup:focus-visible .placedHalo {
   stroke: var(--west-sun-amber);
   stroke-opacity: 0.9;
+  stroke-width: 0.05;
 }
 
 .placedHalo {

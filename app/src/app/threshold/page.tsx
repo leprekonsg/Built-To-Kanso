@@ -55,9 +55,9 @@ export default function ThresholdPage() {
         <aside className={styles.disclosure} aria-label="Method">
           <span className={styles.disclosureLabel}>METHOD</span>
           <p className={styles.disclosureBody}>
-            We are the <em>Nanyang</em> tropical school — wind welcomed, not hidden. Every rule here is
-            calibrated for 1.35°&nbsp;N. The compass logic is Form-School feng shui (峦头派), not
-            Japanese kasō.
+            We are the <em>Nanyang</em>{" "}tropical school — wind welcomed, not hidden. Every rule
+            here is calibrated for 1.35°&nbsp;N. The compass logic is Form-School feng shui (峦头派),
+            not Japanese kasō.
           </p>
         </aside>
       </section>

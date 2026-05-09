@@ -1,4 +1,5 @@
 {
+  "_comment": "PIE runs north of Tengah West neighborhood per LTA 2024 alignment data; flagged for traffic-noise overlay demo. Distance is heuristic.",
   "schemaVersion": 1,
   "templateId": "tengah-5room",
   "units": "meters",
@@ -45,5 +46,9 @@
   "bathrooms": [
     { "roomId": "bath_common", "exhaustPoint": { "x": 3.8, "y": 5.2 } },
     { "roomId": "bath_master", "exhaustPoint": { "x": 1.1, "y": 7.4 } }
-  ]
+  ],
+  "siteContext": {
+    "expresswayAdjacency": "near_pie",
+    "expresswayDistanceM": 120
+  }
 }

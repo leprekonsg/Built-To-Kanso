@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Built-To-Kanso, Architecture Overview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+  <style>
+    :root {
+      --bone:        #F5F1E8;
+      --card:        #EFE9DC;
+      --void:        #C9C4BA;
+      --hairline:    rgba(17,17,17,0.12);
+      --hairline-2:  rgba(17,17,17,0.22);
+      --ink:         #111111;
+      --fg-2:        #3A352C;
+      --fg-mute:     #8A8377;
+      --concrete:    #A79F93;
+      --amber:       #D8A24A;
+      --amber-dim:   rgba(216,162,74,0.20);
+      --sage:        #7C856D;
+      --sage-dim:    rgba(124,133,109,0.10);
+      --banyan:      #5E6B4C;
+      --terracotta:  #B96F4D;
+      --terra-dim:   rgba(185,111,77,0.10);
+      --heat:        #E5C37A;
+      --teak:        #8A664B;
+      --rattan:      #C9B68C;
+
+      --serif: 'Cormorant Garamond', Georgia, serif;
+      --sans:  'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono:  'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+
+      --ease-kanso: cubic-bezier(.22,.61,.36,1);
+      --ease-wind:  cubic-bezier(.4,.0,.2,1);
+
+      --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+      --s-5: 24px; --s-6: 32px; --s-7: 48px; --s-8: 64px;
+      --s-9: 96px; --s-10: 128px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: var(--bone);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      opacity: 0.04;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .progress-bar {
+      position: fixed; top: 0; left: 0; height: 2px;
+      background: var(--amber);
+      width: 0%; z-index: 1000;
+      transition: width .12s var(--ease-wind);
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 0 clamp(20px, 4vw, 56px);
+    }
+
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--concrete);
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity .9s var(--ease-kanso), transform .9s var(--ease-kanso);
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .stagger > .reveal:nth-child(1) { transition-delay: .04s; }
+    .stagger > .reveal:nth-child(2) { transition-delay: .10s; }
+    .stagger > .reveal:nth-child(3) { transition-delay: .16s; }
+    .stagger > .reveal:nth-child(4) { transition-delay: .22s; }
+    .stagger > .reveal:nth-child(5) { transition-delay: .28s; }
+    .stagger > .reveal:nth-child(6) { transition-delay: .34s; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reveal, .reveal.visible { opacity: 1; transform: none; transition: none; }
+      .breath { animation: none !important; }
+    }
+
+    /* ============= HERO ============= */
+    .hero {
+      padding: clamp(72px, 12vw, 120px) 0 clamp(48px, 8vw, 88px);
+      border-bottom: 1px solid var(--hairline);
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: clamp(28px, 5vw, 56px);
+    }
+    @media (min-width: 880px) {
+      .hero-grid { grid-template-columns: 1.5fr 1fr; align-items: end; }
+    }
+
+    .hero-eyebrow-row {
+      display: flex; align-items: center; gap: var(--s-3);
+      margin-bottom: var(--s-5);
+    }
+    .breath {
+      width: 8px; height: 8px;
+      border-radius: 999px;
+      background: var(--amber);
+      box-shadow: 0 0 0 4px var(--amber-dim);
+      animation: breath 4.6s var(--ease-kanso) infinite;
+    }
+    @keyframes breath {
+      0%, 100% { opacity: .55; box-shadow: 0 0 0 4px rgba(216,162,74,0.16); }
+      50%      { opacity: 1;   box-shadow: 0 0 0 6px rgba(216,162,74,0.24); }
+    }
+
+    h1.title {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: clamp(44px, 7.5vw, 92px);
+      line-height: 0.96;
+      letter-spacing: -0.025em;
+      color: var(--ink);
+      margin: 0;
+      text-transform: uppercase;
+    }
+    h1.title em {
+      font-style: italic;
+      font-weight: 400;
+      color: var(--amber);
+      text-transform: lowercase;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-lede {
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 400;
+      font-size: clamp(20px, 2.4vw, 26px);
+      line-height: 1.45;
+      color: var(--fg-2);
+      max-width: 56ch;
+      margin-top: var(--s-5);
+    }
+
+    .hero-side {
+      border-left: 1px solid var(--hairline);
+      padding-left: clamp(20px, 3vw, 32px);
+    }
+    @media (max-width: 879px) {
+      .hero-side { border-left: 0; padding-left: 0; border-top: 1px solid var(--hairline); padding-top: var(--s-5); }
+    }
+    .hero-side-row {
+      display: flex; justify-content: space-between;
+      gap: var(--s-4);
+      padding: var(--s-4) 0;
+      border-bottom: 1px dashed var(--hairline);
+    }
+    .hero-side-row:last-child { border-bottom: 0; }
+    .hero-side-row .k { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--concrete); }
+    .hero-side-row .v { font-family: var(--serif); font-size: 22px; line-height: 1.2; color: var(--ink); }
+
+    .anchor-strip {
+      margin-top: var(--s-7);
+      padding: var(--s-5);
+      background: var(--card);
+      border: 1px solid var(--hairline);
+      border-radius: 14px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--s-4);
+    }
+    @media (min-width: 760px) {
+      .anchor-strip { grid-template-columns: repeat(3, 1fr); gap: var(--s-6); }
+    }
+    .anchor-cell { display: grid; gap: 6px; }
+    .anchor-cell .k { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--concrete); }
+    .anchor-cell .v { font-family: var(--serif); font-size: 19px; line-height: 1.25; color: var(--ink); }
+    .anchor-cell .v em { font-style: italic; color: var(--amber); }
+
+    /* ============= SECTIONS ============= */
+    .section {
+      padding: clamp(56px, 9vw, 112px) 0 clamp(32px, 5vw, 56px);
+    }
+    .section + .section, .voice {
+      border-top: 1px solid var(--hairline);
+    }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--s-3);
+      margin-bottom: clamp(28px, 4vw, 48px);
+    }
+    @media (min-width: 880px) {
+      .section-head { grid-template-columns: 200px 1fr; gap: var(--s-7); align-items: start; }
+    }
+    .section-head .num {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .16em;
+      color: var(--concrete);
+      text-transform: uppercase;
+      padding-top: var(--s-2);
+    }
+    .section-head h2 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: clamp(30px, 4vw, 44px);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin: 0 0 var(--s-3) 0;
+    }
+    .section-head h2 em { font-style: italic; font-weight: 400; color: var(--amber); }
+    .section-head p {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(17px, 1.8vw, 21px);
+      line-height: 1.45;
+      color: var(--fg-2);
+      max-width: 64ch;
+      margin: 0;
+    }
+
+    /* ============= SURFACES ============= */
+    .surfaces {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0;
+      border-top: 1px solid var(--hairline);
+    }
+    .surface-row {
+      display: grid;
+      grid-template-columns: 100px 1fr;
+      gap: var(--s-5);
+      padding: var(--s-5) 0;
+      border-bottom: 1px solid var(--hairline);
+      align-items: baseline;
+    }
+    @media (min-width: 760px) {
+      .surface-row { grid-template-columns: 160px 220px 1fr; }
+    }
+    .surface-row .path {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--ink);
+    }
+    .surface-row .name {
+      font-family: var(--serif);
+      font-size: 22px;
+      color: var(--ink);
+      font-weight: 500;
+    }
+    .surface-row .desc {
+      font-size: 14px;
+      color: var(--fg-2);
+      line-height: 1.55;
+    }
+
+    /* ============= DIAGRAM CARD ============= */
+    .diagram-card {
+      background: var(--card);
+      border: 1px solid var(--hairline);
+      border-radius: 14px;
+      padding: clamp(12px, 2vw, 24px);
+      overflow: hidden;
+    }
+    .diagram-card svg { display: block; width: 100%; height: auto; }
+
+    /* ============= LANE CALLOUTS ============= */
+    .lane-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--s-5);
+      margin-top: var(--s-7);
+    }
+    @media (min-width: 760px) { .lane-grid { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 1080px) { .lane-grid { grid-template-columns: repeat(4, 1fr); } }
+
+    .lane-card {
+      background: var(--card);
+      border: 1px solid var(--hairline);
+      border-radius: 14px;
+      padding: var(--s-5);
+      display: flex;
+      flex-direction: column;
+      gap: var(--s-3);
+      transition: transform .4s var(--ease-kanso), border-color .4s var(--ease-kanso);
+    }
+    .lane-card:hover { transform: translateY(-2px); border-color: var(--hairline-2); }
+    .lane-card .lane-tick {
+      width: 18px; height: 18px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .lane-card.l1 .lane-tick { background: var(--sage); }
+    .lane-card.l2 .lane-tick { background: var(--amber); }
+    .lane-card.l3 .lane-tick { background: var(--terracotta); }
+    .lane-card.l4 .lane-tick { background: var(--banyan); }
+    .lane-card .lane-head {
+      display: flex; align-items: center; gap: var(--s-3);
+      margin-bottom: var(--s-2);
+    }
+    .lane-card h3 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 22px;
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+      margin: 0;
+      color: var(--ink);
+    }
+    .lane-card .lane-purpose {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 15px;
+      color: var(--fg-2);
+      margin: 0;
+    }
+    .lane-card ul {
+      list-style: none;
+      padding: 0;
+      margin: var(--s-3) 0 0 0;
+      display: grid;
+      gap: 6px;
+    }
+    .lane-card li {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .04em;
+      color: var(--fg-2);
+      padding-left: 14px;
+      position: relative;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .lane-card li::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 7px;
+      width: 6px; height: 1px;
+      background: var(--concrete);
+    }
+    .lane-card .out {
+      margin-top: auto;
+      padding-top: var(--s-3);
+      border-top: 1px dashed var(--hairline);
+      display: grid;
+      gap: 4px;
+    }
+    .lane-card .out .k {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--concrete);
+    }
+    .lane-card .out .v {
+      font-family: var(--serif);
+      font-size: 17px;
+      line-height: 1.3;
+      color: var(--ink);
+      font-style: italic;
+    }
+
+    /* ============= EVIDENCE LADDER ============= */
+    .ladder {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0;
+      background: var(--card);
+      border: 1px solid var(--hairline);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .rung {
+      display: grid;
+      grid-template-columns: 60px 1fr;
+      gap: var(--s-4);
+      padding: var(--s-5);
+      border-bottom: 1px solid var(--hairline);
+      align-items: baseline;
+    }
+    @media (min-width: 760px) {
+      .rung { grid-template-columns: 60px 220px 1fr 1fr; gap: var(--s-5); }
+    }
+    .rung:last-child { border-bottom: 0; }
+    .rung .tier-num {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 36px;
+      color: var(--concrete);
+      line-height: 1;
+    }
+    .rung .tier-key {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+    .rung .tier-name {
+      font-family: var(--serif);
+      font-size: 20px;
+      color: var(--ink);
+      font-style: italic;
+      line-height: 1.3;
+    }
+    .rung .tier-source {
+      font-size: 13px;
+      color: var(--fg-2);
+      line-height: 1.55;
+    }
+    .rung.cultural-label {
+      background: rgba(216,162,74,0.06);
+      border-top: 1px dashed var(--amber);
+    }
+    .rung.cultural-label .tier-num { color: var(--amber); font-style: italic; font-family: var(--serif); font-weight: 400; font-size: 28px; padding-top: 4px; }
+
+    /* ============= API TABLE ============= */
+    .api-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card);
+      border: 1px solid var(--hairline);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .api-table thead th {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      text-align: left;
+      color: var(--concrete);
+      padding: var(--s-4) var(--s-5);
+      border-bottom: 1px solid var(--hairline);
+      font-weight: 500;
+    }
+    .api-table td {
+      padding: var(--s-3) var(--s-5);
+      border-bottom: 1px solid var(--hairline);
+      vertical-align: top;
+      font-size: 14px;
+    }
+    .api-table tr:last-child td { border-bottom: 0; }
+    .api-table .method {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .12em;
+      padding: 3px 8px;
+      border: 1px solid var(--hairline);
+      border-radius: 999px;
+      color: var(--ink);
+      background: var(--bone);
+      display: inline-block;
+    }
+    .api-table .path {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--ink);
+    }
+    .api-table .desc {
+      font-size: 13px;
+      color: var(--fg-2);
+      line-height: 1.55;
+    }
+    @media (max-width: 759px) {
+      .api-table thead { display: none; }
+      .api-table tr { display: grid; grid-template-columns: auto 1fr; gap: 6px var(--s-3); padding: var(--s-4) var(--s-5); border-bottom: 1px solid var(--hairline); }
+      .api-table td { display: contents; padding: 0; border: 0; }
+      .api-table td.desc { grid-column: 1 / -1; padding-top: 6px; }
+    }
+
+    /* ============= STACK ============= */
+    .stack-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--s-5);
+    }
+    @media (min-width: 760px) { .stack-grid { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 1080px) { .stack-grid { grid-template-columns: repeat(4, 1fr); } }
+
+    .stack-group {
+      background: var(--card);
+      border: 1px solid var(--hairline);
+      border-radius: 14px;
+      padding: var(--s-5);
+    }
+    .stack-group .label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--concrete);
+      margin-bottom: var(--s-4);
+    }
+    .stack-group .badges {
+      display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .stack-group .badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 5px 10px;
+      background: var(--bone);
+      border: 1px solid var(--hairline);
+      border-radius: 4px;
+      color: var(--ink);
+      letter-spacing: .04em;
+    }
+    .stack-group .badge.pin { border-color: var(--amber); color: var(--ink); background: rgba(216,162,74,0.08); }
+
+    /* ============= POSITIONING NOTE ============= */
+    .position-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--s-5);
+    }
+    @media (min-width: 880px) { .position-grid { grid-template-columns: 1.1fr 1fr; gap: var(--s-7); align-items: start; } }
+
+    .pos-card {
+      background: var(--card);
+      border: 1px solid var(--hairline);
+      border-radius: 14px;
+      padding: clamp(24px, 4vw, 40px);
+    }
+    .pos-card .head {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(22px, 2.6vw, 30px);
+      line-height: 1.25;
+      color: var(--ink);
+      margin: 0 0 var(--s-4) 0;
+    }
+    .pos-card .head .pull { color: var(--amber); }
+    .pos-card .body {
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--fg-2);
+    }
+    .pos-card .body p + p { margin-top: var(--s-3); }
+
+    .etym-rows { display: grid; gap: var(--s-4); }
+    .etym-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--s-2);
+      padding-bottom: var(--s-4);
+      border-bottom: 1px dashed var(--hairline);
+    }
+    @media (min-width: 760px) {
+      .etym-row { grid-template-columns: 140px 1fr; gap: var(--s-4); align-items: baseline; padding-bottom: var(--s-3); }
+    }
+    .etym-row:last-child { padding-bottom: 0; border-bottom: 0; }
+    .etym-row .label { font-family: var(--mono); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--concrete); }
+    .etym-row .lhs {
+      font-family: var(--serif);
+      font-size: 19px;
+      line-height: 1.3;
+      color: var(--ink);
+    }
+    .etym-row .lhs .neq { color: var(--terracotta); font-style: italic; padding: 0 6px; }
+
+    /* ============= VOICE ============= */
+    .voice {
+      padding: clamp(56px, 9vw, 112px) 0 clamp(32px, 5vw, 56px);
+    }
+    .rules-list {
+      list-style: none;
+      padding: 0; margin: 0;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+    .rules-list li {
+      padding: var(--s-4) 0;
+      border-bottom: 1px dashed var(--hairline);
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      gap: var(--s-3);
+      align-items: baseline;
+    }
+    .rules-list li:last-child { border-bottom: 0; }
+    .rules-list .marker { font-family: var(--mono); font-size: 11px; color: var(--amber); letter-spacing: .12em; }
+    .rules-list .rule { font-family: var(--serif); font-size: 19px; line-height: 1.4; color: var(--ink); }
+    .rules-list .rule em { font-style: italic; color: var(--fg-2); }
+
+    /* ============= STATUS ============= */
+    .status-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--s-4);
+      margin-top: var(--s-5);
+    }
+    @media (min-width: 760px) { .status-grid { grid-template-columns: 1fr 1fr; } }
+    .status-card {
+      padding: var(--s-5);
+      background: var(--card);
+      border: 1px solid var(--hairline);
+      border-radius: 14px;
+    }
+    .status-card .label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--concrete);
+      margin-bottom: var(--s-3);
+    }
+    .status-card.shipped .label { color: var(--banyan); }
+    .status-card.partial .label { color: var(--terracotta); }
+    .status-card ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+    .status-card li {
+      font-size: 14px;
+      color: var(--fg-2);
+      line-height: 1.55;
+      padding-left: 14px;
+      position: relative;
+    }
+    .status-card li::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 9px;
+      width: 6px; height: 1px;
+      background: var(--concrete);
+    }
+
+    .footnote {
+      margin-top: clamp(28px, 4vw, 48px);
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 14px;
+      color: var(--concrete);
+      max-width: 64ch;
+      line-height: 1.6;
+    }
+
+    .animated-line { stroke-linecap: round; }
+  </style>
+</head>
+<body>
+  <div class="progress-bar" id="progressBar"></div>
+
+  <!-- =================================================== HERO -->
+  <header class="hero wrap">
+    <div class="hero-grid">
+      <div class="reveal">
+        <div class="hero-eyebrow-row">
+          <span class="breath" aria-hidden="true"></span>
+          <span class="eyebrow">Architecture Overview, Phase 1</span>
+        </div>
+        <h1 class="title">Built<span style="color: var(--concrete);">-</span>To<span style="color: var(--concrete);">-</span><em>kansō</em></h1>
+        <p class="hero-lede">
+          A wind-aware feng shui studio for Singapore HDB homes. Reads plan geometry, simulates how air, light, and attention move through a unit, and stays with the home through Resonance Hours. Calm by design, structured by intent, fluid in motion, tropical by context.
+        </p>
+      </div>
+      <aside class="hero-side reveal">
+        <div class="hero-side-row"><span class="k">Latitude</span><span class="v">1.35&deg; N</span></div>
+        <div class="hero-side-row"><span class="k">School</span><span class="v">Form (形势派)</span></div>
+        <div class="hero-side-row"><span class="k">Lattice</span><span class="v">D2Q9, 256&times;256</span></div>
+        <div class="hero-side-row"><span class="k">Stack</span><span class="v">Next 16.2.6 / React 19.2.6</span></div>
+        <div class="hero-side-row"><span class="k">Templates</span><span class="v">3 curated HDB units</span></div>
+      </aside>
+    </div>
+
+    <div class="anchor-strip reveal">
+      <div class="anchor-cell">
+        <span class="k">Cultural anchor</span>
+        <span class="v">Form-School reads <em>terrain, wind, water, geometry</em>. Not Period-9 charts, not luopan rotation, not colour astrology.</span>
+      </div>
+      <div class="anchor-cell">
+        <span class="k">Tropical anchor</span>
+        <span class="v">Singapore <em>1.35&deg; N</em> inverts the classical south-facing rule. West-sun heat path 16:00 to 18:30. NE / SW monsoon.</span>
+      </div>
+      <div class="anchor-cell">
+        <span class="k">Voice anchor</span>
+        <span class="v">The product <em>asks, reports, calibrates, refuses</em>. It does not argue against other schools. It is something else.</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- =================================================== 01 / SURFACES -->
+  <section class="section wrap">
+    <div class="section-head">
+      <div class="num reveal">01 / Surfaces</div>
+      <div class="reveal">
+        <h2>Four routes and a marketing page.</h2>
+        <p>The product app lives under <span class="path" style="font-family: var(--mono); font-size: 0.85em;">app/</span> as a Next.js 16.2 App Router. The marketing landing is plain HTML at the repo root, served standalone.</p>
+      </div>
+    </div>
+
+    <div class="surfaces reveal">
+      <div class="surface-row">
+        <span class="path">/</span>
+        <span class="name">App entry</span>
+        <span class="desc">Next.js home route. Registers the studio shell and hands off to Stage 1.</span>
+      </div>
+      <div class="surface-row">
+        <span class="path">/threshold</span>
+        <span class="name">Stage 1, Threshold</span>
+        <span class="desc">Onboarding: pick a curated HDB template, set door-facing on the compass, choose a floor tier, pick a scenario. Reading panel fills as inputs land.</span>
+      </div>
+      <div class="surface-row">
+        <span class="path">/bones</span>
+        <span class="name">Stage 2, Bones</span>
+        <span class="desc">Plan reading. Asking Points (max three), Damp Risk band, Black-state HDB / SCDF protection, token studio, Ghost Futures preview, Kanso Reserve meter, Anti-Cure recommendation, House Changelog.</span>
+      </div>
+      <div class="surface-row">
+        <span class="path">/methodology</span>
+        <span class="name">Methodology</span>
+        <span class="desc">Public evidence ladder, cultural framing, audit gap, hard rules. The page that earns the cultural reviewer&rsquo;s trust.</span>
+      </div>
+      <div class="surface-row">
+        <span class="path">index.html</span>
+        <span class="name">Marketing landing</span>
+        <span class="desc">Standalone HTML at repo root. Plain HTML and CSS, no framework, no JS bundle.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================== 02 / DATA FLOW -->
+  <section class="section wrap">
+    <div class="section-head">
+      <div class="num reveal">02 / Data flow</div>
+      <div class="reveal">
+        <h2>Three inputs, four compute lanes, four outputs.</h2>
+        <p>Plan geometry is the source of truth. AI never alters compliance geometry, walls, streamlines, token legality, Damp Risk, or Black-state decisions. Three.js renders are reference imagery only.</p>
+      </div>
+    </div>
+
+    <div class="diagram-card reveal" id="diagram-flow">
+      <svg viewBox="0 0 1180 760" role="img" aria-label="Data flow architecture: three inputs feed a horizontal bus that distributes to four compute lanes (Scout and Rules, Tier 4 Simulation, Sketch Pipeline, Resonance Hours) and out to four output groups.">
+        <defs>
+          <marker id="arr-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#111111"/>
+          </marker>
+          <marker id="arr-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#D8A24A"/>
+          </marker>
+          <marker id="arr-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#A79F93"/>
+          </marker>
+        </defs>
+
+        <!-- Band labels -->
+        <text x="20" y="32" fill="#A79F93" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.6">INPUTS</text>
+        <text x="20" y="232" fill="#A79F93" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.6">COMPUTE</text>
+        <text x="20" y="612" fill="#A79F93" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.6">OUTPUTS</text>
+
+        <!-- ========= INPUTS ========= -->
+        <!-- Plan geometry (left) -->
+        <g>
+          <rect x="50" y="60" width="280" height="100" rx="12" fill="#F5F1E8" stroke="#111111" stroke-width="1"/>
+          <text x="190" y="86" text-anchor="middle" fill="#5E6B4C" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.6">PLAN GEOMETRY</text>
+          <text x="190" y="112" text-anchor="middle" fill="#111111" font-family="Cormorant Garamond, serif" font-size="20" font-weight="500">plan-geometry.json</text>
+          <text x="190" y="134" text-anchor="middle" fill="#3A352C" font-family="Inter, sans-serif" font-size="12">3 curated HDB templates</text>
+          <text x="190" y="150" text-anchor="middle" fill="#8A8377" font-family="Inter, sans-serif" font-size="11" font-style="italic">tampines-greenweave, tengah-5room, resale-exec-1990s</text>
+        </g>
+
+        <!-- Stage 1 inputs (center) -->
+        <g>
+          <rect x="400" y="60" width="380" height="100" rx="12" fill="#F5F1E8" stroke="#111111" stroke-width="1"/>
+          <text x="590" y="86" text-anchor="middle" fill="#5E6B4C" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.6">STAGE 1, USER INPUTS</text>
+          <text x="590" y="112" text-anchor="middle" fill="#111111" font-family="Cormorant Garamond, serif" font-size="20" font-weight="500">template, compass, floor, scenario</text>
+          <text x="590" y="134" text-anchor="middle" fill="#3A352C" font-family="Inter, sans-serif" font-size="12">door-facing &deg;, floor tier, lifestyle scenario</text>
+          <text x="590" y="150" text-anchor="middle" fill="#8A8377" font-family="Inter, sans-serif" font-size="11" font-style="italic">/threshold</text>
+        </g>
+
+        <!-- Outdoor context (right) -->
+        <g>
+          <rect x="850" y="60" width="280" height="100" rx="12" fill="#F5F1E8" stroke="#111111" stroke-width="1"/>
+          <text x="990" y="86" text-anchor="middle" fill="#5E6B4C" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.6">OUTDOOR CONTEXT</text>
+          <text x="990" y="112" text-anchor="middle" fill="#111111" font-family="Cormorant Garamond, serif" font-size="20" font-weight="500">NEA wind, time-of-day</text>
+          <text x="990" y="134" text-anchor="middle" fill="#3A352C" font-family="Inter, sans-serif" font-size="12">station bearing, m/s, monsoon vector</text>
+          <text x="990" y="150" text-anchor="middle" fill="#8A8377" font-family="Inter, sans-serif" font-size="11" font-style="italic">resonance / NEA seam</text>
+        </g>
+
+        <!-- Drop arrows from inputs to bus (no arrowheads, just lines) -->
+        <line x1="190" y1="160" x2="190" y2="190" stroke="#111111" stroke-width="1.2"/>
+        <line x1="590" y1="160" x2="590" y2="190" stroke="#111111" stroke-width="1.2"/>
+        <line x1="990" y1="160" x2="990" y2="190" stroke="#111111" stroke-width="1.2"/>
+
+        <!-- Horizontal bus -->
+        <line class="animated-line" x1="170" y1="190" x2="990" y2="190" stroke="#111111" stroke-width="1.5"/>
+        <text x="590" y="184" text-anchor="middle" fill="#A79F93" font-family="JetBrains Mono, monospace" font-size="9" letter-spacing="1.4">DETERMINISTIC SOURCE OF TRUTH</text>
+
+        <!-- Bus to lane tops (with arrows) -->
+        <line class="animated-line" x1="170" y1="190" x2="170" y2="245" stroke="#111111" stroke-width="1.5" marker-end="url(#arr-ink)"/>
+        <line class="animated-line" x1="430" y1="190" x2="430" y2="245" stroke="#111111" stroke-width="1.5" marker-end="url(#arr-ink)"/>
+        <line class="animated-line" x1="690" y1="190" x2="690" y2="245" stroke="#111111" stroke-width="1.5" marker-end="url(#arr-ink)"/>
+        <line class="animated-line" x1="990" y1="190" x2="990" y2="245" stroke="#111111" stroke-width="1.5" marker-end="url(#arr-ink)"/>
+
+        <!-- ========= LANE BACKGROUNDS ========= -->
+        <rect x="50" y="250" width="240" height="320" rx="12" fill="rgba(124,133,109,0.05)" stroke="rgba(124,133,109,0.18)" stroke-width="1"/>
+        <rect x="310" y="250" width="240" height="320" rx="12" fill="rgba(216,162,74,0.05)" stroke="rgba(216,162,74,0.18)" stroke-width="1"/>
+        <rect x="570" y="250" width="240" height="320" rx="12" fill="rgba(185,111,77,0.05)" stroke="rgba(185,111,77,0.18)" stroke-width="1"/>
+        <rect x="870" y="250" width="240" height="320" rx="12" fill="rgba(94,107,76,0.05)" stroke="rgba(94,107,76,0.18)" stroke-width="1"/>
+
+        <!-- Lane labels -->
+        <text x="170" y="270" text-anchor="middle" fill="#5E6B4C" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.8" font-weight="500">LANE 1, SCOUT &amp; RULES</text>
+        <text x="430" y="270" text-anchor="middle" fill="#B07F2A" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.8" font-weight="500">LANE 2, TIER 4 SIMULATION</text>
+        <text x="690" y="270" text-anchor="middle" fill="#B96F4D" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.8" font-weight="500">LANE 3, SKETCH PIPELINE</text>
+        <text x="990" y="270" text-anchor="middle" fill="#5E6B4C" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.8" font-weight="500">LANE 4, RESONANCE HOURS</text>
+
+        <!-- ========= LANE 1 modules (centered x=170, sub-modules width 210) ========= -->
+        <g>
+          <rect x="65" y="290" width="210" height="50" rx="8" fill="#F5F1E8" stroke="#7C856D" stroke-width="1"/>
+          <text x="170" y="312" text-anchor="middle" fill="#111111" font-family="Inter, sans-serif" font-size="13" font-weight="500">Geometry validation</text>
+          <text x="170" y="328" text-anchor="middle" fill="#8A8377" font-family="JetBrains Mono, monospace" font-size="10">geometry/validation.ts</text>
+        </g>
+        <line class="animated-line" x1="170" y1="340" x2="170" y2="370" stroke="#7C856D" stroke-width="1.5" marker-end="url(#arr-mute)"/>
+
+        <g>
+          <rect x="65" y="370" width="210" height="50" rx="8" fill="#F5F1E8" stroke="#7C856D" stroke-width="1"/>
+          <text x="170" y="392" text-anchor="middle" fill="#111111" font-family="Inter, sans-serif" font-size="13" font-weight="500">Scout Pass</text>
+          <text x="170" y="408" text-anchor="middle" fill="#8A8377" font-family="JetBrains Mono, monospace" font-size="10">scout/priority.ts</text>
+        </g>
+        <line class="animated-line" x1="170" y1="420" x2="170" y2="450" stroke="#7C856D" stroke-width="1.5" marker-end="url(#arr-mute)"/>
+
+        <g>
+          <rect x="65" y="450" width="210" height="50" rx="8" fill="#F5F1E8" stroke="#7C856D" stroke-width="1"/>
+          <text x="170" y="472" text-anchor="middle" fill="#111111" font-family="Inter, sans-serif" font-size="13" font-weight="500">Rule Engine</text>
+          <text x="170" y="488" text-anchor="middle" fill="#8A8377" font-family="JetBrains Mono, monospace" font-size="10">rules/* (8 modules)</text>
+        </g>
+
+        <!-- ========= LANE 2 modules ========= -->
+        <g>
+          <rect x="325" y="290" width="210" height="50" rx="8" fill="#F5F1E8" stroke="#D8A24A" stroke-width="1"/>
+          <text x="430" y="312" text-anchor="middle" fill="#111111" font-family="Inter, sans-serif" font-size="13" font-weight="500">WebGPU LBM solver</text>
+          <text x="430" y="328" text-anchor="middle" fill="#8A8377" font-family="JetBrains Mono, monospace" font-size="10">lbm/gpuSolver.ts</text>
+        </g>
+        <line class="animated-line" x1="430" y1="340" x2="430" y2="370" stroke="#D8A24A" stroke-width="1.5" marker-end="url(#arr-amber)"/>
+
+        <g>
+          <rect x="325" y="370" width="210" height="50" rx="8" fill="#F5F1E8" stroke="#D8A24A" stroke-width="1"/>
+          <text x="430" y="392" text-anchor="middle" fill="#111111" font-family="Inter, sans-serif" font-size="13" font-weight="500">Prebake / Tier 4 fallback</text>
+          <text x="430" y="408" text-anchor="middle" fill="#8A8377" font-family="JetBrains Mono, monospace" font-size="10">simulation/tier4.ts</text>
+        </g>
+        <line class="animated-line" x1="430" y1="420" x2="430" y2="450" stroke="#D8A24A" stroke-width="1.5" marker-end="url(#arr-amber)"/>
+
+        <g>
+          <rect x="325" y="450" width="210" height="50" rx="8" fill="#F5F1E8" stroke="#D8A24A" stroke-width="1"/>
+          <text x="430" y="472" text-anchor="middle" fill="#111111" font-family="Inter, sans-serif" font-size="13" font-weight="500">Streamlines + Materials</text>
+          <text x="430" y="488" text-anchor="middle" fill="#8A8377" font-family="JetBrains Mono, monospace" font-size="10">lbm/streamlines.ts, materials/*</text>
+        </g>
+
+        <!-- ========= LANE 3 modules ========= -->
+        <g>
+          <rect x="585" y="290" width="210" height="50" rx="8" fill="#F5F1E8" stroke="#B96F4D" stroke-width="1"/>
+          <text x="690" y="312" text-anchor="middle" fill="#111111" font-family="Inter, sans-serif" font-size="13" font-weight="500">Anchor (Three.js seam)</text>
+          <text x="690" y="328" text-anchor="middle" fill="#8A8377" font-family="JetBrains Mono, monospace" font-size="10">anchors/lifeAnchor.ts</text>
+        </g>
+        <line class="animated-line" x1="690" y1="340" x2="690" y2="370" stroke="#B96F4D" stroke-width="1.5" marker-end="url(#arr-mute)"/>
+
+        <g>
+          <rect x="585" y="370" width="210" height="50" rx="8" fill="#F5F1E8" stroke="#B96F4D" stroke-width="1"/>
+          <text x="690" y="392" text-anchor="middle" fill="#111111" font-family="Inter, sans-serif" font-size="13" font-weight="500">OpenAI client + cache</text>
+          <text x="690" y="408" text-anchor="middle" fill="#8A8377" font-family="JetBrains Mono, monospace" font-size="10">openai/client.ts, cache.ts</text>
+        </g>
+        <line class="animated-line" x1="690" y1="420" x2="690" y2="450" stroke="#B96F4D" stroke-width="1.5" marker-end="url(#arr-mute)"/>
+
+        <g>
+          <rect x="585" y="450" width="210" height="50" rx="8" fill="#F5F1E8" stroke="#B96F4D" stroke-width="1"/>
+          <text x="690" y="472" text-anchor="middle" fill="#111111" font-family="Inter, sans-serif" font-size="13" font-weight="500">Deterministic SVG fallback</text>
+          <text x="690" y="488" text-anchor="middle" fill="#8A8377" font-family="JetBrains Mono, monospace" font-size="10">openai/fallbackSvg.ts</text>
+        </g>
+
+        <!-- ========= LANE 4 modules ========= -->
+        <g>
+          <rect x="885" y="290" width="210" height="50" rx="8" fill="#F5F1E8" stroke="#5E6B4C" stroke-width="1"/>
+          <text x="990" y="312" text-anchor="middle" fill="#111111" font-family="Inter, sans-serif" font-size="13" font-weight="500">Corridor + Floor tier</text>
+          <text x="990" y="328" text-anchor="middle" fill="#8A8377" font-family="JetBrains Mono, monospace" font-size="10">resonance/corridor.ts, floorTier.ts</text>
+        </g>
+        <line class="animated-line" x1="990" y1="340" x2="990" y2="370" stroke="#5E6B4C" stroke-width="1.5" marker-end="url(#arr-mute)"/>
+
+        <g>
+          <rect x="885" y="370" width="210" height="50" rx="8" fill="#F5F1E8" stroke="#5E6B4C" stroke-width="1"/>
+          <text x="990" y="392" text-anchor="middle" fill="#111111" font-family="Inter, sans-serif" font-size="13" font-weight="500">NEA station match</text>
+          <text x="990" y="408" text-anchor="middle" fill="#8A8377" font-family="JetBrains Mono, monospace" font-size="10">resonance/nea.ts</text>
+        </g>
+        <line class="animated-line" x1="990" y1="420" x2="990" y2="450" stroke="#5E6B4C" stroke-width="1.5" marker-end="url(#arr-mute)"/>
+
+        <g>
+          <rect x="885" y="450" width="210" height="50" rx="8" fill="#F5F1E8" stroke="#5E6B4C" stroke-width="1"/>
+          <text x="990" y="472" text-anchor="middle" fill="#111111" font-family="Inter, sans-serif" font-size="13" font-weight="500">Dispatch (web-push)</text>
+          <text x="990" y="488" text-anchor="middle" fill="#8A8377" font-family="JetBrains Mono, monospace" font-size="10">resonance/dispatch.ts</text>
+        </g>
+
+        <!-- ========= LANE TO OUTPUT ARROWS ========= -->
+        <line class="animated-line" x1="170" y1="500" x2="170" y2="635" stroke="#111111" stroke-width="2" marker-end="url(#arr-ink)"/>
+        <line class="animated-line" x1="430" y1="500" x2="430" y2="635" stroke="#111111" stroke-width="2" marker-end="url(#arr-ink)"/>
+        <line class="animated-line" x1="690" y1="500" x2="690" y2="635" stroke="#111111" stroke-width="2" marker-end="url(#arr-ink)"/>
+        <line class="animated-line" x1="990" y1="500" x2="990" y2="635" stroke="#111111" stroke-width="2" marker-end="url(#arr-ink)"/>
+
+        <!-- ========= OUTPUTS ========= -->
+        <g>
+          <rect x="50" y="635" width="240" height="100" rx="12" fill="#111111"/>
+          <text x="170" y="660" text-anchor="middle" fill="rgba(245,241,232,0.55)" font-family="JetBrains Mono, monospace" font-size="9" letter-spacing="1.6">READINGS</text>
+          <text x="170" y="685" text-anchor="middle" fill="#F5F1E8" font-family="Cormorant Garamond, serif" font-size="18" font-weight="500">Asking Points, Damp Risk</text>
+          <text x="170" y="705" text-anchor="middle" fill="rgba(245,241,232,0.65)" font-family="Inter, sans-serif" font-size="11">Ghost Futures, Changelog, Anti-Cure</text>
+          <text x="170" y="722" text-anchor="middle" fill="#D8A24A" font-family="JetBrains Mono, monospace" font-size="9" letter-spacing="1.6">MAX 3 ASKING POINTS</text>
+        </g>
+
+        <g>
+          <rect x="310" y="635" width="240" height="100" rx="12" fill="#111111"/>
+          <text x="430" y="660" text-anchor="middle" fill="rgba(245,241,232,0.55)" font-family="JetBrains Mono, monospace" font-size="9" letter-spacing="1.6">WIND &amp; MATERIALS</text>
+          <text x="430" y="685" text-anchor="middle" fill="#F5F1E8" font-family="Cormorant Garamond, serif" font-size="18" font-weight="500">SVG streamlines</text>
+          <text x="430" y="705" text-anchor="middle" fill="rgba(245,241,232,0.65)" font-family="Inter, sans-serif" font-size="11">silk-ribbon, sumi-ink, sunlit-dust renders</text>
+          <text x="430" y="722" text-anchor="middle" fill="#D8A24A" font-family="JetBrains Mono, monospace" font-size="9" letter-spacing="1.6">DETERMINISTIC FROM LBM</text>
+        </g>
+
+        <g>
+          <rect x="570" y="635" width="240" height="100" rx="12" fill="#111111"/>
+          <text x="690" y="660" text-anchor="middle" fill="rgba(245,241,232,0.55)" font-family="JetBrains Mono, monospace" font-size="9" letter-spacing="1.6">SKETCHES</text>
+          <text x="690" y="685" text-anchor="middle" fill="#F5F1E8" font-family="Cormorant Garamond, serif" font-size="18" font-weight="500">Hero, Plan, Wind, Life</text>
+          <text x="690" y="705" text-anchor="middle" fill="rgba(245,241,232,0.65)" font-family="Inter, sans-serif" font-size="11">cached PNG, deterministic SVG fallback</text>
+          <text x="690" y="722" text-anchor="middle" fill="#D8A24A" font-family="JetBrains Mono, monospace" font-size="9" letter-spacing="1.6">REFERENCE IMAGERY ONLY</text>
+        </g>
+
+        <g>
+          <rect x="870" y="635" width="240" height="100" rx="12" fill="#111111"/>
+          <text x="990" y="660" text-anchor="middle" fill="rgba(245,241,232,0.55)" font-family="JetBrains Mono, monospace" font-size="9" letter-spacing="1.6">RESONANCE PUSH</text>
+          <text x="990" y="685" text-anchor="middle" fill="#F5F1E8" font-family="Cormorant Garamond, serif" font-size="18" font-weight="500">One quiet notification</text>
+          <text x="990" y="705" text-anchor="middle" fill="rgba(245,241,232,0.65)" font-family="Inter, sans-serif" font-size="11">&ldquo;Your home is breathing right now.&rdquo;</text>
+          <text x="990" y="722" text-anchor="middle" fill="#D8A24A" font-family="JetBrains Mono, monospace" font-size="9" letter-spacing="1.6">VAPID, web-push</text>
+        </g>
+      </svg>
+    </div>
+
+    <p class="footnote reveal">
+      Plan geometry is the only source of compliance truth. The Tier 4 LBM render and the OpenAI sketch pipeline both feed visual layers, never the readings. If WebGPU fails, the prebaked LBM result serves silently; the fallback never surfaces to the homeowner.
+    </p>
+
+    <!-- ========= LANE CALLOUT CARDS ========= -->
+    <div class="lane-grid stagger">
+      <article class="lane-card l1 reveal">
+        <div class="lane-head"><div class="lane-tick"></div><h3>Lane 1, Scout &amp; Rules</h3></div>
+        <p class="lane-purpose">The lane that says what the home is asking. Geometry validates first, then Scout prioritises, then Rules score.</p>
+        <ul>
+          <li>geometry/validation.ts</li>
+          <li>scout/priority.ts</li>
+          <li>rules/openingArea, kansoReserve, antiCure</li>
+          <li>rules/downwind, glow, quiet, ghostFutures, tokens</li>
+        </ul>
+        <div class="out">
+          <span class="k">Output</span>
+          <span class="v">Asking Points, Damp Risk band, Anti-Cure, Changelog</span>
+        </div>
+      </article>
+
+      <article class="lane-card l2 reveal">
+        <div class="lane-head"><div class="lane-tick"></div><h3>Lane 2, Tier 4 Simulation</h3></div>
+        <p class="lane-purpose">D2Q9 LBM at 256 by 256. WebGPU is canonical, prebaked CPU result serves silently if GPU fails.</p>
+        <ul>
+          <li>lbm/gpuSolver.ts (WebGPURenderer)</li>
+          <li>lbm/solver.ts (CPU reference)</li>
+          <li>simulation/tier4.ts, lbm/prebake.ts</li>
+          <li>materials/* (5 presets)</li>
+        </ul>
+        <div class="out">
+          <span class="k">Output</span>
+          <span class="v">SVG streamlines, atmospheric renders</span>
+        </div>
+      </article>
+
+      <article class="lane-card l3 reveal">
+        <div class="lane-head"><div class="lane-tick"></div><h3>Lane 3, Sketch Pipeline</h3></div>
+        <p class="lane-purpose">Reference imagery for hero, plan, life, and wind surfaces. Deterministic SVG is the always-available floor.</p>
+        <ul>
+          <li>anchors/lifeAnchor.ts (Three.js seam)</li>
+          <li>openai/client.ts, cache.ts, sketches.ts</li>
+          <li>openai/fallbackSvg.ts (deterministic floor)</li>
+          <li>storage/sketchCache.ts (R2 seam)</li>
+        </ul>
+        <div class="out">
+          <span class="k">Output</span>
+          <span class="v">Hero / Plan / Life / Wind sketches</span>
+        </div>
+      </article>
+
+      <article class="lane-card l4 reveal">
+        <div class="lane-head"><div class="lane-tick"></div><h3>Lane 4, Resonance Hours</h3></div>
+        <p class="lane-purpose">The lane that stays with the home. When real wind aligns with the unit&rsquo;s corridor, one quiet push.</p>
+        <ul>
+          <li>resonance/corridor.ts, floorTier.ts</li>
+          <li>resonance/nea.ts (station match)</li>
+          <li>resonance/sleepSuppress.ts, cache.ts</li>
+          <li>resonance/dispatch.ts (web-push, VAPID)</li>
+        </ul>
+        <div class="out">
+          <span class="k">Output</span>
+          <span class="v">One push: &ldquo;Your home is breathing right now.&rdquo;</span>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- =================================================== 03 / EVIDENCE LADDER -->
+  <section class="section wrap">
+    <div class="section-head">
+      <div class="num reveal">03 / Evidence ladder</div>
+      <div class="reveal">
+        <h2>Five tiers, plus a label that is <em>not</em> a tier.</h2>
+        <p>Every reading the homeowner sees declares which tier produced it. <span class="path" style="font-family: var(--mono); font-size: 0.85em;">cultural_framing</span> is intentionally not part of the evidence enum (Hard Rule 17). It carries voice, never a physical claim.</p>
+      </div>
+    </div>
+
+    <div class="ladder reveal">
+      <div class="rung">
+        <span class="tier-num">01</span>
+        <span class="tier-key">official_constraint</span>
+        <span class="tier-name">HDB / SCDF Black-state element.</span>
+        <span class="tier-source">Household shelter, structural wall, wet zone, pipeshaft opening. Hard-blocked with Golden Failure copy.</span>
+      </div>
+      <div class="rung">
+        <span class="tier-num">02</span>
+        <span class="tier-key">template_fact</span>
+        <span class="tier-name">Curated archetype geometry.</span>
+        <span class="tier-source">Rooms, openings, fixed elements, openingAreaPct. Three templates curated by hand.</span>
+      </div>
+      <div class="rung">
+        <span class="tier-num">03</span>
+        <span class="tier-key">heuristic_estimate</span>
+        <span class="tier-name">Layout-based design rule.</span>
+        <span class="tier-source">Damp Risk, west-sun heat path, opening-area badge, downwind check, command-position. Each maps to a measurable physical claim.</span>
+      </div>
+      <div class="rung">
+        <span class="tier-num">04</span>
+        <span class="tier-key">weather_context</span>
+        <span class="tier-name">NEA outdoor station data.</span>
+        <span class="tier-source">Resonance Hours, Monsoon Turn. Real wind, real time, real station bearing. Never simulated.</span>
+      </div>
+      <div class="rung">
+        <span class="tier-num">05</span>
+        <span class="tier-key">prototype_visualisation</span>
+        <span class="tier-name">Live LBM, sketches, material renders.</span>
+        <span class="tier-source">Reference imagery only. Compliance is read from plan-geometry.json, not from this layer.</span>
+      </div>
+      <div class="rung cultural-label">
+        <span class="tier-num">&ndash;</span>
+        <span class="tier-key">cultural_framing</span>
+        <span class="tier-name">Voice, not evidence.</span>
+        <span class="tier-source">Carries kansō / Form-School framing. Never appears on a reading that makes a physical claim. Hard Rule 17.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================== 04 / API -->
+  <section class="section wrap">
+    <div class="section-head">
+      <div class="num reveal">04 / API contracts</div>
+      <div class="reveal">
+        <h2>Fourteen endpoints under <em>app/api</em>.</h2>
+        <p>Server logic is deterministic and isolated from the UI. AI never alters compliance geometry, walls, streamlines, token legality, Damp Risk, or Black-state decisions.</p>
+      </div>
+    </div>
+
+    <div class="reveal" style="overflow-x: auto;">
+      <table class="api-table">
+        <thead>
+          <tr>
+            <th style="width: 80px;">Method</th>
+            <th style="width: 280px;">Path</th>
+            <th>Purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="method">GET</span></td><td><span class="path">/api/templates/[id]/geometry</span></td><td class="desc">Validated template geometry. Compliance source of truth.</td></tr>
+          <tr><td><span class="method">POST</span></td><td><span class="path">/api/scout</span></td><td class="desc">Max-three Asking Points, opening-area badge, banded Damp Risk (Clear / Watch / High).</td></tr>
+          <tr><td><span class="method">POST</span></td><td><span class="path">/api/tokens/validate</span></td><td class="desc">Token legality and Golden Failure copy on Black-state collisions.</td></tr>
+          <tr><td><span class="method">POST</span></td><td><span class="path">/api/ghost-futures</span></td><td class="desc">Pre-placement Breath and Damp deltas, evaluated against current placements.</td></tr>
+          <tr><td><span class="method">POST</span></td><td><span class="path">/api/changelog</span></td><td class="desc">Short homeowner receipt after placements. Reads as receipt, not patch note.</td></tr>
+          <tr><td><span class="method">POST</span></td><td><span class="path">/api/simulation</span></td><td class="desc">Deterministic Tier 4 field. CPU reference / prebake source metadata. Weather Trial conditions.</td></tr>
+          <tr><td><span class="method">POST</span></td><td><span class="path">/api/resonance/check</span></td><td class="desc">Current wind alignment against the unit&rsquo;s optimal corridor. Sender readiness.</td></tr>
+          <tr><td><span class="method">GET / POST</span></td><td><span class="path">/api/resonance/dispatch</span></td><td class="desc">Dry-run or scheduled Resonance push through an injectable sender.</td></tr>
+          <tr><td><span class="method">POST</span></td><td><span class="path">/api/resonance/subscribe</span></td><td class="desc">In-memory push subscription registration.</td></tr>
+          <tr><td><span class="method">GET</span></td><td><span class="path">/api/resonance/vapid</span></td><td class="desc">Public VAPID key, when configured.</td></tr>
+          <tr><td><span class="method">GET</span></td><td><span class="path">/api/sketches/hero</span></td><td class="desc">Prebaked or generated hero image.</td></tr>
+          <tr><td><span class="method">POST</span></td><td><span class="path">/api/sketches/plan</span></td><td class="desc">Deterministic SVG fallback. Cached / generated PNG when configured.</td></tr>
+          <tr><td><span class="method">POST</span></td><td><span class="path">/api/sketches/life</span></td><td class="desc">Three.js anchor PNG seam. Deterministic SVG fallback. Optional OpenAI materialisation.</td></tr>
+          <tr><td><span class="method">POST</span></td><td><span class="path">/api/sketches/wind</span></td><td class="desc">Deterministic Wind Sketch composition. Streamlines never go through GPT image generation.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- =================================================== 05 / TECH STACK -->
+  <section class="section wrap">
+    <div class="section-head">
+      <div class="num reveal">05 / Stack</div>
+      <div class="reveal">
+        <h2>Pinned for security, not for vanity.</h2>
+        <p>Cloudflare advisory 2026-05-06 patched three additional CVEs in RSC and Next.js. The pins below are the minimum safe versions. Earlier minors of React 19 and Next 16 are insecure; do not regress.</p>
+      </div>
+    </div>
+
+    <div class="stack-grid stagger">
+      <div class="stack-group reveal">
+        <div class="label">Frontend</div>
+        <div class="badges">
+          <span class="badge pin">Next.js 16.2.6</span>
+          <span class="badge pin">React 19.2.6</span>
+          <span class="badge pin">react-server-dom 19.2.6</span>
+          <span class="badge">App Router</span>
+          <span class="badge">Zustand</span>
+          <span class="badge">shadcn/ui</span>
+          <span class="badge">framer-motion</span>
+        </div>
+      </div>
+      <div class="stack-group reveal">
+        <div class="label">Compute / 3D</div>
+        <div class="badges">
+          <span class="badge">Three.js 0.184.0</span>
+          <span class="badge">WebGPURenderer</span>
+          <span class="badge">WebGL2 fallback</span>
+          <span class="badge">D2Q9 LBM, 256&times;256</span>
+          <span class="badge">Deterministic SVG</span>
+        </div>
+      </div>
+      <div class="stack-group reveal">
+        <div class="label">Cloud / Seams</div>
+        <div class="badges">
+          <span class="badge">Cloudflare R2 (cache)</span>
+          <span class="badge">NEA wind API</span>
+          <span class="badge">OpenAI (sketches)</span>
+          <span class="badge">web-push, VAPID</span>
+          <span class="badge">Service Worker</span>
+        </div>
+      </div>
+      <div class="stack-group reveal">
+        <div class="label">Type, voice, tests</div>
+        <div class="badges">
+          <span class="badge">Cormorant Garamond</span>
+          <span class="badge">Inter</span>
+          <span class="badge">JetBrains Mono</span>
+          <span class="badge">Noto Serif SC (Phase 2)</span>
+          <span class="badge">Playwright e2e</span>
+          <span class="badge">WCAG 2.2 AA</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================== 06 / POSITIONING -->
+  <section class="section wrap">
+    <div class="section-head">
+      <div class="num reveal">06 / Positioning</div>
+      <div class="reveal">
+        <h2>Form-school, with <em>instruments</em>.</h2>
+        <p>The cultural register the architecture serves. Every claim is physical, every voice is calm, and the school we work in is named correctly so the cultural reviewer stays in the room.</p>
+      </div>
+    </div>
+
+    <div class="position-grid">
+      <div class="pos-card reveal">
+        <p class="head">Form-School (形势派) is <span class="pull">already environmental</span>.</p>
+        <div class="body">
+          <p>Form-School reads the actual ground: wind paths, water drainage, room geometry, sightlines, terrain. The brief picks it precisely because it is not the metaphysical, Period-9, or luopan-chart lane.</p>
+          <p>Built-To-Kanso is not &ldquo;wisdom distilled from superstition.&rdquo; That frame mislabels the school we work in and tells the cultural reviewer we don&rsquo;t know which school we&rsquo;re in. Form-School was never the superstition.</p>
+          <p>And the Nanyang positioning works by being something else, not by arguing against mainland feng shui. &ldquo;Wisdom, not superstition&rdquo; would re-center the rival, the way &ldquo;real coffee (unlike Starbucks)&rdquo; makes Starbucks the brand&rsquo;s job. Quietly being a wind-aware studio for HDB homes does the inversion without naming it.</p>
+        </div>
+      </div>
+
+      <div class="pos-card reveal">
+        <div class="eyebrow" style="margin-bottom: var(--s-4);">Etymology disclosure, non-negotiable</div>
+        <div class="etym-rows">
+          <div class="etym-row">
+            <span class="label">Aesthetic</span>
+            <span class="lhs">kansō <span class="neq">&ne;</span> kasō</span>
+          </div>
+          <div class="etym-row">
+            <span class="label">School</span>
+            <span class="lhs">Form (形势派) <span class="neq">&ne;</span> Compass / Period-9</span>
+          </div>
+          <div class="etym-row">
+            <span class="label">Latitude</span>
+            <span class="lhs">1.35&deg; N <span class="neq">&ne;</span> 22 to 40&deg; N</span>
+          </div>
+        </div>
+        <p class="footnote" style="margin-top: var(--s-5);">
+          These three lines, in some form, must appear on every surface that names the tradition. Cultural-credibility critique is a real risk per PRODUCT.md, not a hypothetical.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================== 07 / VOICE & RULES -->
+  <section class="voice wrap">
+    <div class="section-head">
+      <div class="num reveal">07 / Voice &amp; hard rules</div>
+      <div class="reveal">
+        <h2>The product reports. It does not <em>defend</em>.</h2>
+        <p>Selected hard rules from the brief and product README. If a surface fails one of these, rewrite it before it ships.</p>
+      </div>
+    </div>
+
+    <ul class="rules-list reveal">
+      <li>
+        <span class="marker">01</span>
+        <span class="rule"><span class="path" style="font-family: var(--mono); font-size: 0.85em;">plan-geometry.json</span> is compliance truth. AI must not alter walls, streamlines, token legality, Damp Risk, or Black-state decisions.</span>
+      </li>
+      <li>
+        <span class="marker">02</span>
+        <span class="rule">Damp Risk is homeowner-facing as <em>Clear / Watch / High</em>. Internal numerics never surface. <em>Watch</em> and <em>High</em> always include an action.</span>
+      </li>
+      <li>
+        <span class="marker">03</span>
+        <span class="rule">Scout Pass surfaces at most three Asking Points. Severity meters and ranked defect backlogs are forbidden.</span>
+      </li>
+      <li>
+        <span class="marker">04</span>
+        <span class="rule">Black-state HDB / SCDF elements hard-block with Golden Failure copy. Refusal is a designed surface, not an error state.</span>
+      </li>
+      <li>
+        <span class="marker">05</span>
+        <span class="rule">Streamlines are deterministic from the LBM velocity field. Image generation may polish allowed visuals, never streamlines.</span>
+      </li>
+      <li>
+        <span class="marker">06</span>
+        <span class="rule">Three.js renders are reference imagery only. Compliance is read from <span class="path" style="font-family: var(--mono); font-size: 0.85em;">plan-geometry.json</span>, never off the 3D render.</span>
+      </li>
+      <li>
+        <span class="marker">07</span>
+        <span class="rule">If WebGPU fails, the prebaked LBM result serves silently. The fallback never surfaces to the homeowner.</span>
+      </li>
+      <li>
+        <span class="marker">08</span>
+        <span class="rule">WebGPU, OpenAI, R2, and VAPID seams must be explicit about unavailable dependencies. Do not pretend external systems ran.</span>
+      </li>
+    </ul>
+
+    <div class="status-grid">
+      <div class="status-card shipped reveal">
+        <div class="label">Phase 1, shipped (~18 of 26)</div>
+        <ul>
+          <li>Stage 1 Threshold (template, compass, floor, scenario)</li>
+          <li>Bones token studio with Black-state protection</li>
+          <li>Live Studio component, three sketches API surfaces</li>
+          <li>Resonance Hours subsystem (corridor, NEA, dispatch)</li>
+          <li>Scout Pass (max-three Asking Points, banded Damp Risk)</li>
+          <li>Methodology page with evidence ladder</li>
+        </ul>
+      </div>
+      <div class="status-card partial reveal">
+        <div class="label">Phase 1, remaining (8 partial)</div>
+        <ul>
+          <li>Empty Room hero pre-bake to R2</li>
+          <li>Three.js anchor R2 caching</li>
+          <li>Pipeshaft gray-dust render path</li>
+          <li>Live Studio scene elements, sumi-e brush filters</li>
+          <li>GPT Image 2 R2 caching and polish</li>
+          <li>Quiet traffic-noise and damped-ripple</li>
+          <li>Weather Trial wiring</li>
+          <li>WebGPU live execution (currently CPU reference)</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="footnote reveal">
+      Brand poster, normative: <em>Calm by design. Structured by intent. Fluid in motion. Tropical by context.</em> The architecture above is the structure; the cultural anchor strip at the top is the calm; the LBM and NEA seams are the fluidity; the 1.35&deg; N rules are the tropical.
+    </p>
+  </section>
+
+  <script>
+    (function () {
+      const obs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            e.target.classList.add('visible');
+            obs.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.10, rootMargin: '0px 0px -40px 0px' });
+      document.querySelectorAll('.reveal').forEach(function (el) { obs.observe(el); });
+
+      const bar = document.getElementById('progressBar');
+      window.addEventListener('scroll', function () {
+        const h = document.documentElement;
+        const p = h.scrollTop / Math.max(1, (h.scrollHeight - h.clientHeight)) * 100;
+        bar.style.width = p + '%';
+      }, { passive: true });
+
+      const lobs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (!e.isIntersecting) return;
+          const lines = e.target.querySelectorAll('.animated-line');
+          lines.forEach(function (line, i) {
+            const len = line.getTotalLength();
+            line.style.strokeDasharray = len;
+            line.style.strokeDashoffset = len;
+            line.style.transition = 'stroke-dashoffset 0.7s ' + (i * 0.06) + 's cubic-bezier(0.22,0.61,0.36,1)';
+            line.getBoundingClientRect();
+            line.style.strokeDashoffset = '0';
+          });
+          lobs.unobserve(e.target);
+        });
+      }, { threshold: 0.18 });
+      document.querySelectorAll('#diagram-flow').forEach(function (el) { lobs.observe(el); });
+    })();
+  </script>
+</body>
+</html>

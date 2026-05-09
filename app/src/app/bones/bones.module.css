@@ -446,10 +446,10 @@
   flex-direction: column;
 }
 .trialList li {
-  padding: var(--s-4) 0;
+  padding: 0;
   border-top: 1px dashed var(--line-1);
 }
-.trialList li:last-child { padding-bottom: 0; }
+.trialList li:first-child { border-top: 0; }
 .trialList strong,
 .checkName {
   display: block;
@@ -468,12 +468,81 @@
   color: var(--fg-2);
 }
 
+/* Brief Section 15, item 22: tap-to-trial buttons. The whole row is the
+ * affordance so the calm copy reads first; the running state is signalled by
+ * an inset border + active background, not by a flashing badge. */
+.trialButton {
+  display: block;
+  width: 100%;
+  padding: var(--s-4) 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: background var(--dur-base, 220ms) var(--ease-kanso, ease-out);
+}
+.trialButton:hover,
+.trialButton:focus-visible {
+  background: rgba(216, 162, 74, 0.06);
+  outline: none;
+}
+.trialButton:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--west-sun-amber);
+}
+.trialButtonActive {
+  background: rgba(216, 162, 74, 0.12);
+  box-shadow: inset 3px 0 0 0 var(--west-sun-amber);
+}
+.trialButtonActive strong {
+  color: var(--ink-black);
+}
+
 .checkGrid,
 .detailGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--s-4);
 }
+
+.designerControls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-4);
+  margin-bottom: var(--s-4);
+  border: 1px solid var(--line-1);
+  background: var(--bg-2);
+  padding: var(--s-5);
+}
+
+.designerControls label {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.designerControls span {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  line-height: 1.35;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.designerControls input,
+.designerControls select {
+  min-height: 42px;
+  min-width: 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--bg-1);
+  color: var(--fg-1);
+  padding: 0 var(--s-3);
+  font: inherit;
+}
+
 .checkPanel,
 .detailGrid div {
   border: 1px solid var(--line-1);
@@ -755,7 +824,8 @@
   }
   .liveGrid,
   .checkGrid,
-  .detailGrid {
+  .detailGrid,
+  .designerControls {
     grid-template-columns: 1fr;
   }
 }

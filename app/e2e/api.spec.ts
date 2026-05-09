@@ -124,7 +124,7 @@ test.describe("Backend route contracts", () => {
     );
   });
 
-  test("resonance status exposes readiness, Standard thresholds, and push placeholder", async ({ request }) => {
+  test("resonance status exposes readiness, Standard thresholds, and push sender status", async ({ request }) => {
     const response = await request.get("/api/resonance/check");
     expect(response.ok()).toBe(true);
 
@@ -136,9 +136,79 @@ test.describe("Backend route contracts", () => {
         maxPredictedIndoorSpeedMps: 0.25,
         cooldownHours: 6,
       },
+      status: "not_ready",
       pushDispatch: {
         available: false,
-        status: "placeholder",
+        status: "not_configured",
+      },
+    });
+  });
+
+  test("resonance dispatch route supports dry-run without Web Push credentials", async ({ request }) => {
+    const response = await request.post("/api/resonance/dispatch", {
+      data: {
+        dryRun: true,
+        floor: 12,
+        wind: {
+          directionDeg: 180,
+          speedMps: 2,
+          timestamp: "2026-05-09T06:00:00Z",
+          source: "mock",
+        },
+        plan: {
+          schemaVersion: 1,
+          templateId: "tampines-greenweave",
+          units: "meters",
+          source: "architect_curated_template",
+          bounds: { x: 0, y: 0, width: 10, height: 10 },
+          openingAreaPct: 14,
+          westSunFacadeDeg: 270,
+          defaultDoorFacingDeg: 0,
+          rooms: [],
+          openings: [
+            {
+              id: "op-north",
+              kind: "window",
+              roomIds: ["room-a"],
+              start: { x: 5, y: 0 },
+              end: { x: 5, y: 0 },
+              operable: true,
+            },
+            {
+              id: "op-south",
+              kind: "window",
+              roomIds: ["room-a"],
+              start: { x: 5, y: 10 },
+              end: { x: 5, y: 10 },
+              operable: true,
+            },
+          ],
+          fixedElements: [],
+          pipeshaft: {
+            id: "shaft-1",
+            roomId: "room-a",
+            openingPoint: { x: 0, y: 0 },
+            openingDirectionDeg: 0,
+            jetVelocityMps: [0, 0],
+            bufferRadiusM: 0,
+            downwindRoomIds: [],
+          },
+          bathrooms: [],
+        },
+      },
+    });
+
+    expect(response.ok()).toBe(true);
+    await expect(response.json()).resolves.toMatchObject({
+      dispatch: {
+        status: "dry_run",
+        attempted: false,
+        senderStatus: { status: "not_configured" },
+        payload: {
+          title: "Resonance Hours",
+          body: "Your home is breathing right now.",
+          tag: "resonance-hours",
+        },
       },
     });
   });

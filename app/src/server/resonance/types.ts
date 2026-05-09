@@ -22,6 +22,17 @@ export interface ResonanceEvaluation {
   reason: string;
   nextEligibleAt: string | null;
   tier: "weather_context" | "heuristic_estimate";
+  // Brief 14.5 — stable identifier for the current alignment "event": one id
+  // for every poll while wind stays inside the corridor tolerance, regenerated
+  // once the wind drifts out and re-aligns. The in-app banner uses this as the
+  // dedup key so the user sees the message ONCE per real alignment, not on
+  // every 60s poll. Null when not resonating.
+  alignmentEventId: string | null;
 }
 
 export type FloorTier = "ground" | "transition" | "golden" | "turbulent";
+
+// Brief 14.5 — three-tier frequency control. Calm/Standard/Active govern how
+// strict the resonance match must be and how long between pings. Comfort floor
+// (predicted indoor speed <= 0.25 m/s) is shared across tiers.
+export type FrequencyTier = "calm" | "standard" | "active";

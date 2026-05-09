@@ -15,9 +15,9 @@
  */
 
 export interface VelocityField {
-  width: 256;
-  height: 256;
-  /** size 256*256*2: [u, v] interleaved, row-major (y * width + x) * 2 */
+  width: number;
+  height: number;
+  /** size width*height*2: [u, v] interleaved, row-major (y * width + x) * 2 */
   data: Float32Array;
 }
 
@@ -30,8 +30,8 @@ export interface LbmConfig {
 }
 
 export interface ObstacleMask {
-  width: 256;
-  height: 256;
+  width: number;
+  height: number;
   /** 1 = solid (bounce-back), 0 = fluid */
   data: Uint8Array;
 }

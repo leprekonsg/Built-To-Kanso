@@ -8,13 +8,15 @@
  * NOTE: tsx is not currently in package.json. Flag for the project owner —
  * see report. As an alternative run via `npx ts-node` if added.
  *
- * Output filenames: `<templateId>__<compassDeg>.json` matching cache.ts.
+ * Output filenames use the expanded Tier 4 cache key from cache.ts. The
+ * loader still accepts legacy `<templateId>__<compassDeg>.json` files.
  */
 
 import fs from "node:fs";
 import path from "node:path";
 import { getPlanGeometry, isTemplateId, listGeometrySummaries } from "@/server/geometry/registry";
 import type { TemplateId } from "@/server/geometry/types";
+import { buildExpandedPrebakeFilename } from "./cache";
 import { runLbmCpu } from "./solver";
 import type { RawVelocityField } from "./types";
 
@@ -23,6 +25,7 @@ const CARDINALS: ReadonlyArray<0 | 90 | 180 | 270> = [0, 90, 180, 270];
 const GRID = 64;
 const ITERS = 600;
 const AMBIENT_MPS = 1.5;
+const WEATHER_CONDITION = "baseline_monsoon";
 
 const CACHE_DIR = path.join(process.cwd(), "src", "server", "lbm", "cache");
 
@@ -51,10 +54,16 @@ async function main() {
         meta: {
           iterations: ITERS,
           ambientWindMps: AMBIENT_MPS,
+          weatherCondition: WEATHER_CONDITION,
+          cacheKey: buildExpandedPrebakeFilename({
+            templateId,
+            compassDeg,
+            weatherCondition: WEATHER_CONDITION,
+          }),
           bakedAt: new Date().toISOString(),
         },
       };
-      const file = path.join(CACHE_DIR, `${templateId}__${compassDeg}.json`);
+      const file = path.join(CACHE_DIR, `${record.meta.cacheKey}.json`);
       fs.writeFileSync(file, JSON.stringify(record));
       const dt = ((Date.now() - t0) / 1000).toFixed(1);
       console.log(`baked ${templateId} @ ${compassDeg}deg in ${dt}s -> ${path.basename(file)}`);

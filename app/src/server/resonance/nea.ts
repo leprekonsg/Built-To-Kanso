@@ -3,7 +3,7 @@ import { cacheGet, cacheSet } from "./cache";
 import type { WindReading } from "./types";
 
 // Env var: NEA_API_KEY (optional).
-//   - Present: hit api.data.gov.sg /v1/environment/wind-direction + /wind-speed
+//   - Present: hit api-open.data.gov.sg /v2/real-time/api wind endpoints
 //             and pick a shared station when both endpoints expose one.
 //   - Missing: rotate plausible monsoon mock vectors. Tag source: "mock".
 //
@@ -11,24 +11,51 @@ import type { WindReading } from "./types";
 // per-request dedup (Vercel server-component pattern).
 
 const WIND_CACHE_TTL_MS = 60 * 1000;
-const WIND_DIR_URL = "https://api.data.gov.sg/v1/environment/wind-direction";
-const WIND_SPEED_URL = "https://api.data.gov.sg/v1/environment/wind-speed";
+const WIND_API_BASE = "https://api-open.data.gov.sg/v2/real-time/api";
+const WIND_DIR_URL = `${WIND_API_BASE}/wind-direction`;
+const WIND_SPEED_URL = `${WIND_API_BASE}/wind-speed`;
 
 interface DataGovReading {
-  station_id: string;
+  stationId: string;
   value: number;
 }
 
-interface DataGovItem {
+interface DataGovReadingSet {
   timestamp: string;
-  readings: DataGovReading[];
+  data: DataGovReading[];
+}
+
+interface GeoPoint {
+  latitude: number;
+  longitude: number;
+}
+
+interface DataGovStation {
+  id: string;
+  name?: string;
+  location?: GeoPoint;
+  labelLocation?: GeoPoint;
+}
+
+interface DataGovPayload {
+  stations?: DataGovStation[];
+  readings: DataGovReadingSet[];
+  readingUnit?: string;
 }
 
 interface DataGovResponse {
-  items: DataGovItem[];
+  code?: number;
+  errorMsg?: string | null;
+  data?: DataGovPayload;
 }
 
-export const fetchCurrentWind = cache(async (): Promise<WindReading> => {
+export interface WindSelectionOptions {
+  siteLocation?: GeoPoint;
+}
+
+export const fetchCurrentWind = cache(async (
+  options: WindSelectionOptions = {},
+): Promise<WindReading> => {
   const apiKey = process.env.NEA_API_KEY;
 
   if (!apiKey) {
@@ -41,7 +68,7 @@ export const fetchCurrentWind = cache(async (): Promise<WindReading> => {
       fetchDataGovResponse(WIND_SPEED_URL, apiKey),
     ]);
 
-    return selectMatchingWindReading(directionData, speedData);
+    return selectMatchingWindReading(directionData, speedData, options);
   } catch {
     // Calibrated honesty: if NEA is unreachable we still return a reading,
     // tagged mock so callers know the source.
@@ -54,8 +81,12 @@ async function fetchDataGovResponse(url: string, apiKey: string): Promise<DataGo
   const data = cached ?? (await fetchJson(url, apiKey));
   if (!cached) cacheSet(url, data, WIND_CACHE_TTL_MS);
 
-  const item = data.items[0];
-  if (!item || !item.readings || item.readings.length === 0) {
+  if (data.code !== undefined && data.code !== 0) {
+    throw new Error(`NEA response error: ${data.errorMsg ?? data.code}`);
+  }
+
+  const item = data.data?.readings[0];
+  if (!item || !item.data || item.data.length === 0) {
     throw new Error("NEA response missing readings");
   }
   return data;
@@ -63,7 +94,7 @@ async function fetchDataGovResponse(url: string, apiKey: string): Promise<DataGo
 
 async function fetchJson(url: string, apiKey: string): Promise<DataGovResponse> {
   const response = await fetch(url, {
-    headers: { "api-key": apiKey },
+    headers: { "x-api-key": apiKey },
   });
   if (!response.ok) {
     throw new Error(`NEA fetch failed: ${response.status}`);
@@ -74,38 +105,113 @@ async function fetchJson(url: string, apiKey: string): Promise<DataGovResponse> 
 export function selectMatchingWindReading(
   directionData: DataGovResponse,
   speedData: DataGovResponse,
+  options: WindSelectionOptions = {},
 ): WindReading {
   const directionItem = firstItemWithReadings(directionData);
   const speedItem = firstItemWithReadings(speedData);
-  const speedByStation = new Map(speedItem.readings.map((reading) => [reading.station_id, reading]));
+  const directionByStation = new Map(directionItem.data.map((reading) => [reading.stationId, reading]));
+  const speedByStation = new Map(speedItem.data.map((reading) => [reading.stationId, reading]));
+  const nearestStationId = nearestSharedStationId(
+    directionData.data?.stations ?? [],
+    directionByStation,
+    speedByStation,
+    options.siteLocation,
+  );
 
-  for (const direction of directionItem.readings) {
-    const speed = speedByStation.get(direction.station_id);
+  if (nearestStationId) {
+    const direction = directionByStation.get(nearestStationId);
+    const speed = speedByStation.get(nearestStationId);
+    if (direction && speed) {
+      return windReading(direction, speed, directionItem.timestamp, speedData.data?.readingUnit);
+    }
+  }
+
+  for (const direction of directionItem.data) {
+    const speed = speedByStation.get(direction.stationId);
     if (speed) {
-      return {
-        directionDeg: direction.value,
-        speedMps: speed.value,
-        timestamp: directionItem.timestamp,
-        source: "nea",
-        stationId: direction.station_id,
-      };
+      return windReading(direction, speed, directionItem.timestamp, speedData.data?.readingUnit);
     }
   }
 
   return {
-    directionDeg: directionItem.readings[0].value,
-    speedMps: speedItem.readings[0].value,
+    directionDeg: directionItem.data[0].value,
+    speedMps: windSpeedToMps(speedItem.data[0].value, speedData.data?.readingUnit),
     timestamp: directionItem.timestamp,
     source: "nea",
   };
 }
 
-function firstItemWithReadings(data: DataGovResponse): DataGovItem {
-  const item = data.items[0];
-  if (!item || !item.readings || item.readings.length === 0) {
+function firstItemWithReadings(data: DataGovResponse): DataGovReadingSet {
+  const item = data.data?.readings[0];
+  if (!item || !item.data || item.data.length === 0) {
     throw new Error("NEA response missing readings");
   }
   return item;
+}
+
+function nearestSharedStationId(
+  stations: DataGovStation[],
+  directionByStation: Map<string, DataGovReading>,
+  speedByStation: Map<string, DataGovReading>,
+  siteLocation?: GeoPoint,
+): string | null {
+  if (!siteLocation) return null;
+
+  let best: { id: string; distanceM: number } | null = null;
+
+  for (const station of stations) {
+    if (!directionByStation.has(station.id) || !speedByStation.has(station.id)) continue;
+
+    const location = station.location ?? station.labelLocation;
+    if (!location) continue;
+
+    const distanceM = haversineM(siteLocation, location);
+    if (!best || distanceM < best.distanceM) {
+      best = { id: station.id, distanceM };
+    }
+  }
+
+  return best?.id ?? null;
+}
+
+function windReading(
+  direction: DataGovReading,
+  speed: DataGovReading,
+  timestamp: string,
+  speedUnit?: string,
+): WindReading {
+  return {
+    directionDeg: direction.value,
+    speedMps: windSpeedToMps(speed.value, speedUnit),
+    timestamp,
+    source: "nea",
+    stationId: direction.stationId,
+  };
+}
+
+function windSpeedToMps(value: number, unit?: string): number {
+  if (unit?.trim().toLowerCase() === "knots") {
+    return Number((value * 0.514444).toFixed(3));
+  }
+  return value;
+}
+
+function haversineM(a: GeoPoint, b: GeoPoint): number {
+  const earthRadiusM = 6_371_000;
+  const lat1 = toRad(a.latitude);
+  const lat2 = toRad(b.latitude);
+  const deltaLat = toRad(b.latitude - a.latitude);
+  const deltaLon = toRad(b.longitude - a.longitude);
+
+  const h =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2;
+
+  return 2 * earthRadiusM * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+function toRad(deg: number): number {
+  return (deg * Math.PI) / 180;
 }
 
 // Mock vectors picked to exercise the alignment math: NE monsoon, SW monsoon,

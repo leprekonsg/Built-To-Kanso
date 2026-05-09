@@ -1,0 +1,133 @@
+/* ============================================================
+   ResonanceBanner — in-app surface for "your home is breathing".
+   Hairline architecture; alignment uses a single amber rule, the
+   passive quiet panel stays mute. Reduced-motion strips animation.
+   ============================================================ */
+
+.region {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.banner {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-4);
+  padding: var(--s-4) var(--s-5);
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-radius: 2px;
+  color: var(--fg-1);
+}
+
+.bannerAlignment {
+  border-left: 2px solid var(--accent);
+  background: var(--bg-1);
+}
+
+.bannerQuiet {
+  background: transparent;
+  border-style: dashed;
+}
+
+.bannerSilent {
+  display: none;
+}
+
+.eyebrow {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  line-height: 1.4;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-3);
+  margin-bottom: 4px;
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 1.125rem;
+  line-height: 1.3;
+  margin: 0 0 4px;
+  color: var(--fg-1);
+}
+
+.body {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0;
+  color: var(--fg-2);
+}
+
+.bodyMuted {
+  color: var(--fg-3);
+}
+
+.copyStack {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dismiss {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 1px solid var(--line-1);
+  cursor: pointer;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-3);
+  border-radius: 1px;
+  flex: 0 0 auto;
+  align-self: flex-start;
+}
+
+.dismiss:hover {
+  color: var(--fg-1);
+  border-color: var(--line-2);
+}
+
+.dismiss:focus-visible {
+  outline: 1px solid var(--line-strong);
+  outline-offset: 2px;
+}
+
+.source {
+  display: inline-flex;
+  gap: 6px;
+  margin-top: var(--s-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.fadeIn {
+  animation: btk-resonance-fade var(--dur-slow) var(--ease-kanso) both;
+}
+
+@keyframes btk-resonance-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fadeIn {
+    animation: none;
+  }
+}

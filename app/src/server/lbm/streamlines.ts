@@ -12,7 +12,7 @@
  * Determinism: identical (field, plan) -> identical paths. No RNG, no time.
  */
 
-import type { PlanGeometry, Rect } from "@/server/geometry/types";
+import type { PlanGeometry, Point, Rect } from "@/server/geometry/types";
 import type { RawVelocityField, VelocityField } from "./types";
 
 const DEFAULT_SEED_COUNT = 12;
@@ -31,24 +31,44 @@ export function extractStreamlines(
   plan: PlanGeometry,
   count: number = DEFAULT_SEED_COUNT,
 ): { paths: string[] } {
+  const lines = extractStreamlinePoints(field, plan, { count });
+  return { paths: lines.map(toSvgPath) };
+}
+
+export function extractStreamlinePoints(
+  field: VelocityField,
+  plan: PlanGeometry,
+  options: { count?: number; compassDeg?: number } = {},
+): Point[][] {
   const raw = field as unknown as RawVelocityField;
   const N = raw.width; // width === height per types contract
   const bounds = plan.bounds;
+  const count = options.count ?? DEFAULT_SEED_COUNT;
 
   // Step length in plan meters. Half a cell, in the smaller of the two axes.
   const cellM = Math.min(bounds.width, bounds.height) / N;
   const stepM = cellM * STEP_CELL_FRACTION;
 
-  const inflowEdge = pickInflowEdge(plan.defaultDoorFacingDeg ?? 0);
+  const inflowEdge = pickInflowEdge(options.compassDeg ?? plan.defaultDoorFacingDeg ?? 0);
   const seeds = seedPoints(bounds, inflowEdge, count);
 
-  const paths: string[] = [];
+  const lines: Point[][] = [];
   for (const seed of seeds) {
     const pts = integrate(raw, plan, seed, stepM);
     if (pts.length < 2) continue;
-    paths.push(toSvgPath(pts));
+    lines.push(pts);
   }
-  return { paths };
+
+  if (lines.length < Math.min(3, count)) {
+    for (const seed of interiorSeedPoints(raw, plan, count * 2)) {
+      const pts = integrate(raw, plan, seed, stepM);
+      if (pts.length < 2) continue;
+      lines.push(pts);
+      if (lines.length >= count) break;
+    }
+  }
+
+  return lines.slice(0, count);
 }
 
 function integrate(
@@ -138,6 +158,37 @@ function seedPoints(bounds: Rect, edge: "north" | "south" | "east" | "west", cou
     }
   }
   return out;
+}
+
+function interiorSeedPoints(field: RawVelocityField, plan: PlanGeometry, count: number): Vec2[] {
+  const stride = Math.max(1, Math.floor(Math.min(field.width, field.height) / 16));
+  const candidates: Array<Vec2 & { speed: number; ix: number; iy: number }> = [];
+
+  for (let y = stride; y < field.height - stride; y += stride) {
+    for (let x = stride; x < field.width - stride; x += stride) {
+      const v = at(field, x, y);
+      const speed = mag(v);
+      if (speed < MIN_SPEED) continue;
+      candidates.push({
+        ...gridToPlan(plan.bounds, field.width, field.height, x, y),
+        speed,
+        ix: x,
+        iy: y,
+      });
+    }
+  }
+
+  return candidates
+    .sort((a, b) => b.speed - a.speed || a.iy - b.iy || a.ix - b.ix)
+    .slice(0, count)
+    .map(({ x, y }) => ({ x, y }));
+}
+
+function gridToPlan(bounds: Rect, width: number, height: number, x: number, y: number): Vec2 {
+  return {
+    x: bounds.x + ((x + 0.5) / width) * bounds.width,
+    y: bounds.y + ((y + 0.5) / height) * bounds.height,
+  };
 }
 
 function toSvgPath(points: Vec2[]): string {

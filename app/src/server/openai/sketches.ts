@@ -7,8 +7,8 @@
 
 import { hashBytes } from "@/lib/imageHash";
 import { getOpenAIImagePrompt, type ImagePromptKind } from "@/server/folio/prompts";
-import { callOpenAIImage } from "./client";
-import { getCached, keyFor, putCached } from "./cache";
+import { callOpenAIImage, getOpenAIImageConfig } from "./client";
+import { getConfiguredSketchCache, keyFor } from "./cache";
 
 // Sketches are tier "prototype_visualisation" per evidence.ts. Pinning the
 // literal (not widening to EvidenceTier) lets the success type stay narrow
@@ -27,8 +27,10 @@ export type SketchFailure = {
   ok: false;
   reason:
     | "no_cached_no_key"
+    | "cache_env_error"
     | "openai_error"
-    | "openai_unreachable";
+    | "openai_unreachable"
+    | "openai_timeout";
   promptId: ImagePromptKind;
   detail?: string;
 };
@@ -45,21 +47,33 @@ const HERO_SEEDS: readonly [string, string, string, string, string] = [
   "kanso-empty-hush",
 ];
 
+const HERO_VARIANT_CUES: readonly [string, string, string, string, string] = [
+  "Variant cue: north-east monsoon softness, balcony light, empty threshold.",
+  "Variant cue: morning east light, quiet balcony reveal, modest HDB proportions.",
+  "Variant cue: evening west-amber cast light treated as heat to design around.",
+  "Variant cue: rain-cooled monsoon sage undertone, still empty room.",
+  "Variant cue: blue-hour hush, concrete-grey edge, no decorative additions.",
+];
+
 async function runOrCache(
   promptId: ImagePromptKind,
   inputs: { imageHashes?: string[]; seed?: string },
   buildRequest: () => Parameters<typeof callOpenAIImage>[0],
 ): Promise<SketchResult> {
   const key = keyFor(promptId, inputs);
-  // server-cache-react: route handlers are not RSC, so we use the disk cache
-  // directly here. RSC callers should wrap their lookups with React.cache.
-  const cached = await getCached(key);
+  const cacheResult = getConfiguredSketchCache();
+  if (!cacheResult.ok) {
+    return { ok: false, reason: cacheResult.reason, promptId, detail: cacheResult.message };
+  }
+
+  const cached = await cacheResult.cache.get(key);
   if (cached) {
     return { ok: true, png: cached, fromCache: true, tier: SKETCH_TIER, promptId };
   }
 
-  if (!process.env.OPENAI_API_KEY) {
-    return { ok: false, reason: "no_cached_no_key", promptId };
+  const config = getOpenAIImageConfig();
+  if (!config.ok) {
+    return { ok: false, reason: "no_cached_no_key", promptId, detail: config.message };
   }
 
   const result = await callOpenAIImage(buildRequest());
@@ -67,7 +81,7 @@ async function runOrCache(
     return { ok: false, reason: result.reason === "missing_api_key" ? "no_cached_no_key" : result.reason, promptId, detail: result.detail };
   }
 
-  await putCached(key, result.png);
+  await cacheResult.cache.put(key, result.png);
   return { ok: true, png: result.png, fromCache: false, tier: SKETCH_TIER, promptId };
 }
 
@@ -81,13 +95,43 @@ export async function generatePlanSketch(planSvgPng: Buffer): Promise<SketchResu
   );
 }
 
-export async function generateLifeSketch(anchorPng: Buffer): Promise<SketchResult> {
+// Optional brand-v3 + Japandi reference bundle (brief Section 16.2). Each
+// reference contributes to the cache key so swapping references invalidates.
+// Loaded by callers from app/public/references — see that directory's README.
+export interface LifeSketchReferenceBundle {
+  brand?: Buffer;
+  japandi?: Buffer;
+}
+
+export async function generateLifeSketch(
+  anchorPng: Buffer,
+  references: LifeSketchReferenceBundle = {},
+): Promise<SketchResult> {
   const spec = getOpenAIImagePrompt("life-sketch-from-anchor");
-  const imageHash = hashBytes(anchorPng);
+  const referenceImages = [references.brand, references.japandi].filter(
+    (buf): buf is Buffer => Buffer.isBuffer(buf),
+  );
+  const imageHashes = [hashBytes(anchorPng), ...referenceImages.map((buf) => hashBytes(buf))];
+  return runOrCache(
+    spec.kind,
+    { imageHashes },
+    () => ({
+      mode: "edit",
+      promptId: spec.kind,
+      prompt: spec.prompt,
+      image: anchorPng,
+      ...(referenceImages.length > 0 ? { referenceImages } : {}),
+    }),
+  );
+}
+
+export async function generateWindSketchMicroPolish(svgRasterPng: Buffer): Promise<SketchResult> {
+  const spec = getOpenAIImagePrompt("wind-sketch-micro-polish");
+  const imageHash = hashBytes(svgRasterPng);
   return runOrCache(
     spec.kind,
     { imageHashes: [imageHash] },
-    () => ({ mode: "edit", promptId: spec.kind, prompt: spec.prompt, image: anchorPng }),
+    () => ({ mode: "edit", promptId: spec.kind, prompt: spec.prompt, image: svgRasterPng }),
   );
 }
 
@@ -96,10 +140,11 @@ export type HeroRotationIndex = 0 | 1 | 2 | 3 | 4;
 export async function generateEmptyRoomHero(rotationIndex: HeroRotationIndex): Promise<SketchResult> {
   const spec = getOpenAIImagePrompt("empty-room-hero");
   const seed = HERO_SEEDS[rotationIndex];
+  const prompt = [spec.prompt, HERO_VARIANT_CUES[rotationIndex]].join("\n");
   return runOrCache(
     spec.kind,
     { seed },
-    () => ({ mode: "generate", promptId: spec.kind, prompt: spec.prompt, seed }),
+    () => ({ mode: "generate", promptId: spec.kind, prompt }),
   );
 }
 

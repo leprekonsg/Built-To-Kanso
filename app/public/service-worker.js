@@ -1,7 +1,4 @@
-/* Built-To-Kanso — Resonance Hours service worker.
- * Phase 1: minimal receive path. Server-side push dispatch is an explicit
- * placeholder; this renders an incoming notification if one is delivered.
- */
+/* Built-To-Kanso - Resonance Hours service worker. */
 
 self.addEventListener("push", (event) => {
   const payload = readPushPayload(event);
@@ -9,6 +6,9 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(payload.title, {
       body: payload.body,
       data: { url: payload.url || "/threshold" },
+      tag: payload.tag,
+      renotify: false,
+      timestamp: Date.parse(payload.timestamp) || Date.now(),
       silent: false,
     }),
   );
@@ -34,6 +34,11 @@ function readPushPayload(event) {
           ? payload.body
           : "Your home is breathing right now.",
       url: typeof payload.url === "string" ? payload.url : "/threshold",
+      tag: typeof payload.tag === "string" ? payload.tag : "resonance-hours",
+      timestamp:
+        typeof payload.timestamp === "string"
+          ? payload.timestamp
+          : new Date().toISOString(),
     };
   } catch {
     return defaultPayload();
@@ -45,5 +50,7 @@ function defaultPayload() {
     title: "Built-To-Kanso",
     body: "Your home is breathing right now.",
     url: "/threshold",
+    tag: "resonance-hours",
+    timestamp: new Date().toISOString(),
   };
 }

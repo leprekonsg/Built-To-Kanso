@@ -1,0 +1,141 @@
+.wrap {
+  margin-top: var(--s-5);
+}
+
+.toggle,
+.actions button {
+  min-height: 40px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--bg-1);
+  color: var(--fg-1);
+  padding: 10px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.toggle:hover,
+.actions button:hover {
+  background: var(--ink-black);
+  color: var(--bone-white);
+}
+
+.editor {
+  margin-top: var(--s-4);
+  border: 1px solid var(--line-1);
+  background: var(--bg-2);
+  padding: var(--s-5);
+  display: grid;
+  gap: var(--s-5);
+}
+
+.copy {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.copy p,
+.status {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--fg-2);
+}
+
+.eyebrow,
+.controls span {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  line-height: 1.35;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--s-3);
+}
+
+.controls label {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.controls input,
+.controls select {
+  min-height: 40px;
+  min-width: 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--bg-1);
+  color: var(--fg-1);
+  padding: 0 var(--s-3);
+  font: inherit;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+
+.preview {
+  width: 100%;
+  aspect-ratio: 1.35 / 1;
+  border: 1px solid var(--line-1);
+  background: var(--bg-1);
+}
+
+.room,
+.roomSelected {
+  fill: rgba(246, 243, 238, 0.56);
+  stroke: var(--monsoon-sage);
+  stroke-width: 0.04;
+  vector-effect: non-scaling-stroke;
+}
+
+.roomSelected {
+  stroke: var(--west-sun-amber);
+  stroke-width: 0.08;
+}
+
+.locked,
+.lockedSelected {
+  fill: rgba(17, 17, 17, 0.78);
+  stroke: var(--ink-black);
+  stroke-width: 0.04;
+  vector-effect: non-scaling-stroke;
+}
+
+.lockedSelected {
+  stroke: var(--west-sun-amber);
+  stroke-width: 0.08;
+}
+
+.preview text {
+  font-family: var(--font-mono);
+  font-size: 0.2px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  fill: var(--fg-2);
+  letter-spacing: 0;
+}
+
+.status {
+  border-top: 1px dashed var(--line-1);
+  padding-top: var(--s-3);
+}
+
+@media (max-width: 1100px) {
+  .controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .controls {
+    grid-template-columns: 1fr;
+  }
+}

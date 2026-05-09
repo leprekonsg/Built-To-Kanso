@@ -22,6 +22,55 @@ export interface TokenPlacement {
   point: Point;
 }
 
+export type TokenPersonalityVariant = "wabi_sabi" | "japandi" | "tropical_modernist";
+
+export interface TokenPersonalityProfile {
+  id: TokenPersonalityVariant;
+  label: string;
+  materialCue: string;
+  tokenHints: Record<TokenId, string>;
+}
+
+const BASE_TOKEN_HINTS: Record<TokenId, string> = {
+  wind_gate: "Open the cross-breeze.",
+  soft_screen: "Soften the entry rush.",
+  wood_anchor: "Steady a corner.",
+  solar_shield: "Cool the west edge.",
+  fan_anchor: "Lift marginal airflow.",
+  shaft_buffer: "Deflect the pipeshaft jet.",
+};
+
+export const TOKEN_PERSONALITY_PROFILES: Record<TokenPersonalityVariant, TokenPersonalityProfile> = {
+  wabi_sabi: {
+    id: "wabi_sabi",
+    label: "Wabi-Sabi",
+    materialCue: "Weathered ceramic, linen, quiet repair.",
+    tokenHints: BASE_TOKEN_HINTS,
+  },
+  japandi: {
+    id: "japandi",
+    label: "Singapore Japandi",
+    materialCue: "Pale oak, rattan, warm plaster, humid restraint.",
+    tokenHints: {
+      ...BASE_TOKEN_HINTS,
+      soft_screen: "Use a low woven edge.",
+      wood_anchor: "Anchor with pale timber.",
+      solar_shield: "Shade the west light cleanly.",
+    },
+  },
+  tropical_modernist: {
+    id: "tropical_modernist",
+    label: "Tropical Modernist",
+    materialCue: "Cane, shade cloth, pale timber, strong cross-breeze.",
+    tokenHints: {
+      ...BASE_TOKEN_HINTS,
+      wind_gate: "Keep the breeze path legible.",
+      solar_shield: "Use shade cloth and low-SHGC glass.",
+      fan_anchor: "Lift the air path with a quiet fan.",
+    },
+  },
+};
+
 export interface TokenPlacementResult {
   allowed: boolean;
   code: "ok" | "black_state_blocked" | "shaft_buffer_out_of_range";
@@ -31,6 +80,14 @@ export interface TokenPlacementResult {
 
 export function isTokenId(value: unknown): value is TokenId {
   return typeof value === "string" && TOKEN_IDS.includes(value as TokenId);
+}
+
+export function isTokenPersonalityVariant(value: unknown): value is TokenPersonalityVariant {
+  return typeof value === "string" && value in TOKEN_PERSONALITY_PROFILES;
+}
+
+export function getTokenPersonalityProfile(variant: TokenPersonalityVariant): TokenPersonalityProfile {
+  return TOKEN_PERSONALITY_PROFILES[variant];
 }
 
 export function isTokenPlacement(value: unknown): value is TokenPlacement {

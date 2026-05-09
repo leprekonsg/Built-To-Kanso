@@ -35,10 +35,93 @@
   opacity: 0.2;
 }
 
+.materialLayer {
+  pointer-events: none;
+}
+
+.quietRippleGroup {
+  mix-blend-mode: multiply;
+  opacity: 0.72;
+}
+
+.glowWashGroup {
+  mix-blend-mode: multiply;
+}
+
+.glowWash {
+  --glow-opacity: 0.12;
+  fill: var(--heat-haze-gold);
+  opacity: var(--glow-opacity);
+  stroke: var(--west-sun-amber);
+  stroke-width: 0.015;
+  vector-effect: non-scaling-stroke;
+}
+
 .simulationLayer {
   --wind-opacity: 0.66;
   --streamline-width: 0.065;
   opacity: var(--wind-opacity);
+}
+
+/*
+ * Scene-element layer (Phase 1 build item 5).
+ * Curtains, monstera leaves, and the perforated kitchen-partition shadow are
+ * driven by the plant_lean material. Transforms ride a CSS transition so the
+ * sway/rotation reads as physical, not jittery, even at 60fps.
+ */
+.sceneLayer {
+  --scene-gain: 0;
+  pointer-events: none;
+}
+
+.curtain {
+  transition: transform 720ms var(--ease-wind, cubic-bezier(0.32, 0, 0.18, 1));
+}
+
+.curtainStrand {
+  fill: none;
+  stroke: var(--rattan-beige, #C9B68C);
+  stroke-width: 0.04;
+  stroke-linecap: round;
+  opacity: calc(0.32 + 0.4 * var(--scene-gain, 0));
+  vector-effect: non-scaling-stroke;
+}
+
+.leaf {
+  transition: transform 960ms var(--ease-wind, cubic-bezier(0.32, 0, 0.18, 1));
+  opacity: calc(0.55 + 0.4 * var(--scene-gain, 0));
+}
+
+.leafStem {
+  stroke: var(--banyan-green, #5E6B4C);
+  stroke-width: 0.025;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.leafBlade {
+  fill: var(--monsoon-sage, #7C856D);
+  stroke: var(--banyan-green, #5E6B4C);
+  stroke-width: 0.012;
+  vector-effect: non-scaling-stroke;
+}
+
+.kitchenShadow {
+  /*
+   * mix-blend-mode multiply lets the perforated dots sit on top of the kitchen
+   * room fill without flat overlay; the eight pre-baked patterns provide
+   * temporal variation.
+   */
+  mix-blend-mode: multiply;
+  transition: opacity 480ms var(--ease-kanso, ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .curtain,
+  .leaf,
+  .kitchenShadow {
+    transition: none;
+  }
 }
 
 .streamlinePath {
@@ -73,6 +156,41 @@
 .pipeshaftParticle {
   fill: var(--hdb-concrete);
   filter: drop-shadow(0 0 1px rgba(17, 17, 17, 0.18));
+  opacity: 0.78;
+}
+
+/*
+ * Pipeshaft legend (Hard Rule #16). Sits in the top-right of the studio so it
+ * does not collide with the bottom controls bar or the top-left caption.
+ * Reframes the gray drift in the user's voice register so the gray reads as
+ * "neighbor's kitchen" or "vertical pollutant transport," never as "broken
+ * air." Failure-mode copy lives here, not in a tooltip.
+ */
+.pipeshaftLegend {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(320px, calc(100% - 32px));
+  padding: 8px 12px;
+  background: rgba(245, 241, 232, 0.9);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-2, 8px);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  letter-spacing: 0.04em;
+  color: var(--fg-2);
+}
+
+.pipeshaftDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--hdb-concrete);
+  flex: 0 0 auto;
 }
 
 .controls {
@@ -113,6 +231,28 @@
   width: 100%;
   margin: 0;
   accent-color: var(--west-sun-amber);
+}
+
+.slider:disabled {
+  /*
+   * Designer mode supplies the visibility value via designerControls; the local
+   * slider visibly cedes control rather than mysteriously ignoring input.
+   */
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.designerOverrideBadge {
+  align-self: end;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent, var(--west-sun-amber));
+  padding: 2px 8px;
+  border: 1px solid var(--accent, var(--west-sun-amber));
+  border-radius: 999px;
+  background: rgba(216, 162, 74, 0.08);
 }
 
 .sliderScale {

@@ -182,7 +182,7 @@ export default function PlanCanvas({
         className={`${styles.bufferCircle} ${showShaftCircle ? styles.bufferCirclePulse : ""}`}
       />
 
-      {/* Placed tokens. Click to remove. */}
+      {/* Placed tokens. Click or Enter/Space to remove. */}
       {placed.map((token) => (
         <g
           key={token.placementId}
@@ -191,8 +191,16 @@ export default function PlanCanvas({
             event.stopPropagation();
             onRemovePlaced(token.placementId);
           }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              event.stopPropagation();
+              onRemovePlaced(token.placementId);
+            }
+          }}
+          tabIndex={0}
           role="button"
-          aria-label={`Remove ${token.tokenId.replace("_", " ")} placed token`}
+          aria-label={`Remove ${token.tokenId.replace(/_/g, " ")} placed token`}
         >
           <circle
             cx={token.point.x}

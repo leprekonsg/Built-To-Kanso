@@ -5,9 +5,8 @@
 // the host code rebinds them between steps.
 //
 // Boundary handling: the inflow/outlet edges are fixed up by separate
-// dispatches (see GpuLbmSolver.applyInlet/applyOutlet — TODO). This kernel
-// is intentionally a simple periodic stream so it can be reasoned about in
-// isolation.
+// dispatches (`inlet.wgsl`, `outlet.wgsl`). This kernel is intentionally a
+// simple periodic stream so it can be reasoned about in isolation.
 
 struct Params {
   size : u32,
@@ -42,6 +41,5 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
   }
 }
 
-// TODO: replace periodic wrap with proper inlet/outlet/bounce-back fix-up
-// dispatches once GpuLbmSolver lands. The JS reference applies these as
-// post-stream passes in solver.ts.
+// Bulk streaming uses periodic wrap; inlet/outlet edges are then overwritten
+// by `inlet.wgsl` and `outlet.wgsl` in the same step, mirroring solver.ts.

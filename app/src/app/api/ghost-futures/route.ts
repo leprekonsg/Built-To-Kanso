@@ -14,7 +14,12 @@ interface GhostFuturesRequestBody {
 const MAX_CANDIDATES = 6;
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as GhostFuturesRequestBody;
+  let body: GhostFuturesRequestBody;
+  try {
+    body = (await request.json()) as GhostFuturesRequestBody;
+  } catch {
+    return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
+  }
 
   if (!body.templateId || !isTemplateId(body.templateId)) {
     return NextResponse.json(

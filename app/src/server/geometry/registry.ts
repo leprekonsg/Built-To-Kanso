@@ -5,9 +5,9 @@ import type { PlanGeometry, TemplateId } from "./types";
 import { assertValidPlanGeometry } from "./validation";
 
 const GEOMETRIES: Record<TemplateId, PlanGeometry> = {
-  "tampines-greenweave": assertValidPlanGeometry(tampinesGreenweave as PlanGeometry),
-  "tengah-5room": assertValidPlanGeometry(tengah5Room as PlanGeometry),
-  "resale-exec-1990s": assertValidPlanGeometry(resaleExec1990s as PlanGeometry),
+  "tampines-greenweave": assertValidPlanGeometry(tampinesGreenweave as unknown as PlanGeometry),
+  "tengah-5room": assertValidPlanGeometry(tengah5Room as unknown as PlanGeometry),
+  "resale-exec-1990s": assertValidPlanGeometry(resaleExec1990s as unknown as PlanGeometry),
 };
 
 export function isTemplateId(value: string): value is TemplateId {

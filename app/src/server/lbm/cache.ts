@@ -11,6 +11,7 @@
 import { cache } from "react";
 import fs from "node:fs";
 import path from "node:path";
+import type { TokenPlacement } from "@/server/rules/tokens";
 import type { RawVelocityField, VelocityField } from "./types";
 
 interface PrebakeRecord {
@@ -29,6 +30,14 @@ interface PrebakeRecord {
 
 const CACHE_DIR = path.join(process.cwd(), "src", "server", "lbm", "cache");
 
+export interface ExpandedPrebakeKeyParts {
+  templateId: string;
+  compassDeg: number;
+  tokenPlacements?: ReadonlyArray<TokenPlacement>;
+  candidatePositions?: ReadonlyArray<TokenPlacement>;
+  weatherCondition?: string;
+}
+
 /**
  * Read a pre-baked field from disk. Returns `null` if no record exists for
  * `(templateId, snappedCompassDeg)`.
@@ -37,9 +46,19 @@ const CACHE_DIR = path.join(process.cwd(), "src", "server", "lbm", "cache");
  * matching the angles produced by `prebake.ts`.
  */
 export const loadPrebakedField = cache(
-  (templateId: string, compassDeg: number): VelocityField | null => {
+  (
+    templateId: string,
+    compassDeg: number,
+    options: Omit<ExpandedPrebakeKeyParts, "templateId" | "compassDeg"> = {},
+  ): VelocityField | null => {
     const snap = snapToCardinal(compassDeg);
-    const file = path.join(CACHE_DIR, `${templateId}__${snap}.json`);
+    const expandedFile = path.join(CACHE_DIR, `${buildExpandedPrebakeFilename({
+      templateId,
+      compassDeg: snap,
+      ...options,
+    })}.json`);
+    const legacyFile = path.join(CACHE_DIR, `${templateId}__${snap}.json`);
+    const file = fs.existsSync(expandedFile) ? expandedFile : legacyFile;
     if (!fs.existsSync(file)) return null;
     const raw = fs.readFileSync(file, "utf8");
     const parsed = JSON.parse(raw) as PrebakeRecord;
@@ -49,10 +68,43 @@ export const loadPrebakedField = cache(
   },
 );
 
+export function buildExpandedPrebakeFilename(input: ExpandedPrebakeKeyParts): string {
+  return [
+    "tier4-v1",
+    safePart(input.templateId),
+    `deg-${snapToCardinal(input.compassDeg)}`,
+    `weather-${safePart(input.weatherCondition ?? "baseline_monsoon")}`,
+    `tokens-${safePart(formatPlacements(input.tokenPlacements ?? []))}`,
+    `candidates-${safePart(formatPlacements(input.candidatePositions ?? []))}`,
+  ].join("__");
+}
+
 export function snapToCardinal(deg: number): 0 | 90 | 180 | 270 {
   const c = ((deg % 360) + 360) % 360;
   if (c < 45 || c >= 315) return 0;
   if (c < 135) return 90;
   if (c < 225) return 180;
   return 270;
+}
+
+function formatPlacements(placements: ReadonlyArray<TokenPlacement>): string {
+  if (placements.length === 0) return "none";
+
+  return [...placements]
+    .map((placement) => ({
+      tokenId: placement.tokenId,
+      x: round(placement.point.x),
+      y: round(placement.point.y),
+    }))
+    .sort((a, b) => a.tokenId.localeCompare(b.tokenId) || a.x - b.x || a.y - b.y)
+    .map((placement) => `${placement.tokenId}-${placement.x.toFixed(2)}-${placement.y.toFixed(2)}`)
+    .join("_");
+}
+
+function safePart(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]+/g, "-");
+}
+
+function round(value: number): number {
+  return Math.round(value * 100) / 100;
 }

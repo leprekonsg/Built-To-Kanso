@@ -44,5 +44,8 @@
   "bathrooms": [
     { "roomId": "bath_common", "exhaustPoint": { "x": 3.5, "y": 5.1 } },
     { "roomId": "bath_master", "exhaustPoint": { "x": 1, "y": 4.2 } }
-  ]
+  ],
+  "siteContext": {
+    "expresswayAdjacency": "none"
+  }
 }

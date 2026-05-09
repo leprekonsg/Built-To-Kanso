@@ -65,6 +65,19 @@ export interface BathroomGeometry {
   exhaustPoint: Point;
 }
 
+export type ExpresswayAdjacency =
+  | "none"
+  | "near_pie"
+  | "near_aye"
+  | "near_bke"
+  | "near_cte"
+  | "near_kpe";
+
+export interface SiteContext {
+  expresswayAdjacency?: ExpresswayAdjacency;
+  expresswayDistanceM?: number;
+}
+
 export interface PlanGeometry {
   schemaVersion: 1;
   templateId: TemplateId;
@@ -79,6 +92,7 @@ export interface PlanGeometry {
   fixedElements: FixedElementGeometry[];
   pipeshaft: PipeshaftGeometry;
   bathrooms: BathroomGeometry[];
+  siteContext?: SiteContext;
 }
 
 export interface GeometryValidationResult {
