@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPlanGeometry, isTemplateId } from "@/server/geometry/registry";
 import { runScoutPass } from "@/server/scout/scout";
-import type { TokenPlacement } from "@/server/rules/tokens";
+import { isTokenPlacement, type TokenPlacement } from "@/server/rules/tokens";
 
 interface ScoutRequestBody {
   templateId?: string;
@@ -31,11 +31,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "floor is required and must be 1 or higher." }, { status: 400 });
   }
 
+  const tokenPlacements = body.tokenPlacements ?? [];
+  if (!Array.isArray(tokenPlacements)) {
+    return NextResponse.json({ error: "tokenPlacements must be an array of token placements." }, { status: 400 });
+  }
+
+  if (tokenPlacements.some((placement) => !isTokenPlacement(placement))) {
+    return NextResponse.json(
+      { error: "each token placement must include tokenId and point { x, y } in plan meters." },
+      { status: 400 },
+    );
+  }
+
   const result = runScoutPass({
     plan: getPlanGeometry(body.templateId),
     compassDeg,
     floor,
-    tokenPlacements: body.tokenPlacements ?? [],
+    tokenPlacements,
   });
 
   return NextResponse.json(result);

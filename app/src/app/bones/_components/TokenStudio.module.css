@@ -1,0 +1,30 @@
+.studio {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  gap: var(--s-7);
+  align-items: start;
+  padding-top: var(--s-7);
+  border-top: 1px solid var(--line-1);
+  margin-top: var(--s-7);
+}
+
+.canvasColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  min-width: 0;
+}
+
+.previewColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .studio {
+    grid-template-columns: 1fr;
+    gap: var(--s-6);
+  }
+}

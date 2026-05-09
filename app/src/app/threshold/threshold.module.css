@@ -191,6 +191,75 @@
 .stageBody { grid-column: 2; }
 
 /* ----------------- TEMPLATE CARDS ----------------- */
+.templateEntry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.uploadStub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-5);
+  padding: var(--s-5);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-lg);
+  background: rgba(239,233,220,0.58);
+}
+.uploadStubCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.uploadStubEyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.uploadStubTitle {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 24px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--fg-1);
+  margin: 0;
+}
+.uploadStubBody {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--fg-2);
+  margin: 0;
+  max-width: 560px;
+}
+.uploadStubBtn {
+  flex: 0 0 auto;
+  padding: 12px 18px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-1);
+  background: var(--bg-1);
+  color: var(--fg-3);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  cursor: not-allowed;
+}
+@media (max-width: 680px) {
+  .uploadStub {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .uploadStubBtn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 .templateGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

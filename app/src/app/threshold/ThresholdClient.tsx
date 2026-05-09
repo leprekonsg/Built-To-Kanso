@@ -15,14 +15,30 @@ import styles from "./threshold.module.css";
 const EASE_KANSO: [number, number, number, number] = [0.22, 0.61, 0.36, 1];
 
 export default function ThresholdClient() {
-  // Boolean derivation runs in selector; primitive equality avoids re-render.
+  // Hard Rule #25: defaults are starting points, not consent. Continue
+  // requires both template + scenario chosen AND explicit floor + compass
+  // interaction. Boolean derivation runs in selector; primitive equality
+  // avoids re-render.
   const ready = useThresholdStore(
-    (s) => s.templateId !== null && s.scenarioId !== null,
+    (s) =>
+      s.templateId !== null &&
+      s.scenarioId !== null &&
+      s.compassTouched &&
+      s.floorTouched,
   );
   const templateId = useThresholdStore((s) => s.templateId);
   const compassIndex = useThresholdStore((s) => s.compassIndex);
   const floor = useThresholdStore((s) => s.floor);
   const scenarioId = useThresholdStore((s) => s.scenarioId);
+  const compassTouched = useThresholdStore((s) => s.compassTouched);
+  const floorTouched = useThresholdStore((s) => s.floorTouched);
+  const continueCopy = readyCopy({
+    ready,
+    hasTemplate: templateId !== null,
+    hasScenario: scenarioId !== null,
+    compassTouched,
+    floorTouched,
+  });
   const bonesHref: "/bones" | UrlObject =
     ready && templateId && scenarioId
       ? {
@@ -40,10 +56,13 @@ export default function ThresholdClient() {
     <div className={styles.studio}>
       <div className={styles.stages}>
         <Stage num="01" title="Choose the unit" caption="HDB Archetype · three canonical layouts ship in Phase 1.">
-          <div className={styles.templateGrid}>
-            {TEMPLATES.map((t) => (
-              <TemplateCard key={t.id} template={t} />
-            ))}
+          <div className={styles.templateEntry}>
+            <PlanUploadStub />
+            <div className={styles.templateGrid}>
+              {TEMPLATES.map((t) => (
+                <TemplateCard key={t.id} template={t} />
+              ))}
+            </div>
           </div>
         </Stage>
 
@@ -77,11 +96,7 @@ export default function ThresholdClient() {
           animate={{ opacity: ready ? 1 : 0.35 }}
           transition={{ duration: 0.32, ease: EASE_KANSO }}
         >
-          <p className={styles.continueCopy}>
-            {ready
-              ? "All four set. The house is listening."
-              : "Set all four to begin Reading the Bones."}
-          </p>
+          <p className={styles.continueCopy}>{continueCopy}</p>
           <Link
             href={bonesHref}
             aria-disabled={!ready}
@@ -98,6 +113,64 @@ export default function ThresholdClient() {
       <ReadingPanel />
     </div>
   );
+}
+
+function PlanUploadStub() {
+  return (
+    <aside className={styles.uploadStub} aria-labelledby="plan-upload-title">
+      <div className={styles.uploadStubCopy}>
+        <span className={styles.uploadStubEyebrow}>Stub path</span>
+        <h3 id="plan-upload-title" className={styles.uploadStubTitle}>
+          Plan Upload
+        </h3>
+        <p className={styles.uploadStubBody}>
+          Plan Upload is Phase 2. For Phase 1, choose one HDB template below.
+        </p>
+      </div>
+      <button
+        type="button"
+        className={styles.uploadStubBtn}
+        disabled
+        aria-disabled="true"
+      >
+        Upload plan (Phase 2)
+      </button>
+    </aside>
+  );
+}
+
+interface ReadyCopyArgs {
+  ready: boolean;
+  hasTemplate: boolean;
+  hasScenario: boolean;
+  compassTouched: boolean;
+  floorTouched: boolean;
+}
+
+// Calm voice. No severity, no scolding — just names what's pending.
+function readyCopy({
+  ready,
+  hasTemplate,
+  hasScenario,
+  compassTouched,
+  floorTouched,
+}: ReadyCopyArgs): string {
+  if (ready) return "All four set. The house is listening.";
+
+  const pending: string[] = [];
+  if (!hasTemplate) pending.push("the unit");
+  if (!compassTouched) pending.push("the door");
+  if (!floorTouched) pending.push("the floor");
+  if (!hasScenario) pending.push("the moment");
+
+  if (pending.length === 4) return "Set all four to begin Reading the Bones.";
+  if (pending.length === 1) return `Confirm ${pending[0]} before continuing.`;
+  if (pending.length === 2)
+    return `Confirm ${pending[0]} and ${pending[1]} before continuing.`;
+  // 3 pending — list with calm cadence.
+  const head = pending.slice(0, -1).join(", ");
+  const tail = pending[pending.length - 1];
+  return `Confirm ${head}, and ${tail} before continuing.`;
 }
 
 interface StageProps {

@@ -1,7 +1,20 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Threshold onboarding", () => {
-  test("keeps Continue inert until unit and scenario are selected", async ({ page }) => {
+  test("shows Plan Upload as a Phase 2 stub and keeps templates as the Phase 1 path", async ({ page }) => {
+    await page.goto("/threshold");
+
+    await expect(page.getByRole("heading", { name: "Plan Upload" })).toBeVisible();
+    await expect(page.getByText("Plan Upload is Phase 2.")).toBeVisible();
+    await expect(page.getByText("For Phase 1, choose one HDB template below.")).toBeVisible();
+
+    const uploadStub = page.getByRole("button", { name: /Upload plan \(Phase 2\)/ });
+    await expect(uploadStub).toBeDisabled();
+    await expect(uploadStub).toHaveAttribute("aria-disabled", "true");
+    await expect(page.locator('input[type="file"]')).toHaveCount(0);
+  });
+
+  test("keeps Continue inert until all four inputs are explicitly confirmed", async ({ page }) => {
     await page.goto("/threshold");
 
     await expect(page.getByRole("heading", { name: /STEP OVER THE threshold/i })).toBeVisible();
@@ -13,6 +26,16 @@ test.describe("Threshold onboarding", () => {
     const continueLink = page.getByRole("link", { name: /Continue/ });
     await expect(continueLink).toHaveAttribute("aria-disabled", "true");
     await expect(continueLink).toHaveAttribute("tabindex", "-1");
+
+    await page.getByRole("button", { name: /Tampines GreenWeave/ }).click();
+    await page.getByRole("radio", { name: /Just moved in/ }).click();
+    await expect(continueLink).toHaveAttribute("aria-disabled", "true");
+    await expect(page.getByText("Confirm the door and the floor before continuing.")).toBeVisible();
+
+    await page.getByRole("slider", { name: "Door facing direction" }).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(continueLink).toHaveAttribute("aria-disabled", "true");
+    await expect(page.getByText("Confirm the floor before continuing.")).toBeVisible();
   });
 
   test("selects inputs, updates summary, and routes to Bones", async ({ page }) => {

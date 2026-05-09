@@ -8,6 +8,15 @@ export type TokenId =
   | "fan_anchor"
   | "shaft_buffer";
 
+export const TOKEN_IDS: readonly TokenId[] = [
+  "wind_gate",
+  "soft_screen",
+  "wood_anchor",
+  "solar_shield",
+  "fan_anchor",
+  "shaft_buffer",
+];
+
 export interface TokenPlacement {
   tokenId: TokenId;
   point: Point;
@@ -18,6 +27,28 @@ export interface TokenPlacementResult {
   code: "ok" | "black_state_blocked" | "shaft_buffer_out_of_range";
   message: string;
   alternatives: string[];
+}
+
+export function isTokenId(value: unknown): value is TokenId {
+  return typeof value === "string" && TOKEN_IDS.includes(value as TokenId);
+}
+
+export function isTokenPlacement(value: unknown): value is TokenPlacement {
+  if (!value || typeof value !== "object") return false;
+
+  const placement = value as Partial<TokenPlacement>;
+  return (
+    isTokenId(placement.tokenId) &&
+    Number.isFinite(placement.point?.x) &&
+    Number.isFinite(placement.point?.y)
+  );
+}
+
+export function allowedTokenPlacements(
+  plan: PlanGeometry,
+  placements: ReadonlyArray<TokenPlacement>,
+): TokenPlacement[] {
+  return placements.filter((placement) => validateTokenPlacement(plan, placement).allowed);
 }
 
 function containsPoint(rect: FixedElementGeometry, point: Point): boolean {

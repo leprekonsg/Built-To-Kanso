@@ -74,7 +74,7 @@ test.describe("Scout rule outputs", () => {
     expect(`${downwindPoint.copy} ${downwindPoint.designerDetail}`).not.toMatch(/severity|scanner/i);
   });
 
-  test("damp risk readings always include recommendations", async ({ request }) => {
+  test("damp risk readings expose bands and recommendations", async ({ request }) => {
     const response = await request.post("/api/scout", {
       data: {
         templateId: "tengah-5room",
@@ -91,10 +91,12 @@ test.describe("Scout rule outputs", () => {
     for (const reading of body.dampRisk) {
       expect(reading).toEqual(
         expect.objectContaining({
-          predictedRhPct: expect.any(Number),
+          band: expect.stringMatching(/^(clear|watch|high)$/),
           recommendation: expect.any(String),
         }),
       );
+      expect(reading).not.toHaveProperty("predictedRhPct");
+      expect(reading).not.toHaveProperty("thresholdPct");
       expect(reading.recommendation.length).toBeGreaterThan(0);
     }
   });

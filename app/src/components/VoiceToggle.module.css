@@ -1,0 +1,52 @@
+/* ============================================================
+   VoiceToggle — Cultural | Designer segmented control
+   Hairline architecture. Ink fill on selected. No amber.
+   ============================================================ */
+
+.toggle {
+  display: inline-flex;
+  align-items: stretch;
+  width: auto;
+  border: 1px solid var(--line-1);
+  border-radius: 2px;
+  background: transparent;
+  padding: 2px;
+  gap: 2px;
+}
+
+.tab {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 8px 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  border-radius: 1px;
+  transition: color 0.18s ease, background-color 0.18s ease;
+}
+
+.tab:hover {
+  color: var(--fg-1);
+}
+
+.tab:focus-visible {
+  outline: 1px solid var(--line-strong);
+  outline-offset: 2px;
+}
+
+.tabSelected,
+.tabSelected:hover {
+  background: var(--ink-black);
+  color: var(--bg-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab {
+    transition: none;
+  }
+}

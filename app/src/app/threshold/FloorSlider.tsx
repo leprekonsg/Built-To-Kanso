@@ -9,6 +9,7 @@ const MAX = 50;
 export default function FloorSlider() {
   const floor = useThresholdStore((s) => s.floor);
   const setFloor = useThresholdStore((s) => s.setFloor);
+  const markFloorTouched = useThresholdStore((s) => s.markFloorTouched);
   const tier = tierForFloor(floor);
   const pct = ((floor - MIN) / (MAX - MIN)) * 100;
 
@@ -46,7 +47,11 @@ export default function FloorSlider() {
           max={MAX}
           step={1}
           value={floor}
-          onChange={(e) => setFloor(Number(e.currentTarget.value))}
+          onChange={(e) => {
+            // Hard Rule #25: explicit interaction is consent.
+            markFloorTouched();
+            setFloor(Number(e.currentTarget.value));
+          }}
           className={styles.floorRange}
           aria-label="Floor level"
         />

@@ -55,7 +55,7 @@ test.describe("Backend route contracts", () => {
     });
   });
 
-  test("scout pass caps asking points and pairs Damp Risk with action", async ({ request }) => {
+  test("scout pass caps asking points and returns banded Damp Risk with action", async ({ request }) => {
     const response = await request.post("/api/scout", {
       data: {
         templateId: "resale-exec-1990s",
@@ -68,19 +68,19 @@ test.describe("Backend route contracts", () => {
     expect(response.ok()).toBe(true);
     const body = await response.json();
     expect(body.askingPoints.length).toBeLessThanOrEqual(3);
+    expect(JSON.stringify(body.dampRisk)).not.toContain("predictedRhPct");
     expect(body.dampRisk).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           roomId: "main_bedroom",
-          predictedRhPct: 78,
-          flag: "high",
+          band: "high",
           recommendation: expect.stringContaining("Shaft Buffer"),
         }),
       ]),
     );
   });
 
-  test("Shaft Buffer clears the resale master bedroom Damp Risk flag", async ({ request }) => {
+  test("Shaft Buffer drops the resale master bedroom Damp Risk band to Watch", async ({ request }) => {
     const response = await request.post("/api/scout", {
       data: {
         templateId: "resale-exec-1990s",
@@ -96,10 +96,50 @@ test.describe("Backend route contracts", () => {
       expect.arrayContaining([
         expect.objectContaining({
           roomId: "main_bedroom",
-          predictedRhPct: 73,
-          flag: "clear",
+          band: "watch",
         }),
       ]),
     );
+  });
+
+  test("ignores out-of-range Shaft Buffer placements in Scout Pass", async ({ request }) => {
+    const response = await request.post("/api/scout", {
+      data: {
+        templateId: "resale-exec-1990s",
+        compassDeg: 260,
+        floor: 11,
+        tokenPlacements: [{ tokenId: "shaft_buffer", point: { x: 12.2, y: 7.7 } }],
+      },
+    });
+
+    expect(response.ok()).toBe(true);
+    const body = await response.json();
+    expect(body.dampRisk).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          roomId: "main_bedroom",
+          band: "high",
+        }),
+      ]),
+    );
+  });
+
+  test("resonance status exposes readiness, Standard thresholds, and push placeholder", async ({ request }) => {
+    const response = await request.get("/api/resonance/check");
+    expect(response.ok()).toBe(true);
+
+    await expect(response.json()).resolves.toMatchObject({
+      ready: expect.any(Boolean),
+      thresholds: {
+        alignmentToleranceDeg: 15,
+        minOutdoorSpeedMps: 1.6,
+        maxPredictedIndoorSpeedMps: 0.25,
+        cooldownHours: 6,
+      },
+      pushDispatch: {
+        available: false,
+        status: "placeholder",
+      },
+    });
   });
 });

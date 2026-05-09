@@ -297,15 +297,38 @@
 }
 .askingList li:last-child,
 .dampList li:last-child { padding-bottom: 0; }
-.askingList span {
-  display: block;
+.askingHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  margin-bottom: 4px;
+}
+.askingScout {
   font-family: var(--font-mono);
   font-size: 0.625rem;
   line-height: 1.35;
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
   color: var(--accent);
-  margin-bottom: 4px;
+}
+.askingTier {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  line-height: 1.35;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.dampDisclaimer {
+  margin: var(--s-3) 0 0;
+  padding-top: var(--s-3);
+  border-top: 1px dashed var(--line-1);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--fg-3);
 }
 .dampList strong,
 .dampCard strong {
@@ -342,6 +365,7 @@
   box-shadow: 0 0 0 4px rgba(17,17,17,0.04);
 }
 .statusHigh { background: var(--terracotta-tray); }
+.statusWatch { background: var(--west-sun-amber); }
 .statusClear { background: var(--monsoon-sage); }
 .actionRow {
   display: flex;
@@ -370,6 +394,124 @@
   line-height: 1.35;
   letter-spacing: 0;
   text-transform: none;
+}
+
+.liveSection,
+.calmSection,
+.designerSection {
+  padding-top: var(--s-8);
+}
+
+.sectionHead {
+  max-width: 620px;
+  margin-bottom: var(--s-5);
+}
+.sectionHead h2 {
+  font-family: var(--font-serif);
+  font-size: 2.5rem;
+  line-height: 1.05;
+  font-weight: 500;
+  letter-spacing: 0;
+  margin: var(--s-2) 0 var(--s-3);
+}
+.sectionHead p {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.58;
+  color: var(--fg-2);
+  max-width: 62ch;
+}
+
+.liveGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: var(--s-5);
+  align-items: stretch;
+}
+
+.panelTitle {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.625rem;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.trialList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+.trialList li {
+  padding: var(--s-4) 0;
+  border-top: 1px dashed var(--line-1);
+}
+.trialList li:last-child { padding-bottom: 0; }
+.trialList strong,
+.checkName {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-1);
+  margin-bottom: 6px;
+}
+.trialList span {
+  display: block;
+  font-size: 0.875rem;
+  line-height: 1.54;
+  color: var(--fg-2);
+}
+
+.checkGrid,
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-4);
+}
+.checkPanel,
+.detailGrid div {
+  border: 1px solid var(--line-1);
+  background: var(--bg-2);
+  padding: var(--s-5);
+}
+.checkPanel p {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--fg-2);
+}
+
+.detailGrid {
+  margin: 0;
+}
+.detailGrid dt {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  line-height: 1.35;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-3);
+  margin-bottom: var(--s-2);
+}
+.detailGrid dd {
+  margin: 0 0 var(--s-3);
+  font-family: var(--font-serif);
+  font-size: 1.625rem;
+  line-height: 1.15;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.detailGrid span {
+  display: block;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--fg-2);
 }
 
 .missingPage {
@@ -610,6 +752,11 @@
   .sideStack .panel:first-child,
   .actionRow {
     grid-column: 1 / -1;
+  }
+  .liveGrid,
+  .checkGrid,
+  .detailGrid {
+    grid-template-columns: 1fr;
   }
 }
 

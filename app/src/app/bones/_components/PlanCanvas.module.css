@@ -1,0 +1,160 @@
+.planSvg {
+  width: 100%;
+  aspect-ratio: 1.34 / 1;
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  display: block;
+  touch-action: none;
+  transition: box-shadow var(--dur-base) var(--ease-kanso), border-color var(--dur-base) var(--ease-kanso);
+}
+
+.canvasArmed {
+  border-color: var(--line-2);
+  box-shadow: var(--sh-2);
+}
+
+.planBounds {
+  fill: rgba(246, 243, 238, 0.5);
+  stroke: var(--line-2);
+  stroke-width: 0.03;
+}
+
+.room {
+  fill: rgba(246, 243, 238, 0.55);
+  stroke-width: 0.045;
+  vector-effect: non-scaling-stroke;
+}
+
+.green { stroke: var(--monsoon-sage); }
+.amber { stroke: var(--west-sun-amber); }
+.red { stroke: var(--terracotta-tray); }
+.black { stroke: var(--ink-black); }
+
+.roomLabel {
+  font-family: var(--font-mono);
+  font-size: 0.18px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  fill: var(--fg-2);
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
+.openingOperable,
+.openingFixed {
+  stroke-width: 0.08;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.openingOperable { stroke: var(--west-sun-amber); }
+.openingFixed { stroke: var(--hdb-concrete); }
+
+.fixedElement {
+  fill: rgba(17, 17, 17, 0.88);
+  stroke: var(--ink-black);
+  stroke-width: 0.04;
+  vector-effect: non-scaling-stroke;
+}
+
+.bufferEligible { fill: rgba(17, 17, 17, 0.72); }
+
+.bufferCircle {
+  fill: rgba(167, 159, 147, 0.16);
+  stroke: rgba(17, 17, 17, 0.45);
+  stroke-width: 0.035;
+  stroke-dasharray: 0.12 0.1;
+  pointer-events: none;
+  transition: opacity var(--dur-base) var(--ease-kanso);
+}
+
+.bufferCirclePulse {
+  fill: rgba(216, 162, 74, 0.10);
+  stroke: rgba(216, 162, 74, 0.65);
+  animation: shaftPulse var(--dur-breath) var(--ease-wind) infinite;
+}
+
+@keyframes shaftPulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 0.55; }
+}
+
+/* Placed tokens — circle with hairline border, serif initial. Never amber paint. */
+.placedGroup { cursor: pointer; }
+.placedGroup:hover .placedDot { fill: var(--ink-black); }
+.placedGroup:hover .placedInitial { fill: var(--bone-white); }
+.placedGroup:hover .placedHalo {
+  stroke: var(--west-sun-amber);
+  stroke-opacity: 0.9;
+}
+
+.placedHalo {
+  fill: rgba(216, 162, 74, 0.10);
+  stroke: rgba(216, 162, 74, 0.55);
+  stroke-width: 0.025;
+  vector-effect: non-scaling-stroke;
+  transition: stroke-opacity var(--dur-base) var(--ease-kanso);
+}
+
+.placedDot {
+  fill: var(--bg-2);
+  stroke: var(--ink-black);
+  stroke-width: 0.03;
+  vector-effect: non-scaling-stroke;
+  transition: fill var(--dur-base) var(--ease-kanso);
+}
+
+.placedInitial {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.22px;
+  text-anchor: middle;
+  dominant-baseline: central;
+  fill: var(--ink-black);
+  pointer-events: none;
+  transition: fill var(--dur-base) var(--ease-kanso);
+}
+
+/* Ghost preview while dragging. Amber halo on valid; terracotta on blocked. */
+.ghostGroup { pointer-events: none; }
+.ghostHalo {
+  fill: transparent;
+  stroke-width: 0.035;
+  vector-effect: non-scaling-stroke;
+  animation: ghostPulse var(--dur-breath) var(--ease-wind) infinite;
+}
+.ghostDot {
+  stroke-width: 0.025;
+  vector-effect: non-scaling-stroke;
+}
+
+.ghostValid {
+  stroke: var(--west-sun-amber);
+  fill: rgba(216, 162, 74, 0.18);
+}
+.ghostValid.ghostHalo {
+  stroke: rgba(216, 162, 74, 0.6);
+  fill: transparent;
+}
+
+.ghostBlocked {
+  stroke: var(--terracotta-tray);
+  fill: rgba(185, 111, 77, 0.18);
+}
+.ghostBlocked.ghostHalo {
+  stroke: rgba(185, 111, 77, 0.6);
+  fill: transparent;
+}
+
+@keyframes ghostPulse {
+  0%, 100% { opacity: 0.95; }
+  50% { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bufferCirclePulse,
+  .ghostHalo {
+    animation: none;
+  }
+  .planSvg { transition: none; }
+}

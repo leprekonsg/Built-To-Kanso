@@ -48,22 +48,36 @@ export interface ThresholdState {
   // 1..50 (HDB max ~ Pinnacle@Duxton 50)
   floor: number;
   scenarioId: ScenarioId | null;
+  // Hard Rule #25: Continue requires explicit floor + compass interaction.
+  // Defaults are starting points, not consent.
+  compassTouched: boolean;
+  floorTouched: boolean;
 
   setTemplate: (id: TemplateId) => void;
   setCompass: (index: number) => void;
   setFloor: (n: number) => void;
   setScenario: (id: ScenarioId) => void;
+  markCompassTouched: () => void;
+  markFloorTouched: () => void;
   reset: () => void;
 }
 
 const INITIAL: Omit<
   ThresholdState,
-  "setTemplate" | "setCompass" | "setFloor" | "setScenario" | "reset"
+  | "setTemplate"
+  | "setCompass"
+  | "setFloor"
+  | "setScenario"
+  | "markCompassTouched"
+  | "markFloorTouched"
+  | "reset"
 > = {
   templateId: null,
   compassIndex: 0,
   floor: 11,
   scenarioId: null,
+  compassTouched: false,
+  floorTouched: false,
 };
 
 export const useThresholdStore = create<ThresholdState>()((set) => ({
@@ -72,6 +86,11 @@ export const useThresholdStore = create<ThresholdState>()((set) => ({
   setCompass: (compassIndex) => set({ compassIndex: ((compassIndex % 24) + 24) % 24 }),
   setFloor: (floor) => set({ floor: Math.max(1, Math.min(50, Math.round(floor))) }),
   setScenario: (scenarioId) => set({ scenarioId }),
+  // Idempotent: only flips false -> true so re-touching is a no-op.
+  markCompassTouched: () =>
+    set((s) => (s.compassTouched ? s : { compassTouched: true })),
+  markFloorTouched: () =>
+    set((s) => (s.floorTouched ? s : { floorTouched: true })),
   reset: () => set(INITIAL),
 }));
 

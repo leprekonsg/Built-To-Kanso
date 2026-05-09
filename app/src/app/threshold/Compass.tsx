@@ -32,6 +32,7 @@ function snapFromPoint(clientX: number, clientY: number, rect: DOMRect): number 
 export default function Compass() {
   const compassIndex = useThresholdStore((s) => s.compassIndex);
   const setCompass = useThresholdStore((s) => s.setCompass);
+  const markCompassTouched = useThresholdStore((s) => s.markCompassTouched);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const draggingRef = useRef(false);
 
@@ -48,6 +49,8 @@ export default function Compass() {
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     draggingRef.current = true;
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+    // Hard Rule #25: explicit interaction is consent.
+    markCompassTouched();
     handlePointer(e.clientX, e.clientY);
   };
   const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -61,9 +64,11 @@ export default function Compass() {
   const onKeyDown = (e: React.KeyboardEvent<SVGSVGElement>) => {
     if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
       e.preventDefault();
+      markCompassTouched();
       setCompass(compassIndex - 1);
     } else if (e.key === "ArrowRight" || e.key === "ArrowUp") {
       e.preventDefault();
+      markCompassTouched();
       setCompass(compassIndex + 1);
     }
   };

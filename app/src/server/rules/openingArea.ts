@@ -1,3 +1,4 @@
+import type { EvidenceTier } from "@/server/evidence";
 import type { PlanGeometry } from "@/server/geometry/types";
 import type { TokenId } from "@/server/rules/tokens";
 
@@ -8,6 +9,7 @@ export interface OpeningAreaBadge {
   status: "marginal" | "capable";
   recommendedTokenId: Extract<TokenId, "fan_anchor" | "wind_gate">;
   recommendation: string;
+  tier: EvidenceTier;
 }
 
 export function evaluateOpeningArea(plan: PlanGeometry): OpeningAreaBadge {
@@ -17,6 +19,7 @@ export function evaluateOpeningArea(plan: PlanGeometry): OpeningAreaBadge {
       status: "marginal",
       recommendedTokenId: "fan_anchor",
       recommendation: "Use a Fan Anchor to keep air moving through the main path.",
+      tier: "heuristic_estimate",
     };
   }
 
@@ -25,5 +28,6 @@ export function evaluateOpeningArea(plan: PlanGeometry): OpeningAreaBadge {
     status: "capable",
     recommendedTokenId: "wind_gate",
     recommendation: "Use a Wind Gate to tune the existing cross-breeze.",
+    tier: "heuristic_estimate",
   };
 }

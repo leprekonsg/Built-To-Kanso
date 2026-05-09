@@ -1,0 +1,47 @@
+.card {
+  border: 1px solid var(--line-1);
+  background: var(--bg-2);
+  padding: var(--s-5) var(--s-5) var(--s-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.line {
+  border-top: 1px dashed var(--line-1);
+  padding: var(--s-3) 0;
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  line-height: 1.45;
+  color: var(--fg-1);
+  letter-spacing: -0.005em;
+}
+
+.line:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.line:last-child {
+  padding-bottom: 0;
+}
+
+.line::first-letter {
+  text-transform: uppercase;
+}

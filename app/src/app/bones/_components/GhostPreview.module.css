@@ -1,0 +1,315 @@
+.card {
+  border: 1px solid var(--line-1);
+  background: var(--bg-2);
+  padding: var(--s-5) var(--s-5) var(--s-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  position: sticky;
+  top: var(--s-5);
+  transition:
+    border-color var(--dur-base) var(--ease-kanso),
+    box-shadow var(--dur-base) var(--ease-kanso),
+    background var(--dur-base) var(--ease-kanso);
+}
+
+.cardRefusal {
+  border-color: var(--terracotta-tray);
+  box-shadow: var(--sh-2);
+}
+
+.cardBlocked {
+  border-color: var(--terracotta-tray);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  line-height: 1.35;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-size: 1.75rem;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--fg-1);
+  margin: 0;
+}
+
+.lede {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  color: var(--fg-2);
+  margin: 0;
+  max-width: 36ch;
+}
+
+.idleCopy {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--fg-2);
+  margin: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: var(--s-3);
+  row-gap: 4px;
+  padding-top: var(--s-3);
+  border-top: 1px dashed var(--line-1);
+  align-items: start;
+}
+
+.rowLabel {
+  grid-row: 1 / span 2;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-3);
+  padding-top: 4px;
+}
+
+.rowValue {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rowDetail {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--fg-2);
+}
+
+.tierTag {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: start;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: var(--tracking-loose);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+/* Breath delta numerals — never amber paint, just inked tabular numerals. */
+.breathPositive,
+.breathNegative {
+  font-family: var(--font-serif);
+  font-size: 1.75rem;
+  font-weight: 500;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  color: var(--fg-1);
+}
+.breathNegative { color: var(--fg-1); }
+
+/* Damp band transition. Pills are tinted backgrounds, not amber paint. */
+.dampTransition {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.bandPill {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: var(--tracking-loose);
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border: 1px solid currentColor;
+  border-radius: var(--r-sm);
+}
+
+.band_clear { color: var(--banyan-green); background: rgba(124, 133, 109, 0.16); }
+.band_watch { color: #6b4d18; background: rgba(216, 162, 74, 0.20); }
+.band_high  { color: #6b3a26; background: rgba(185, 111, 77, 0.20); }
+
+.dampArrow {
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--fg-3);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.bandUnchanged {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1rem;
+  color: var(--fg-2);
+}
+
+.dampDisclaimer {
+  margin: 0;
+  padding-top: var(--s-3);
+  border-top: 1px dashed var(--line-1);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--fg-3);
+}
+
+.futureList {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px dashed var(--line-1);
+}
+
+.futureItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4) 0;
+  border-bottom: 1px dashed var(--line-1);
+}
+
+.futureBlocked {
+  color: var(--terracotta-tray);
+}
+
+.futureHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-2);
+}
+
+.futureHead strong {
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--fg-1);
+}
+
+.futureSlot {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  line-height: 1.35;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.futureCopy {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1rem;
+  line-height: 1.45;
+  color: var(--fg-2);
+}
+
+.futureBands {
+  display: grid;
+  gap: var(--s-2);
+  margin: 0;
+}
+
+.futureBands div {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: var(--s-3);
+}
+
+.futureBands dt {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.futureBands dd {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--fg-2);
+}
+
+.placementCount {
+  margin: 0;
+  padding-top: var(--s-3);
+  border-top: 1px dashed var(--line-1);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: var(--tracking-loose);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.placementCount span {
+  font-family: var(--font-serif);
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.875rem;
+  color: var(--fg-2);
+  margin-right: 6px;
+}
+
+/* Refusal panel copy. */
+.refusalCopy {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--fg-1);
+  margin: 0;
+  max-width: 32ch;
+}
+
+.refusalHint {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--fg-2);
+  margin: 0;
+}
+
+.altList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px dashed var(--line-1);
+}
+
+.altList li {
+  border-bottom: 1px dashed var(--line-1);
+  padding: var(--s-3) 0;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--fg-2);
+}
+
+@media (max-width: 1100px) {
+  .card { position: static; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card { transition: none; }
+}

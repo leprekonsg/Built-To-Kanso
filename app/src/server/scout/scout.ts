@@ -1,7 +1,9 @@
+import type { EvidenceTier } from "@/server/evidence";
 import type { PlanGeometry } from "@/server/geometry/types";
 import { evaluateBathroomDownwind } from "@/server/rules/downwind";
 import { evaluateOpeningArea, type OpeningAreaBadge } from "@/server/rules/openingArea";
-import type { TokenPlacement } from "@/server/rules/tokens";
+import { allowedTokenPlacements, type TokenPlacement } from "@/server/rules/tokens";
+import { rankAskingPoints } from "@/server/scout/priority";
 
 export interface ScoutInput {
   plan: PlanGeometry;
@@ -16,6 +18,7 @@ export interface AskingPoint {
   copy: string;
   designerDetail: string;
   recommendation?: string;
+  tier: EvidenceTier;
 }
 
 export type DampRiskBand = "clear" | "watch" | "high";
@@ -24,6 +27,7 @@ export interface DampRiskReading {
   roomId: string;
   band: DampRiskBand;
   recommendation: string;
+  tier: EvidenceTier;
 }
 
 interface DampRiskEstimate extends DampRiskReading {
@@ -38,11 +42,13 @@ export interface ScoutPassResult {
 }
 
 export function runScoutPass(input: ScoutInput): ScoutPassResult {
-  const dampRiskEstimates = estimateDampRisk(input.plan, input.tokenPlacements);
-  const dampRisk = dampRiskEstimates.map(({ roomId, band, recommendation }) => ({
+  const validPlacements = allowedTokenPlacements(input.plan, input.tokenPlacements);
+  const dampRiskEstimates = estimateDampRisk(input.plan, validPlacements);
+  const dampRisk = dampRiskEstimates.map(({ roomId, band, recommendation, tier }) => ({
     roomId,
     band,
     recommendation,
+    tier,
   }));
   const openingAreaBadge = evaluateOpeningArea(input.plan);
   const bathroomDownwind = evaluateBathroomDownwind(input.plan, input.compassDeg);
@@ -55,6 +61,7 @@ export function runScoutPass(input: ScoutInput): ScoutPassResult {
       copy: "Main path wants help moving air.",
       designerDetail: `Opening area is ${openingAreaBadge.areaPct}%, below the 12% capable badge. ${openingAreaBadge.recommendation}`,
       recommendation: openingAreaBadge.recommendation,
+      tier: "heuristic_estimate",
     });
   }
 
@@ -64,6 +71,7 @@ export function runScoutPass(input: ScoutInput): ScoutPassResult {
       scout: "glow",
       copy: "West edge carrying heat.",
       designerDetail: `Facade ${input.plan.westSunFacadeDeg}deg aligns with afternoon west-sun exposure.`,
+      tier: "heuristic_estimate",
     });
   }
 
@@ -72,8 +80,9 @@ export function runScoutPass(input: ScoutInput): ScoutPassResult {
     askingPoints.push({
       id: `damp-${highDamp.roomId}`,
       scout: "damp",
-      copy: "Pillow-level humidity wants a buffer.",
+      copy: "Damp Risk wants a buffer.",
       designerDetail: `Damp Risk is High for this bedroom. ${highDamp.recommendation}`,
+      tier: "heuristic_estimate",
     });
   }
 
@@ -84,6 +93,7 @@ export function runScoutPass(input: ScoutInput): ScoutPassResult {
       copy: "Bathroom air path may drift toward a bedroom.",
       designerDetail: `${bathroomDownwind.bathroomLabel} sits downwind toward ${bathroomDownwind.roomLabel} on the ${bathroomDownwind.downwindDeg}deg breeze line. ${bathroomDownwind.recommendation}`,
       recommendation: bathroomDownwind.recommendation,
+      tier: "heuristic_estimate",
     });
   }
 
@@ -93,11 +103,14 @@ export function runScoutPass(input: ScoutInput): ScoutPassResult {
       scout: "breath",
       copy: "Bedroom downwind of pipeshaft.",
       designerDetail: `Pipeshaft drift path reaches ${input.plan.pipeshaft.downwindRoomIds.join(", ")}.`,
+      tier: "heuristic_estimate",
     });
   }
 
   return {
-    askingPoints: askingPoints.slice(0, 3),
+    // PRODUCT.md "calm voice over alarm": max three Asking Points,
+    // ranked deterministically (see priority.ts).
+    askingPoints: rankAskingPoints(askingPoints).slice(0, 3),
     dampRisk,
     openingAreaBadge,
   };
@@ -105,7 +118,7 @@ export function runScoutPass(input: ScoutInput): ScoutPassResult {
 
 function estimateDampRisk(plan: PlanGeometry, tokenPlacements: TokenPlacement[]): DampRiskEstimate[] {
   const hasShaftBuffer = tokenPlacements.some((placement) => placement.tokenId === "shaft_buffer");
-  const shaftPenalty = hasShaftBuffer ? -5 : 0;
+  const shaftPenalty = hasShaftBuffer ? -3 : 0;
 
   return plan.rooms
     .filter((room) => room.kind === "bedroom")
@@ -122,6 +135,7 @@ function estimateDampRisk(plan: PlanGeometry, tokenPlacements: TokenPlacement[])
           band !== "clear"
             ? "Place a Shaft Buffer, move the bed away from the pipeshaft path, or run bathroom exhaust on a timer."
             : "Keep the current buffer and bathroom exhaust habit.",
+        tier: "heuristic_estimate",
       };
     });
 }

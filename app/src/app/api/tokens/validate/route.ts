@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPlanGeometry, isTemplateId } from "@/server/geometry/registry";
-import { validateTokenPlacement, type TokenPlacement } from "@/server/rules/tokens";
+import { isTokenPlacement, validateTokenPlacement, type TokenPlacement } from "@/server/rules/tokens";
 
 interface TokenValidationRequestBody {
   templateId?: string;
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!body.placement?.tokenId || !Number.isFinite(body.placement.point?.x) || !Number.isFinite(body.placement.point?.y)) {
+  if (!isTokenPlacement(body.placement)) {
     return NextResponse.json(
       { error: "placement must include tokenId and point { x, y } in plan meters." },
       { status: 400 },

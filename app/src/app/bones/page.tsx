@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import VoiceToggle from "@/components/VoiceToggle";
 import { TEMPLATES, type TemplateId } from "@/lib/templates";
 import { getPlanGeometry, isTemplateId } from "@/server/geometry/registry";
 import type { ConfidenceState, FixedElementGeometry, PlanGeometry } from "@/server/geometry/types";
-import { runScoutPass, type DampRiskReading } from "@/server/scout/scout";
+import { BonesInteractive } from "./_components";
 import styles from "./bones.module.css";
 
 export const metadata: Metadata = {
@@ -36,10 +37,8 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
 
   const plan = getPlanGeometry(templateId);
   const template = TEMPLATES.find((item) => item.id === templateId);
-  const scout = runScoutPass({ plan, compassDeg, floor, tokenPlacements: [] });
   const counts = countConfidence(plan);
   const blackKinds = Array.from(new Set(plan.fixedElements.map((element) => element.kind)));
-  const dampSummary = summarizeDampRisk(scout.dampRisk);
 
   return (
     <main className={styles.page}>
@@ -57,6 +56,7 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
           <span className={styles.crumbDot} aria-hidden />
           <span className={styles.crumbDim}><span className={styles.crumbNum}>03</span> Weather</span>
         </nav>
+        <VoiceToggle />
       </header>
 
       <section className={styles.hero}>
@@ -75,7 +75,26 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
         </aside>
       </section>
 
-      <section className={styles.shell}>
+      <BonesInteractive
+        plan={plan}
+        compassDeg={compassDeg}
+        floor={floor}
+        sideIntro={
+          <section className={styles.panel}>
+            <span className={styles.eyebrow}>What stays untouched</span>
+            <dl className={styles.metrics}>
+              <Metric label="Ready" value={counts.green} />
+              <Metric label="Check" value={counts.amber} />
+              <Metric label="Caution" value={counts.red} />
+              <Metric label="Fixed" value={plan.fixedElements.length} />
+            </dl>
+            <p className={styles.smallCopy}>
+              Fixed areas include {blackKinds.map(formatKind).join(", ")}. Tokens cannot alter these
+              areas. Shaft Buffer is the only exception, and only within the 0.6m pipeshaft clearance.
+            </p>
+          </section>
+        }
+      >
         <div className={styles.planPanel}>
           <div className={styles.panelHead}>
             <div>
@@ -94,67 +113,7 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
             <LegendItem label="HDB / SCDF fixed" tone="black" />
           </div>
         </div>
-
-        <aside className={styles.sideStack}>
-          <section className={styles.panel}>
-            <span className={styles.eyebrow}>What stays untouched</span>
-            <dl className={styles.metrics}>
-              <Metric label="Ready" value={counts.green} />
-              <Metric label="Check" value={counts.amber} />
-              <Metric label="Caution" value={counts.red} />
-              <Metric label="Fixed" value={plan.fixedElements.length} />
-            </dl>
-            <p className={styles.smallCopy}>
-              Fixed areas include {blackKinds.map(formatKind).join(", ")}. Tokens cannot alter these
-              areas. Shaft Buffer is the only exception, and only within the 0.6m pipeshaft clearance.
-            </p>
-          </section>
-
-          <section className={styles.panel}>
-            <span className={styles.eyebrow}>What the home is asking</span>
-            <ul className={styles.askingList}>
-              {scout.askingPoints.map((point) => (
-                <li key={point.id}>
-                  <span>{formatScout(point.scout)}</span>
-                  {point.copy}
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <section className={styles.panel}>
-            <span className={styles.eyebrow}>Damp reading</span>
-            {dampSummary ? (
-              <div className={styles.dampCard}>
-                <span
-                  className={`${styles.statusDot} ${
-                    dampSummary.worst.flag === "high" ? styles.statusHigh : styles.statusClear
-                  }`}
-                  aria-hidden
-                />
-                <div>
-                  <strong>{formatRoom(dampSummary.worst.roomId)}</strong>
-                  <p>
-                    {dampSummary.worst.predictedRhPct}% RH at pillow. {dampSummary.worst.recommendation}
-                  </p>
-                  <span>
-                    {dampSummary.highCount > 0
-                      ? `${dampSummary.highCount} bedroom${dampSummary.highCount === 1 ? "" : "s"} share this damp recommendation.`
-                      : "All bedrooms sit below the damp-risk flag after current buffers."}
-                  </span>
-                </div>
-              </div>
-            ) : null}
-          </section>
-
-          <div className={styles.actionRow}>
-            <Link href="/threshold" className={styles.secondaryLink}>
-              Adjust inputs
-            </Link>
-            <span>Next: see how air moves</span>
-          </div>
-        </aside>
-      </section>
+      </BonesInteractive>
     </main>
   );
 }
@@ -214,7 +173,7 @@ function MissingInputs() {
           1.35°&nbsp;N, not transplanted from Hong Kong or Beijing. The compass logic is
           Form-School feng shui (峦头派), an environment-driven tradition. <em>Kansō</em> names
           the aesthetic (Japanese, restraint); it is not <em>kasō</em> (Japanese house
-          astrology). Every claim is physical: opening areas, pillow-level humidity, west-sun
+          astrology). Every claim is physical: opening areas, damp-risk banding, west-sun
           heat path. Nothing is metaphysical.
         </p>
       </section>
@@ -233,9 +192,9 @@ function MissingInputs() {
           </li>
           <li className={styles.previewItem}>
             <span className={styles.previewKey}>Damp</span>
-            <h2 className={styles.previewTitle}>The bedroom most likely to mould</h2>
+            <h2 className={styles.previewTitle}>The bedroom to keep watch on</h2>
             <p className={styles.previewBody}>
-              Pillow-level humidity, paired with the buffer that prevents it. One bedroom, one
+              A Clear, Watch, or High band, paired with the buffer that helps. One bedroom, one
               recommendation.
             </p>
           </li>
@@ -374,34 +333,6 @@ function openingBadgeCopy(openingAreaPct: number): string {
     : `${openingAreaPct}% openings. Fan Anchor likely.`;
 }
 
-function formatScout(scout: "breath" | "glow" | "quiet" | "damp"): string {
-  const labels = {
-    breath: "Air",
-    glow: "Heat",
-    quiet: "Quiet",
-    damp: "Damp",
-  };
-  return labels[scout];
-}
-
-function summarizeDampRisk(readings: DampRiskReading[]) {
-  if (readings.length === 0) return null;
-  const worst = readings.reduce((currentWorst, reading) =>
-    reading.predictedRhPct > currentWorst.predictedRhPct ? reading : currentWorst,
-  );
-  return {
-    worst,
-    highCount: readings.filter((reading) => reading.flag === "high").length,
-  };
-}
-
 function formatKind(kind: FixedElementGeometry["kind"]): string {
   return kind.replaceAll("_", " ");
-}
-
-function formatRoom(roomId: string): string {
-  return roomId
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
 }
