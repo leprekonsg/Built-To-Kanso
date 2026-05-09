@@ -9,7 +9,7 @@ test.describe("Reading the Bones", () => {
     await expect(page.getByRole("link", { name: "Back to Threshold" })).toHaveAttribute("href", "/threshold");
   });
 
-  test("renders template geometry, Black state, Scout Pass, and paired Damp Risk", async ({ page }) => {
+  test("renders template geometry, fixed elements, asking points, and paired Damp Risk", async ({ page }) => {
     await page.goto("/bones?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
 
     await expect(page.getByRole("heading", { name: "The house is listening." })).toBeVisible();
@@ -19,8 +19,9 @@ test.describe("Reading the Bones", () => {
 
     await expect(page.getByText("HDB / SCDF fixed")).toBeVisible();
     await expect(page.getByText(/Shaft Buffer can only attach within the 0\.6m pipeshaft clearance/)).toBeVisible();
-    await expect(page.getByText("Scout Pass", { exact: true })).toBeVisible();
+    await expect(page.getByText("Asking points", { exact: true })).toBeVisible();
     await expect(page.getByText("Pillow-level humidity wants a buffer.")).toBeVisible();
-    await expect(page.getByText(/78% RH at pillow · Place a Shaft Buffer/)).toBeVisible();
+    await expect(page.getByText(/78% RH at pillow\. Place a Shaft Buffer/)).toBeVisible();
+    await expect(page.getByText("4 bedrooms asking for the same action.")).toBeVisible();
   });
 });

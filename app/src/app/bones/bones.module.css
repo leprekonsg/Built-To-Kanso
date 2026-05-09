@@ -1,6 +1,6 @@
 .page {
   min-height: 100vh;
-  padding: 0 var(--s-7) var(--s-9);
+  padding: 0 var(--s-7) var(--s-8);
   max-width: 1440px;
   margin: 0 auto;
   background: var(--bg-1);
@@ -53,10 +53,10 @@
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
   gap: var(--s-8);
   align-items: end;
-  padding: var(--s-8) 0;
+  padding: var(--s-8) 0 var(--s-7);
   border-bottom: 1px solid var(--line-1);
 }
 
@@ -110,9 +110,10 @@
 
 .shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: var(--s-7);
-  padding-top: var(--s-8);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  gap: var(--s-8);
+  padding-top: var(--s-7);
+  align-items: start;
 }
 
 .planPanel,
@@ -124,10 +125,10 @@
 
 .planPanel { padding: var(--s-5); }
 .panel {
-  padding: var(--s-5);
+  padding: var(--s-5) var(--s-5) var(--s-6);
   display: flex;
   flex-direction: column;
-  gap: var(--s-4);
+  gap: var(--s-5);
 }
 
 .panelHead {
@@ -160,7 +161,7 @@
 
 .planSvg {
   width: 100%;
-  aspect-ratio: 1.4 / 1;
+  aspect-ratio: 1.34 / 1;
   background: var(--bg-1);
   border: 1px solid var(--line-1);
 }
@@ -233,7 +234,9 @@
 .sideStack {
   display: flex;
   flex-direction: column;
-  gap: var(--s-5);
+  gap: var(--s-4);
+  position: sticky;
+  top: var(--s-5);
 }
 
 .metrics {
@@ -292,7 +295,8 @@
   color: var(--accent);
   margin-bottom: 4px;
 }
-.dampList strong {
+.dampList strong,
+.dampCard strong {
   display: block;
   text-transform: capitalize;
   font-family: var(--font-serif);
@@ -300,14 +304,58 @@
   font-weight: 500;
   margin-bottom: 4px;
 }
-.dampList span {
+.dampList span,
+.dampCard p,
+.dampCard span {
   display: block;
   font-size: 13px;
   line-height: 20px;
   color: var(--fg-2);
+  margin: 0;
 }
-.high { border-left: 3px solid var(--terracotta-tray); padding-left: var(--s-3) !important; }
-.clear { border-left: 3px solid var(--monsoon-sage); padding-left: var(--s-3) !important; }
+.dampCard {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: var(--s-3);
+  padding-top: var(--s-2);
+  border-top: 1px dashed var(--line-1);
+}
+.dampCard p { margin: 4px 0 8px; }
+.statusDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-top: 8px;
+  box-shadow: 0 0 0 4px rgba(17,17,17,0.04);
+}
+.statusHigh { background: var(--terracotta-tray); }
+.statusClear { background: var(--monsoon-sage); }
+.actionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding-top: var(--s-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.secondaryLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 10px 14px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-1);
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+}
 
 .missingPage {
   min-height: 100vh;
@@ -335,12 +383,26 @@
   .shell {
     grid-template-columns: 1fr;
   }
+  .sideStack {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sideStack .panel:first-child,
+  .actionRow {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 720px) {
   .page { padding: 0 var(--s-5) var(--s-7); }
   .masthead { align-items: start; flex-direction: column; }
   .crumbs { flex-wrap: wrap; }
+  .crumbDim,
+  .crumbDot { display: none; }
+  .hero { padding: var(--s-7) 0 var(--s-6); }
+  .hero h1,
+  .missingCard h1 { font-size: 52px; }
   .inputStrip { grid-template-columns: 1fr; }
   .inputStrip div {
     border-right: 0;
@@ -349,4 +411,10 @@
   .inputStrip div:last-child { border-bottom: 0; }
   .panelHead { flex-direction: column; }
   .planSvg { aspect-ratio: 1 / 1.1; }
+  .sideStack { grid-template-columns: 1fr; }
+  .actionRow {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .secondaryLink { width: 100%; }
 }
