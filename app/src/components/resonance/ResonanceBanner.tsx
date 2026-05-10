@@ -32,6 +32,14 @@ interface ResonanceCheckResponse {
   wind?: { source?: "nea" | "mock"; stationId?: string };
 }
 
+interface ResonanceStatusResponse {
+  pushDispatch?: {
+    available: boolean;
+    status: "configured" | "not_configured" | "dependency_unavailable";
+    message?: string;
+  };
+}
+
 export interface ResonanceBannerProps {
   plan: PlanGeometry;
   floor: number;
@@ -53,6 +61,7 @@ export default function ResonanceBanner({
 }: ResonanceBannerProps) {
   const [banner, setBanner] = useState<ResonanceBannerPayload | null>(null);
   const [windSource, setWindSource] = useState<"nea" | "mock" | null>(null);
+  const [pushStatus, setPushStatus] = useState<ResonanceStatusResponse["pushDispatch"] | null>(null);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set());
   const [quietDismissed, setQuietDismissed] = useState(false);
 
@@ -77,6 +86,25 @@ export default function ResonanceBanner({
       }
     });
     return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function loadStatus() {
+      try {
+        const response = await fetch("/api/resonance/check", {
+          method: "GET",
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const json = (await response.json()) as ResonanceStatusResponse;
+        setPushStatus(json.pushDispatch ?? null);
+      } catch {
+        // Status note is informational; the in-app loop still polls below.
+      }
+    }
+    void loadStatus();
+    return () => controller.abort();
   }, []);
 
   // Polling loop. fetch on mount, then on the configured cadence. Cleans up
@@ -170,9 +198,11 @@ export default function ResonanceBanner({
     }
   };
 
-  if (!visible) return null;
+  const pushDisabled = pushStatus ? !pushStatus.available : true;
 
-  const isAlignment = visible.kind === "alignment";
+  if (!visible && !pushDisabled) return null;
+
+  const isAlignment = visible?.kind === "alignment";
   const className = [
     styles.banner,
     isAlignment ? styles.bannerAlignment : styles.bannerQuiet,
@@ -186,36 +216,46 @@ export default function ResonanceBanner({
       aria-label="Resonance Hours"
       data-testid="resonance-banner"
     >
-      <div
-        className={className}
-        role={isAlignment ? "status" : undefined}
-        aria-live={isAlignment ? "polite" : undefined}
-      >
-        <div className={styles.copyStack}>
-          <span className={styles.eyebrow}>
-            {isAlignment ? "Resonance Hour" : "Resonance Hours"}
-          </span>
-          <p className={styles.title}>{visible.title}</p>
-          <p className={`${styles.body} ${isAlignment ? "" : styles.bodyMuted}`}>
-            {visible.body}
-          </p>
-          {isAlignment && windSource ? (
-            <span className={styles.source}>
-              <span>Source</span>
-              <span>{windSource === "nea" ? "NEA wind station" : "mock vector"}</span>
-            </span>
-          ) : null}
-        </div>
-        <button
-          type="button"
-          className={styles.dismiss}
-          onClick={onDismiss}
-          aria-label={isAlignment ? "Dismiss this Resonance Hour" : "Hide low-floor note"}
-          data-testid="resonance-banner-dismiss"
+      {visible ? (
+        <div
+          className={className}
+          role={isAlignment ? "status" : undefined}
+          aria-live={isAlignment ? "polite" : undefined}
         >
-          Dismiss
-        </button>
-      </div>
+          <div className={styles.copyStack}>
+            <span className={styles.eyebrow}>
+              {isAlignment ? "Resonance Hour" : "Resonance Hours"}
+            </span>
+            <p className={styles.title}>{visible.title}</p>
+            <p className={`${styles.body} ${isAlignment ? "" : styles.bodyMuted}`}>
+              {visible.body}
+            </p>
+            {isAlignment && windSource ? (
+              <span className={styles.source}>
+                <span>Source</span>
+                <span>{windSource === "nea" ? "NEA wind station" : "mock vector"}</span>
+              </span>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className={styles.dismiss}
+            onClick={onDismiss}
+            aria-label={isAlignment ? "Dismiss this Resonance Hour" : "Hide low-floor note"}
+            data-testid="resonance-banner-dismiss"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+      {pushDisabled ? (
+        <div className={styles.pushNote} data-testid="resonance-push-disabled">
+          <span className={styles.eyebrow}>Push disabled</span>
+          <p className={styles.body}>
+            VAPID is not configured. Resonance stays in-app for this demo.
+          </p>
+        </div>
+      ) : null}
     </section>
   );
 }

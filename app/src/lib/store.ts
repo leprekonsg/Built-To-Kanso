@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import type { TemplateId } from "./templates";
+export { FLOOR_TIERS, tierForFloor, type FloorTier } from "./floorTiers";
 
 // brief §6.1 — Stage 1 collects four inputs, nothing more.
 // Compass is the discrete 24-direction snap (every 15°).
@@ -104,40 +105,3 @@ export const COMPASS_LABELS_24 = [
   // we surface the 16-rose for clarity and keep 24 internal slots for snap.
   "N+", "NE+", "E+", "SE+", "S+", "SW+", "W+", "NW+",
 ] as const;
-
-// brief §6.1 — floor tier copy.
-export interface FloorTier {
-  range: [number, number];
-  name: string;
-  copy: string;
-}
-
-export const FLOOR_TIERS: FloorTier[] = [
-  {
-    range: [1, 3],
-    name: "Ground Stagnation",
-    copy: "You're on a low floor. Wind reaches you less often. Resonance Hours will be quiet here — that's not a bug, that's your floor.",
-  },
-  {
-    range: [4, 8],
-    name: "Transition",
-    copy: "Mid-low band. Mixed cross-ventilation depending on neighboring blocks.",
-  },
-  {
-    range: [9, 15],
-    name: "Golden Floors",
-    copy: "You're in the range Singaporean masters call the Golden Floors. Optimal natural ventilation here.",
-  },
-  {
-    range: [16, 50],
-    name: "Wind Turbulent",
-    copy: "High floor. Wind is strong but turbulent. Glow Scout will likely flag west-sun exposure first.",
-  },
-];
-
-export function tierForFloor(floor: number): FloorTier {
-  return (
-    FLOOR_TIERS.find(({ range: [lo, hi] }) => floor >= lo && floor <= hi) ??
-    FLOOR_TIERS[FLOOR_TIERS.length - 1]
-  );
-}

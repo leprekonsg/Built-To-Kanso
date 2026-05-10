@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { PlanGeometry } from "@/server/geometry/types";
 import { computeCrossVentCorridor } from "./corridor";
-import { floorToTier, tierMaxNotificationsPerWindow } from "./floorTier";
+import { defaultFrequencyTierForFloor, floorToTier, tierMaxNotificationsPerWindow } from "./floorTier";
 import {
   isSleepSuppressed,
   isSleepSuppressedFor,
@@ -12,20 +12,19 @@ import type { SleepWindowSettings } from "./subscriptions";
 import type { FrequencyTier, ResonanceEvaluation, WindReading } from "./types";
 
 // Brief Phase 1 §23 + 14.5 — Resonance Hours.
-// Three-tier frequency control. Comfort floor (0.25 m/s indoor) is shared so
-// that "Active" never overrides the calibrated honesty cap.
+// Three-tier frequency control from brief §14.2.
 export interface ResonanceThresholds {
   alignmentToleranceDeg: number;
   minOutdoorSpeedMps: number;
-  maxPredictedIndoorSpeedMps: number;
+  maxPredictedIndoorSpeedMps: number | null;
   cooldownHours: number;
 }
 
 export const RESONANCE_THRESHOLDS_BY_TIER: Record<FrequencyTier, ResonanceThresholds> = {
   calm: {
     alignmentToleranceDeg: 10,
-    minOutdoorSpeedMps: 1.9,
-    maxPredictedIndoorSpeedMps: 0.25,
+    minOutdoorSpeedMps: 1.6,
+    maxPredictedIndoorSpeedMps: 0.2,
     cooldownHours: 12,
   },
   standard: {
@@ -35,10 +34,10 @@ export const RESONANCE_THRESHOLDS_BY_TIER: Record<FrequencyTier, ResonanceThresh
     cooldownHours: 6,
   },
   active: {
-    alignmentToleranceDeg: 22,
-    minOutdoorSpeedMps: 1.3,
-    maxPredictedIndoorSpeedMps: 0.25,
-    cooldownHours: 3,
+    alignmentToleranceDeg: 20,
+    minOutdoorSpeedMps: 1.2,
+    maxPredictedIndoorSpeedMps: null,
+    cooldownHours: 4,
   },
 };
 
@@ -46,6 +45,7 @@ export const RESONANCE_THRESHOLDS_BY_TIER: Record<FrequencyTier, ResonanceThresh
 export const STANDARD_RESONANCE_THRESHOLDS = RESONANCE_THRESHOLDS_BY_TIER.standard;
 
 export const OPT_IN_GRACE_HOURS = 24;
+export const MIN_NOTIFICATION_SPACING_HOURS = 6;
 
 interface EvaluateResonanceInput {
   plan: PlanGeometry;
@@ -61,7 +61,7 @@ interface EvaluateResonanceInput {
 }
 
 export function evaluateResonance(input: EvaluateResonanceInput): ResonanceEvaluation {
-  const tier: FrequencyTier = input.tier ?? "standard";
+  const tier: FrequencyTier = input.tier ?? defaultFrequencyTierForFloor(input.floor);
   const thresholds = RESONANCE_THRESHOLDS_BY_TIER[tier];
 
   const corridor = computeCrossVentCorridor(input.plan);
@@ -82,7 +82,9 @@ export function evaluateResonance(input: EvaluateResonanceInput): ResonanceEvalu
   const strongEnough = input.wind.speedMps >= thresholds.minOutdoorSpeedMps;
   const predictedIndoorSpeedMps =
     input.predictedIndoorSpeedMps ?? estimatePredictedIndoorSpeedMps(input.wind.speedMps);
-  const indoorComfortable = predictedIndoorSpeedMps <= thresholds.maxPredictedIndoorSpeedMps;
+  const indoorComfortable =
+    thresholds.maxPredictedIndoorSpeedMps === null ||
+    predictedIndoorSpeedMps <= thresholds.maxPredictedIndoorSpeedMps;
   const resonating = aligned && strongEnough && indoorComfortable;
 
   // Stable id for the current alignment event. Two polls 60s apart that see the
@@ -162,7 +164,11 @@ export function evaluateResonance(input: EvaluateResonanceInput): ResonanceEvalu
     };
   }
 
-  const cooldownMs = thresholds.cooldownHours * 60 * 60 * 1000;
+  // Hard Rule #19 is stricter than the Active-tier table: even if Active's
+  // tier cooldown is 4h, the product must not notify more than once in any
+  // six-hour rolling window. Calm remains tighter at 12h.
+  const effectiveCooldownHours = Math.max(thresholds.cooldownHours, MIN_NOTIFICATION_SPACING_HOURS);
+  const cooldownMs = effectiveCooldownHours * 60 * 60 * 1000;
   const mostRecentNotificationMs = mostRecentPastNotificationMs(input, input.now.getTime());
   if (
     mostRecentNotificationMs !== null &&

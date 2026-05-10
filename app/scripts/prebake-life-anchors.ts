@@ -1,10 +1,10 @@
 /**
  * Build-time prebake for Three.js Life Sketch anchor renders (Brief Section
  * 15, item 3). Produces one anchor per template (3 total) and writes:
- *   - local: .cache/render/life-anchors/<templateId>/anchor.{png|svg}
+ *   - local: public/life-anchors/<templateId>/anchor.{png|svg}
  *
  * R2 is OUT of Phase 1 as of 2026-05-09. The runtime route reads the local
- * cache file directly; there is no remote upload.
+ * public cache file directly; there is no remote upload.
  *
  * This script intentionally avoids native GPU bindings (gl, headless-gl). The
  * portable strategy is to render the deterministic anchor SVG and rasterize

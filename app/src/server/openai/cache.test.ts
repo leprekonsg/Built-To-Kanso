@@ -22,11 +22,13 @@ describe("openai cache", () => {
     assert.match(a, /^[0-9a-f]{16}$/);
   });
 
-  it("keyFor differs by promptKind, image hashes, and seed", () => {
-    const base = keyFor("plan-sketch-style-transfer", { imageHashes: ["aa"], seed: "1" });
+  it("keyFor differs by promptKind, model, image hashes, and seed", () => {
+    const base = keyFor("plan-sketch-style-transfer", { imageHashes: ["aa"], model: "gpt-image-2", seed: "1" });
+    const otherModel = keyFor("plan-sketch-style-transfer", { imageHashes: ["aa"], model: "chatgpt-image-latest", seed: "1" });
     const otherKind = keyFor("life-sketch-from-anchor", { imageHashes: ["aa"], seed: "1" });
     const otherImage = keyFor("plan-sketch-style-transfer", { imageHashes: ["bb"], seed: "1" });
     const otherSeed = keyFor("plan-sketch-style-transfer", { imageHashes: ["aa"], seed: "2" });
+    assert.notEqual(base, otherModel);
     assert.notEqual(base, otherKind);
     assert.notEqual(base, otherImage);
     assert.notEqual(base, otherSeed);

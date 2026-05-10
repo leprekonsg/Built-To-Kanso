@@ -1,8 +1,8 @@
 // Content-addressable cache for OpenAI image renders.
 //
 // As of 2026-05-09 R2 is OUT of Phase 1. The runtime cache is a per-process
-// in-memory LRU keyed on a sha256-prefix hash of (promptKind, imageHashes,
-// seed). Prebake scripts may opt into the FileSketchCache for build-time
+// in-memory LRU keyed on a sha256-prefix hash of (promptKind, model,
+// imageHashes, seed). Prebake scripts may opt into the FileSketchCache for build-time
 // artifacts, but the route hot path uses memory only.
 //
 // Sketches are tier "prototype_visualisation" (evidence.ts). Cache hits are
@@ -12,6 +12,7 @@
 
 import { hashString } from "@/lib/imageHash";
 import type { ImagePromptKind } from "@/server/folio/prompts";
+import { getOpenAIImageModel, normalizeOpenAIImageModel } from "./client";
 import {
   DEFAULT_SKETCH_CACHE_DIR,
   DEFAULT_SKETCH_CACHE_MAX_ENTRIES,
@@ -25,12 +26,15 @@ import {
 
 export interface CacheKeyInputs {
   imageHashes?: string[];
+  model?: string;
   seed?: string;
 }
 
 export function keyFor(promptKind: ImagePromptKind, inputs: CacheKeyInputs): string {
+  const model = inputs.model ? normalizeOpenAIImageModel(inputs.model) : getOpenAIImageModel();
   const parts = [
     `kind=${promptKind}`,
+    `model=${model}`,
     `images=${(inputs.imageHashes ?? []).join(",")}`,
     `seed=${inputs.seed ?? ""}`,
   ];

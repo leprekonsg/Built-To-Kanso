@@ -1,14 +1,14 @@
-import type { FloorTier } from "./types";
+import type { FloorTier, FrequencyTier } from "./types";
 
-// Floor-tier matrix (brief Phase 1 §23):
+// Floor-tier matrix (brief §6.1 + §14.2):
 //   1-3   ground       silent (no notifications)
-//   4-7   transition   max 1 / 7 days
-//   8-22  golden       max 3 / 7 days
-//   23+   turbulent    max 1 / 3 days
+//   4-8   transition   max 1 / 7 days
+//   9-15  golden       max 3 / 7 days
+//   16+   turbulent    max 1 / 3 days
 export function floorToTier(floor: number): FloorTier {
   if (floor <= 3) return "ground";
-  if (floor <= 7) return "transition";
-  if (floor <= 22) return "golden";
+  if (floor <= 8) return "transition";
+  if (floor <= 15) return "golden";
   return "turbulent";
 }
 
@@ -25,4 +25,8 @@ export function tierMaxNotificationsPerWindow(
     case "turbulent":
       return { count: 1, windowDays: 3 };
   }
+}
+
+export function defaultFrequencyTierForFloor(floor: number): FrequencyTier {
+  return floorToTier(floor) === "turbulent" ? "calm" : "standard";
 }

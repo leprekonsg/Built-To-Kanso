@@ -9,7 +9,7 @@ Tests: `route.test.ts` next to each handler; `cache.test.ts` here.
 | --- | --- | --- | --- |
 | `OPENAI_API_KEY` | for live calls | none | Without it, routes emit deterministic fallbacks; PNG paths fall through to SVG. |
 | `OPENAI_ORG_ID` | optional | none | Sent as `OpenAI-Organization` header when set. |
-| `OPENAI_IMAGE_MODEL` | optional | `gpt-image-2-2026-04-21` | Override only for compatibility tests. |
+| `OPENAI_IMAGE_MODEL` | optional | `gpt-image-2` | Override only for compatibility tests. Common `ChatGPT Image 2.0` labels normalize to `gpt-image-2`. |
 | `OPENAI_TIMEOUT_MS` | optional | `25000` | AbortController timeout for every OpenAI call. |
 
 ## Cache env
@@ -23,10 +23,14 @@ in-memory LRU; `file` is supported only for prebake artifacts on disk.
 | `SKETCH_CACHE_DIR` | optional | `<cwd>/.cache/sketches` | Used when provider is `file`. |
 | `SKETCH_CACHE_MAX_ENTRIES` | optional | `64` | LRU cap for the in-memory cache. |
 | `SKETCH_CACHE_TTL_MS` | optional | `1800000` (30 min) | TTL on cached PNG bytes. |
+| `PLAN_SKETCH_CACHE_ROOT` | optional | `<cwd>/public` | Test/prebake override for local Plan Sketch PNG root. |
+| `LIFE_ANCHOR_CACHE_ROOT` | optional | `<cwd>/public` | Test/prebake override for local Life anchor PNG root. |
 
-Life anchors live separately at `<cwd>/.cache/render/life-anchors/<templateId>/anchor.png`
-(see `app/src/server/anchors/lifeAnchor.ts`). The runtime route reads the
-file directly; nothing remote is consulted.
+Plan Sketches and Life anchors live separately at
+`<cwd>/public/plan-sketches/<templateId>/plan.png` and
+`<cwd>/public/life-anchors/<templateId>/anchor.png`. The runtime routes read
+these files directly for the no-cloud demo path; nothing remote is consulted.
+Life Sketch image-edit materialization is opt-in via `?materialize=1`.
 
 ## Optional rasterizer
 

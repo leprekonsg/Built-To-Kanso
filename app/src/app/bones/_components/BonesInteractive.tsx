@@ -91,7 +91,7 @@ export default function BonesInteractive({
   children,
 }: BonesInteractiveProps) {
   const [placed, setPlaced] = useState<PlacedToken[]>([]);
-  // Designer controls hydrate from localStorage on mount via the effect below.
+  // Designer controls hydrate from sessionStorage on mount via the effect below.
   // Initial state stays at defaults so SSR and the first client paint match,
   // avoiding hydration mismatch warnings.
   const [designerControls, setDesignerControls] = useState<DesignerMaterialControls>(
@@ -117,7 +117,7 @@ export default function BonesInteractive({
     };
   }, [activeTrial]);
 
-  // Hydrate Designer controls from localStorage once on mount. ID firms tune
+  // Hydrate Designer controls from sessionStorage once on mount. ID firms tune
   // the studio once and expect their preset + slider positions to stick across
   // sessions. Hydration runs after first paint to avoid SSR mismatch.
   useEffect(() => {
@@ -182,7 +182,7 @@ export default function BonesInteractive({
             </ul>
           </section>
 
-          <section className={styles.panel}>
+          <section className={styles.panel} aria-label="Damp reading">
             <span className={styles.eyebrow}>Damp reading</span>
             {dampSummary ? (
               <div className={styles.dampCard}>
@@ -197,7 +197,10 @@ export default function BonesInteractive({
                   aria-hidden
                 />
                 <div>
-                  <strong>{formatRoom(dampSummary.worst.roomId)}</strong>
+                  <span className={styles.dampHead}>
+                    <strong>{formatRoom(dampSummary.worst.roomId)}</strong>
+                    <span className={styles.dampTier}>{formatTier(dampSummary.worst.tier)}</span>
+                  </span>
                   <p>
                     {formatDampBand(dampSummary.worst.band)} Damp Risk. {dampSummary.worst.recommendation}
                   </p>
@@ -296,7 +299,10 @@ export default function BonesInteractive({
         <div className={styles.checkGrid}>
           {calmChecks.map((check) => (
             <article key={check.name} className={styles.checkPanel}>
-              <span className={styles.checkName}>{check.name}</span>
+              <span className={styles.checkHead}>
+                <span className={styles.checkName}>{check.name}</span>
+                <span className={styles.checkTier}>{formatTier(check.tier)}</span>
+              </span>
               <p>{check.copy}</p>
             </article>
           ))}
@@ -428,14 +434,17 @@ function buildCalmChecks(
   return [
     {
       name: "Glow",
+      tier: glow.tier,
       copy: mode === "designer" ? glow.designerSummary : glow.culturalSummary,
     },
     {
       name: "Quiet",
+      tier: quiet.tier,
       copy: quietCopy,
     },
     {
       name: "Damp",
+      tier: "heuristic_estimate" as const,
       copy:
         dampBand === "high"
           ? "High band receives one paired action: Shaft Buffer, bed move, or exhaust timer."

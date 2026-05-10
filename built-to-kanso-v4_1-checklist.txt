@@ -1,0 +1,168 @@
+Built-To-Kanso v4.1 Implementation Checklist
+Source: built-to-kanso-product-brief-v4_1.md
+Last checked: 2026-05-10
+
+Legend
+[x] Complete in repo and typechecked
+[~] Partial, scaffolded, or not fully verified
+[ ] Not done or no evidence found
+
+Notes
+- "Complete" means implementation evidence exists in the repo and `npm.cmd run typecheck` passed from app/.
+- Human validation gates remain incomplete until tester evidence is recorded.
+- Operational secrets and credentials are intentionally not checked into the repo.
+- Demo decision on 2026-05-09: R2 and VAPID are not required for the demo path; local/prebaked assets and in-app Resonance are the honest fallback.
+- Demo-critical checks may use deterministic local fixtures; external/human gates stay partial until real evidence is recorded.
+- `/api/validation/phase1-readiness` is the aggregate audit surface: GET separates `complete` full-readiness blockers from `demoReady` waiver-safe blockers; POST accepts Phase 0 evidence by gate id and re-evaluates both.
+- Current local runtime audit on 2026-05-10: `app/.env.local` contains OPENAI_API_KEY and NEA_API_KEY variable names; values were not printed or committed. Full completion still requires Phase 0 evidence plus non-secret OpenAI Tier 2 confirmation.
+- Existing `phase1-demo/` media proves the demo walkthrough only; it does not replace Phase 0 tester outcomes, Redmi device benchmarks, live GPT edit preservation review, or historical wind evidence.
+
+Phase 0 - Validation Gates
+[~] Empty Room test: five local hero PNGs serve without OpenAI and sealed cues enforce >=2 morning east scenes, >=1 evening west-amber scene, and no high-noon south-dominant scenes; `/api/validation/phase0-gates` enforces 20 render reviews, >=12 beautiful outcomes, and the tropical-light constraints when subjective evidence exists.
+[~] Anchor-driven Life Sketch validation: local/prebaked anchors exist for all three templates and automated manifest checks preserve room/opening/fixed-element IDs plus pipeshaft anchors; `/api/validation/phase0-gates` enforces all-template GPT Image 2 evidence for room-count, wall-topology, and HDB-signature preservation when live edit review exists.
+[~] WebGPU benchmark suite: Tier 1 WebGPU adapter and dispatch are unit-tested; Tier 4 local lookup is benchmarked under 200ms across all Phase 1 templates/weather trials; `/api/validation/phase0-gates` enforces live Redmi Note 13 >=30fps evidence plus Tier 4 lookup samples under 200ms.
+[~] Live Studio comprehension test: e2e verifies source copy plus curtain, leaf, kitchen-shadow, material, and slider responses; `/api/validation/phase0-gates` enforces 8-of-10 first-time viewers identifying wind within 5 seconds when tester results exist.
+[~] Magic-in-90-seconds gate: e2e verifies token placement changes airflow-adjacent state, Damp Risk, Kanso Reserve, and House Changelog; `/api/validation/phase0-gates` enforces 8-of-10 testers understanding "place token -> see air move" within 30 seconds when tester results exist.
+[~] Behavioral overconfidence gate: UI/methodology copy surfaces prototype, not-diagnosis, and not-certification language and visible "Drop to commit" copy was removed; `/api/validation/phase0-gates` enforces 8-of-10 discussion-oriented tester language outcomes with no commitment language when tester results exist.
+[x] Template architectural verification gate: automated test verifies every Phase 1 template supports kitchen shadow and Shaft Buffer mechanics.
+[~] Resonance plausibility gate: deterministic one-month simulated NEA-style fixture passes across all Phase 1 templates at 1x/week to 4x/week; `/api/validation/phase0-gates` enforces historical wind-record evidence when it exists.
+[~] Material System slider gate: e2e verifies Barely Seen -> Clearly Seen changes aria text, opacity, streamline width, and scene response; `/api/validation/phase0-gates` enforces 8-of-10 unprompted articulation outcomes when tester results exist.
+
+Phase 0.5 - Post-Deployment Kill Signals
+[x] Damp Risk health-diagnosis drift monitor: deterministic feedback classifier trips when >1 in 5 users describe Damp as measurement/diagnosis; `/api/validation/kill-signals` accepts user-study or production-feedback batches and returns mandatory next actions.
+[x] Cultural-mode fortune-telling drift monitor: deterministic feedback classifier trips on luck/prosperity interpretation; `/api/validation/kill-signals` accepts user-study or production-feedback batches and returns mandatory next actions.
+[x] Visual layer overpowering trust layer monitor: deterministic feedback classifier trips when users remember renders but not Black-state/bathroom-downwind protection; `/api/validation/kill-signals` accepts user-study or production-feedback batches and returns mandatory next actions.
+
+Phase 1 - Hackathon Build
+[x] 0. Environmental Material System scaffolding: adapter, material kinds, slider, presets, Designer controls, and visual overlays are wired.
+[x] 1. Pre-bake Empty Room hero rotation: five local prebaked hero PNGs exist in app/public/hero.
+[x] 2. Pure JSX SVG floor plan editor: three curated HDB templates, four-state confidence UI, pipeshafts, bathrooms, west-sun exposure, opening area.
+[x] 3. Three.js orthographic anchor renders: three local prebaked PNG anchors exist in app/public/life-anchors.
+[x] 4. WebGPU 2D LBM solver + Tier 4 safety net: Tier 1 WebGPU adapter dispatch path exists; server/demo fallback is explicit Tier 4 prebaked local lookup.
+[x] 5. Live Studio Visualization: ribbon, dust, curtain, leaf, kitchen shadow, glow wash, quiet ripple, and source copy are wired.
+[x] 6. SVG streamline rendering for Wind Sketch composer: deterministic Wind Sketch route exists.
+[x] 7. Six-token placement demo: Wind Gate, Soft Screen, Wood Anchor, Solar Shield, Fan Anchor, Shaft Buffer.
+[x] 8. Scout Pass + Three Asking Points: capped asking points with calm Breath/Glow/Quiet/Damp surfacing.
+[x] 9. Ghost Futures: previews Breath delta and Damp delta before token drop.
+[x] 10. House Changelog + Golden Failure: receipt and Black-state refusal paths exist.
+[x] 11. Kanso Reserve metric: implemented with "useful objects don't count" guardrail copy.
+[x] 12. Anti-Cure recommendations: implemented.
+[x] 13. Glow material preset: solar/west-sun rules render a tinted material wash through the Live Studio material layer.
+[x] 14. Plan Sketch generation: GPT Image 2 route/generator exists; demo path serves local prebaked Plan Sketch PNGs without OpenAI/R2.
+[x] 15. Life Sketch generation: image-edit route/generator exists; demo path serves all three local prebaked PNG anchors unless materialize=1 is requested.
+[x] 16. Wind Sketch composition layer: deterministic sumi_ink composition exists and keeps streamlines in SVG.
+[x] 17. Quiet material preset: RT60/traffic rules render a damped-ripple material.
+[x] 18. Damp dimension on MingTang Index: Clear/Watch/High bands, paired actions, and disclaimer exist; RH numerics are not surfaced.
+[x] 19. Bathroom-downwind rule: per-bedroom rule-engine check exists.
+[x] 20. 12% opening-area badge: binary badge logic exists and modulates Wind Gate/Fan Anchor surfacing.
+[x] 21. Floor level + Golden Floors onboarding: floor slider and tier copy exist.
+[x] 22. Weather Trial demo flourish: UI and simulation API use the brief's three Phase 1 stress conditions: West Sun 17:20, Highway Night, NE Monsoon Wind.
+[x] 23. Resonance Hours system: in-app loop, NEA/mock connector, detector, routes, service worker, web-push readiness, brief-matched floor tiers, hard-rule six-hour notification floor, sleep suppression, and one-month simulated plausibility check exist; push is explicitly disabled until VAPID is configured.
+[x] 24. Three Voices Phase 1 subset: Cultural and Designer modes exist; Cultural defaults.
+[x] 25. Methodology page: evidence ladder, cultural framing, Nanyang positioning, etymology disclosure, audit gap, and hard rules are surfaced.
+
+Phase 1 Operational Prerequisites
+[~] Tier 2 OpenAI API access: external account state, not verifiable from repo; `/api/validation/operational-preflight` and `/api/validation/phase1-readiness` accept non-secret account evidence.
+[x] OPENAI_API_KEY configured for sketch generation/prebake: present in local runtime on 2026-05-10; intentionally not committed; `/api/validation/operational-preflight` reports ready without exposing the key.
+[x] R2 cache posture: waived for demo; runtime rejects R2, uses local/prebaked assets, and `/api/validation/operational-preflight` reports the cache posture.
+[x] NEA dev API key registered/configured: present in local runtime on 2026-05-10; connector supports NEA_API_KEY; `/api/validation/operational-preflight` reports ready without exposing the key.
+[x] VAPID/Web Push demo posture: VAPID is waived for demo; UI surfaces "push disabled" when push sender is unavailable, Resonance stays in-app, and `/api/validation/operational-preflight` reports push as waived unless a valid keypair is active.
+[x] Web Push dependency: `web-push` is installed and dispatch reports actionable readiness for missing or invalid VAPID keys.
+
+Completion Evidence Payloads
+- Fillable template: `phase1-readiness-evidence.template.json`. It is intentionally non-passing until real evidence values replace the empty arrays and false flags.
+- POST `/api/validation/phase1-readiness` with `{ "phase0Evidence": { ... }, "operationalEvidence": { ... } }`.
+- Server validation path: start the app, then POST the evidence JSON to `/api/validation/phase1-readiness`; completion requires response field `"complete": true`.
+- Local validation path: use `buildPhase1ReadinessReport(process.env, phase0Evidence, operationalEvidence)` from `app/src/server/validation/phase1Readiness.ts`; completion requires `complete === true` and empty `blockers`.
+- Command validation path: from `app/`, run `npm.cmd run validate:phase1 -- ..\phase1-readiness-evidence.template.json`; replace the template path with the real filled evidence file.
+- `empty_room_beauty.renderOutcomes`: 20 entries; >=12 `beautiful`, >=2 `morningEastLight`, >=1 `eveningWestAmber`, 0 `highNoonSouthDominant`.
+- `life_sketch_preservation.templateOutcomes`: one entry each for `resale-exec-1990s`, `tampines-greenweave`, `tengah-5room`; all preserve room counts, wall topology, HDB signatures.
+- `webgpu_redmi_benchmark`: `device` must be Redmi Note 13; median `fpsSamples` >=30; each template needs `tier4LookupSamples.lookupMs` values below 200.
+- `live_studio_comprehension.testerOutcomes`: 10 entries; >=8 identify wind within 5 seconds.
+- `magic_90_seconds.testerOutcomes`: 10 entries; >=8 understand token-to-air causality within 30 seconds.
+- `behavioral_overconfidence.testerOutcomes`: 10 entries; >=8 discussion-oriented and no commitment language.
+- `resonance_historical_wind.templateWeeks`: four weekly fire counts per Phase 1 template; every count 1..4.
+- `material_slider_comprehension.testerOutcomes`: 10 entries; >=8 articulate the slider change without prompting.
+- `operationalEvidence.openaiTier2Account`: `{ "verified": true, "verifiedAtIso": "..." }`; never include API keys in the payload.
+
+Current Readiness Snapshot
+- `repoImplementationComplete`: true.
+- Phase 1 implementation: 26/26 complete.
+- `demoReady`: true; `demoBlockers`: none.
+- Full `complete`: false.
+- Phase 0: 1/9 complete. Pending: `empty_room_beauty`, `life_sketch_preservation`, `webgpu_redmi_benchmark`, `live_studio_comprehension`, `magic_90_seconds`, `behavioral_overconfidence`, `resonance_historical_wind`, `material_slider_comprehension`.
+- Operational pending: `openai_tier2_account` non-secret confirmation.
+
+Latest Verification Run
+- `npm.cmd run typecheck`: passed.
+- `npm.cmd run lint`: passed.
+- `npm.cmd run build`: passed.
+- `npm.cmd run validate:phase1 -- ..\phase1-readiness-evidence.template.json`: fails as intended because the template is empty and non-passing.
+- Temporary synthetic passing evidence was validated with `complete: true`, then removed; it is not project evidence.
+
+Phase 2 - Private Alpha
+[~] Plan Upload path: Phase 2 stub exists in Threshold; no upload/parser flow.
+[ ] 8-stage hybrid parsing pipeline.
+[ ] Remaining five tokens: Fire Glow, Stillness Seat, Earth Hold, Water Quiet, Metal Clarity.
+[ ] Solid-Back placement constraint: bed token with 60cm clearance and head against interior wall.
+[ ] Mingtang Screen variant on Soft Screen.
+[ ] Elder mode: Mandarin/classical vocabulary with Noto Serif SC.
+[ ] Science mode: rationalist airflow/daylight/ergonomics/circadian register.
+[ ] Walkable MingTang.
+[ ] Spark 2.0 splat hero vignettes.
+[ ] Meshy 6 hero furniture.
+[ ] Additional environmental response elements.
+[ ] Tier 2 WebGL2 fragment-shader LBM.
+[ ] Phase 2 materials: humid_air, monsoon_glow, clutter_pressure.
+[ ] Monsoon Turn.
+[ ] Wind Diary.
+[ ] Shelter MingTang dimension.
+[ ] Hold MingTang dimension.
+[ ] Life MingTang dimension.
+
+Phase 2 - Photographic Prepass / YOLO
+[ ] Photographic Prepass UI flow: opt-in photo upload after Stage 5.5 and before sketches.
+[ ] YOLO26 on-device detection model: detect existing furniture and occupied zones from user photos.
+[ ] On-device/private inference path: no unnecessary photo persistence or upload.
+[ ] Detection-to-token suppression: mark "this is taken" and suppress redundant token suggestions.
+[ ] Kanso Reserve adjustment from detected occupied areas.
+[ ] Privacy consent and deletion copy.
+[ ] Hard boundary enforcement: YOLO output never alters walls, doors, service yards, plan geometry, wind solve, Damp Risk logic, or compliance truth.
+
+Phase 3+ / Post-Launch
+[ ] Anti-Cure recommendations elevated beyond current Phase 1 implementation.
+[ ] Threshold Note generator.
+[ ] Temporal Compass.
+[ ] Calligraphy Whisper.
+[ ] Anniversary Breath year-one Resonance retrospective.
+[ ] NEA 2-hour forecast for "almost time" notifications.
+[ ] Civic moat: Wind Memory archive.
+[ ] Civic moat: Inheritance Mode.
+[ ] Civic moat: Block Resonance public view.
+[ ] Civic moat: apartment-scale CFD validation paper with NUS/SUTD pathway.
+
+Hard Rule Audit
+[x] Streamlines never pass through GPT Image 2: current Wind Sketch route is deterministic SVG.
+[x] Three.js is reference only: anchor code uses Three.js reference PNGs; compliance truth remains plan-geometry.json.
+[x] Black state hard-blocked, with Shaft Buffer exception for buffer-eligible pipeshaft.
+[x] Kanso Reserve includes useful-object guardrail.
+[x] Brand v3 visual law: tokens/colors are present; local hero and anchor assets exist.
+[x] Annotations are SVG overlays.
+[~] Quality gate on shared renders: deterministic Plan/Life/Wind SVG draft outputs carry a visible "DRAFT · PROTOTYPE VISUALISATION" watermark; /api/validation/render-assets audits committed local/prebaked PNG signatures, dimensions, byte floors, and aspect bands; final visual review remains external.
+[x] No professional certification claim found in implemented methodology surfaces.
+[x] Template plans are surfaced as design exploration only; contractor-facing work still requires official HDB plans, site measurement, or professional verification.
+[x] Streamlines respect deterministic plan geometry route.
+[x] Cultural mode default; Designer opt-in.
+[x] Plan Upload not shipped in Phase 1.
+[x] Tier 1 + Tier 4 LBM ship together: Tier 1 WebGPU adapter exists; Tier 4 local prebaked fallback is surfaced honestly.
+[x] Live Studio vs Wind Sketch kept separate: Live Studio and Wind Sketch use separate paths and material presentations.
+[x] Clean-air particles amber, pipeshaft particles gray in simulation material defaults/UI.
+[x] Cosmological labels treated as cultural framing, not physical prediction, in methodology.
+[x] Plant-air-purification claims avoided in token framing.
+[x] Resonance sleep suppression and cooldown logic exist.
+[x] Shikaku hidden diagnostic spine: surfaced as Scout Pass/Asking Points, not scanner UI.
+[x] Scout Pass caps Asking Points at three.
+[x] Golden Failure exists for HDB Black-state blocks.
+[x] Environmental Material System is rendering substrate: material adapter, presets, overlays, Live Studio, and Wind Sketch share the field/material architecture.
+[x] Damp Risk homeowner surfaces are bands with recommended actions, disclaimer, and visible evidence tier on the Damp panel plus Glow/Quiet/Damp check panels.
+[x] Floor level required in onboarding flow; Resonance defaults derive from the brief's floor bands.

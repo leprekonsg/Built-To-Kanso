@@ -175,4 +175,12 @@ describe("Wind Sketch sumi-e brush filters", () => {
     assert.match(svg, /mix-blend-mode: multiply/);
     assert.match(svg, /#EFE9DC/);
   });
+
+  it("adds a draft prototype watermark after deterministic composition", () => {
+    const field = baseField();
+    const svg = renderWindSketchSvg(getPlanGeometry(field.templateId), field);
+
+    assert.match(svg, /data-render-watermark="draft"/);
+    assert.match(svg, /DRAFT · PROTOTYPE VISUALISATION/);
+  });
 });

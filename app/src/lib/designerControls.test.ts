@@ -38,7 +38,7 @@ describe("designerControls", () => {
 
   beforeEach(() => {
     originalWindow = (globalThis as Record<string, unknown>).window;
-    (globalThis as Record<string, unknown>).window = { localStorage: createMockStorage() };
+    (globalThis as Record<string, unknown>).window = { sessionStorage: createMockStorage() };
   });
 
   afterEach(() => {
@@ -114,7 +114,7 @@ describe("designerControls", () => {
   });
 
   it("recovers from corrupt JSON without throwing", () => {
-    const storage = (globalThis as unknown as { window: { localStorage: MockStorage } }).window.localStorage;
+    const storage = (globalThis as unknown as { window: { sessionStorage: MockStorage } }).window.sessionStorage;
     storage.store.set(DESIGNER_CONTROLS_STORAGE_KEY, "{not json");
     assert.equal(readPersistedDesignerControls(), null);
   });

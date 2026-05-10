@@ -96,6 +96,12 @@ function roomFill(confidence: string): string {
   return COLORS.card;
 }
 
+function renderDraftWatermark(width: number, height: number): string {
+  return `<g data-render-watermark="draft" font-family="JetBrains Mono, ui-monospace, monospace" font-size="24" letter-spacing="3" fill="${COLORS.mute}" opacity="0.58">
+  <text x="${(width - 64).toFixed(1)}" y="${(height - 34).toFixed(1)}" text-anchor="end">DRAFT · PROTOTYPE VISUALISATION</text>
+</g>`;
+}
+
 function fixedStroke(element: FixedElementGeometry): string {
   if (element.kind === "pipeshaft_opening") return COLORS.terracotta;
   return COLORS.black;
@@ -247,6 +253,7 @@ export function renderPlanSketchFallbackSvg(plan: PlanGeometry): string {
   ${renderOpenings(plan, scale, margin)}
   ${fixed}
   <text x="${margin}" y="${footerY}" font-family="JetBrains Mono, ui-monospace, monospace" font-size="18" letter-spacing="2" fill="${COLORS.mute}">PLAN SKETCH FALLBACK · ${escapeSvg(plan.templateId)}</text>
+  ${renderDraftWatermark(width, height)}
 </g>
 </svg>`;
 }
@@ -283,6 +290,7 @@ export function renderLifeAnchorFallbackSvg(plan: PlanGeometry): string {
   ${renderOpenings(plan, scale, margin)}
   <circle cx="${(margin + plan.pipeshaft.openingPoint.x * scale).toFixed(1)}" cy="${(margin + plan.pipeshaft.openingPoint.y * scale).toFixed(1)}" r="11" fill="${COLORS.terracotta}" />
   <text x="${margin}" y="${footerY}" font-family="JetBrains Mono, ui-monospace, monospace" font-size="18" letter-spacing="2" fill="${COLORS.mute}">LIFE SKETCH ANCHOR FALLBACK · ${escapeSvg(plan.templateId)}</text>
+  ${renderDraftWatermark(width, height)}
 </g>
 </svg>`;
 }
@@ -368,6 +376,7 @@ export function renderWindSketchSvg(plan: PlanGeometry, field: Tier4SimulationFi
     ${inkBleeds ? `<g data-layer="ink-bleed-crossings">${inkBleeds}</g>` : ""}
   </g>
   <text x="${margin}" y="${footerY}" font-family="JetBrains Mono, ui-monospace, monospace" font-size="18" letter-spacing="2" fill="${COLORS.mute}">WIND SKETCH · ${escapeSvg(plan.templateId)} · ${escapeSvg(field.source.kind)}</text>
+  ${renderDraftWatermark(width, height)}
 </g>
 </svg>`;
 }

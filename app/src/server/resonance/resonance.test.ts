@@ -6,7 +6,13 @@ import {
   isSleepSuppressedFor,
   nextWakeAfterFor,
 } from "./sleepSuppress";
-import { evaluateResonance, OPT_IN_GRACE_HOURS } from "./resonance";
+import { defaultFrequencyTierForFloor, floorToTier } from "./floorTier";
+import {
+  evaluateResonance,
+  MIN_NOTIFICATION_SPACING_HOURS,
+  OPT_IN_GRACE_HOURS,
+  RESONANCE_THRESHOLDS_BY_TIER,
+} from "./resonance";
 import type { WindReading } from "./types";
 
 function makeOpening(
@@ -277,6 +283,21 @@ describe("frequency tier thresholds", () => {
     assert.equal(calmRejects.reason, "wind_not_aligned");
   });
 
+  it("Calm uses the brief's 0.20 m/s predicted-indoor cap", () => {
+    const result = evaluateResonance({
+      plan: nsPlan(),
+      floor: 12,
+      lastNotifiedAtIso: null,
+      recentNotificationsIso: [],
+      now: AWAKE_NOW,
+      wind: wind(180, 2.0),
+      predictedIndoorSpeedMps: 0.21,
+      tier: "calm",
+    });
+    assert.equal(result.shouldNotify, false);
+    assert.equal(result.reason, "indoor_draft_too_strong");
+  });
+
   it("Active accepts what Standard rejects (speed 1.4 m/s)", () => {
     const standardRejects = evaluateResonance({
       plan: nsPlan(),
@@ -302,6 +323,21 @@ describe("frequency tier thresholds", () => {
     assert.equal(activeOk.shouldNotify, true);
   });
 
+  it("Active uses the brief's 1.2 m/s floor and no predicted-indoor cap", () => {
+    const result = evaluateResonance({
+      plan: nsPlan(),
+      floor: 12,
+      lastNotifiedAtIso: null,
+      recentNotificationsIso: [],
+      now: AWAKE_NOW,
+      wind: wind(200, 1.2), // 20deg off corridor, exactly Active's edge.
+      predictedIndoorSpeedMps: 0.8,
+      tier: "active",
+    });
+    assert.equal(result.shouldNotify, true);
+    assert.equal(result.reason, "resonating");
+  });
+
   it("Calm uses a 12h cooldown", () => {
     // 8h after the last ping — Standard would fire, Calm should still hold.
     const result = evaluateResonance({
@@ -315,6 +351,53 @@ describe("frequency tier thresholds", () => {
     });
     assert.equal(result.shouldNotify, false);
     assert.equal(result.reason, "cooldown_active");
+  });
+
+  it("exposes the brief's Active 4h tier value but enforces the hard-rule 6h notification floor", () => {
+    assert.equal(RESONANCE_THRESHOLDS_BY_TIER.active.cooldownHours, 4);
+    assert.equal(MIN_NOTIFICATION_SPACING_HOURS, 6);
+
+    const result = evaluateResonance({
+      plan: nsPlan(),
+      floor: 12,
+      lastNotifiedAtIso: "2026-05-09T01:00:00Z",
+      recentNotificationsIso: ["2026-05-09T01:00:00Z"],
+      now: AWAKE_NOW,
+      wind: wind(180, 2.0),
+      tier: "active",
+    });
+    assert.equal(result.shouldNotify, false);
+    assert.equal(result.reason, "cooldown_active");
+    assert.equal(result.nextEligibleAt, "2026-05-09T07:00:00.000Z");
+  });
+});
+
+describe("floor tier bands", () => {
+  it("matches the brief's 1-3, 4-8, 9-15, 16+ floor bands", () => {
+    assert.equal(floorToTier(3), "ground");
+    assert.equal(floorToTier(4), "transition");
+    assert.equal(floorToTier(8), "transition");
+    assert.equal(floorToTier(9), "golden");
+    assert.equal(floorToTier(15), "golden");
+    assert.equal(floorToTier(16), "turbulent");
+  });
+
+  it("defaults turbulent floors to Calm frequency and other floors to Standard", () => {
+    assert.equal(defaultFrequencyTierForFloor(15), "standard");
+    assert.equal(defaultFrequencyTierForFloor(16), "calm");
+  });
+
+  it("uses the floor-band default when no frequency tier is supplied", () => {
+    const result = evaluateResonance({
+      plan: nsPlan(),
+      floor: 16,
+      lastNotifiedAtIso: null,
+      recentNotificationsIso: [],
+      now: AWAKE_NOW,
+      wind: wind(193, 1.7), // Standard accepts 13deg; Calm rejects it.
+    });
+    assert.equal(result.shouldNotify, false);
+    assert.equal(result.reason, "wind_not_aligned");
   });
 });
 

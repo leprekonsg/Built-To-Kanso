@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
-import { HERO_ROTATION_COUNT } from "@/server/openai/sketches";
+import {
+  EMPTY_ROOM_HERO_VARIANT_CUES,
+  HERO_ROTATION_COUNT,
+} from "@/server/openai/sketches";
 import { GET } from "./route";
 
 describe("Empty Room hero route", () => {
@@ -17,5 +20,22 @@ describe("Empty Room hero route", () => {
       assert.equal(response.headers.get("x-from-cache"), "prebake");
       assert.equal(bytes.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
     }
+  });
+
+  it("keeps the sealed rotation cues inside the Phase 0 tropical-light constraint", () => {
+    const cues = EMPTY_ROOM_HERO_VARIANT_CUES.map((cue) => cue.toLowerCase());
+
+    assert.ok(
+      cues.filter((cue) => cue.includes("morning") && cue.includes("east")).length >= 2,
+      "Empty Room rotation needs at least two morning east-light scenes.",
+    );
+    assert.ok(
+      cues.some((cue) => cue.includes("evening") && cue.includes("west-amber")),
+      "Empty Room rotation needs at least one evening west-amber scene.",
+    );
+    assert.ok(
+      cues.every((cue) => !cue.includes("high-noon") && !cue.includes("high noon") && !cue.includes("south-dominant")),
+      "Empty Room rotation must not include high-noon south-dominant scenes.",
+    );
   });
 });

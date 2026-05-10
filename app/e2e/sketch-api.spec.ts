@@ -14,11 +14,13 @@ test.describe("Sketch route fallbacks", () => {
     const svg = await response.text();
     expect(svg).toContain("<svg");
     expect(svg).toContain("Plan Sketch fallback");
+    expect(svg).toContain('data-render-watermark="draft"');
+    expect(svg).toContain("DRAFT · PROTOTYPE VISUALISATION");
     expect(svg).toContain("Master Bedroom");
     expect(svg).not.toContain("streamline");
   });
 
-  test("returns actionable JSON for Plan Sketch fallback when JSON is requested", async ({ request }) => {
+  test("uses local prebaked Plan Sketch asset when JSON is requested", async ({ request }) => {
     const response = await request.post("/api/sketches/plan", {
       data: { templateId: "resale-exec-1990s" },
       headers: { accept: "application/json" },
@@ -26,15 +28,30 @@ test.describe("Sketch route fallbacks", () => {
 
     expect(response.status()).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      fallback: true,
-      contentType: "image/svg+xml",
-      reason: "png_or_openai_unavailable",
-      nextAction: expect.stringContaining("Request image/svg+xml"),
+      fallback: false,
+      contentType: "image/png",
+      source: "local-prebaked",
+      cachePath: "plan-sketches/resale-exec-1990s/plan.png",
       tier: "prototype_visualisation",
     });
   });
 
-  test("serves deterministic Life Sketch anchor fallback when anchor PNG is missing", async ({ request }) => {
+  test("serves local prebaked Plan Sketch PNG for every Phase 1 template", async ({ request }) => {
+    for (const templateId of ["tampines-greenweave", "tengah-5room", "resale-exec-1990s"]) {
+      const response = await request.post("/api/sketches/plan", {
+        data: { templateId },
+      });
+
+      expect(response.status()).toBe(200);
+      expect(response.headers()["content-type"]).toContain("image/png");
+      expect(response.headers()["x-sketch-source"]).toBe("local-prebaked");
+      expect(response.headers()["x-plan-sketch-cache-path"]).toBe(`plan-sketches/${templateId}/plan.png`);
+      const bytes = Buffer.from(await response.body());
+      expect(bytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+    }
+  });
+
+  test("serves deterministic Life Sketch anchor SVG when explicitly requested", async ({ request }) => {
     const response = await request.post("/api/sketches/life", {
       data: { templateId: "resale-exec-1990s" },
       headers: { accept: "image/svg+xml" },
@@ -49,10 +66,12 @@ test.describe("Sketch route fallbacks", () => {
     const svg = await response.text();
     expect(svg).toContain("<svg");
     expect(svg).toContain("Life Sketch anchor fallback");
+    expect(svg).toContain('data-render-watermark="draft"');
+    expect(svg).toContain("DRAFT · PROTOTYPE VISUALISATION");
     expect(svg).toContain("Household Shelter");
   });
 
-  test("returns actionable JSON for Life Sketch fallback when anchor PNG is missing", async ({ request }) => {
+  test("uses local prebaked Life Sketch anchor when OpenAI is unavailable", async ({ request }) => {
     const response = await request.post("/api/sketches/life", {
       data: { templateId: "resale-exec-1990s" },
       headers: { accept: "application/json" },
@@ -61,15 +80,31 @@ test.describe("Sketch route fallbacks", () => {
     expect(response.status()).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       fallback: true,
-      contentType: "image/svg+xml",
-      reason: "anchor_png_missing",
-      nextAction: expect.stringContaining("anchorPng"),
+      contentType: "image/png",
+      reason: "local_prebaked_anchor",
+      nextAction: expect.any(String),
       tier: "prototype_visualisation",
+      source: "local-prebaked-anchor",
       anchor: {
-        source: "deterministic-svg",
+        source: "cache-png",
         cachePath: "life-anchors/resale-exec-1990s/anchor.png",
       },
     });
+  });
+
+  test("serves local prebaked Life anchor PNG for every Phase 1 template when materialization is unavailable", async ({ request }) => {
+    for (const templateId of ["tampines-greenweave", "tengah-5room", "resale-exec-1990s"]) {
+      const response = await request.post("/api/sketches/life", {
+        data: { templateId },
+      });
+
+      expect(response.status()).toBe(200);
+      expect(response.headers()["content-type"]).toContain("image/png");
+      expect(response.headers()["x-sketch-source"]).toBe("local-prebaked-anchor");
+      expect(response.headers()["x-life-anchor-cache-path"]).toBe(`life-anchors/${templateId}/anchor.png`);
+      const bytes = Buffer.from(await response.body());
+      expect(bytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+    }
   });
 
   test("serves final deterministic Wind Sketch composition with streamlines kept in SVG", async ({ request }) => {
@@ -93,6 +128,8 @@ test.describe("Sketch route fallbacks", () => {
     expect(firstSvg).toBe(secondSvg);
     expect(firstSvg).toContain("Wind Sketch");
     expect(firstSvg).toContain('data-layer="deterministic-streamlines"');
+    expect(firstSvg).toContain('data-render-watermark="draft"');
+    expect(firstSvg).toContain("DRAFT · PROTOTYPE VISUALISATION");
     expect(firstSvg).toContain("data-streamline-id=");
     expect(firstSvg).not.toContain("GPT");
   });

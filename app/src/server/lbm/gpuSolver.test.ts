@@ -114,12 +114,13 @@ function buildRichGpuMock(N: number): {
 }
 
 describe("GpuLbmSolver adapter", () => {
-  it("reports an implemented live adapter with CPU fallback available", () => {
+  it("reports an implemented live adapter with prebaked fallback available", () => {
     const capability = getLbmComputeCapability();
 
     assert.equal(capability.webGpuImplemented, true);
-    assert.equal(capability.cpuReferenceAvailable, true);
+    assert.equal(capability.prebakedFallbackAvailable, true);
     assert.doesNotMatch(capability.reason, /not implemented|scaffold/i);
+    assert.doesNotMatch(capability.reason, /CPU reference/i);
   });
 
   it("initializes against a browser WebGPU adapter and returns a live field", async () => {

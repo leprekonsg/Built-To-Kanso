@@ -235,8 +235,10 @@ export async function dispatchScheduledResonancePush(
   };
 }
 
-export async function getDefaultPushSenderStatus(): Promise<PushSenderStatus> {
-  const sender = await createDefaultPushSender();
+export async function getDefaultPushSenderStatus(
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<PushSenderStatus> {
+  const sender = await createDefaultPushSender(env);
   return sender.status;
 }
 
@@ -276,9 +278,11 @@ function noCorridorEvaluation(): ResonanceEvaluation {
   };
 }
 
-async function createDefaultPushSender(): Promise<PushSender> {
-  const publicKey = process.env.VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
+async function createDefaultPushSender(
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<PushSender> {
+  const publicKey = env.VAPID_PUBLIC_KEY;
+  const privateKey = env.VAPID_PRIVATE_KEY;
 
   if (!publicKey || !privateKey) {
     const missing = [
@@ -305,7 +309,7 @@ async function createDefaultPushSender(): Promise<PushSender> {
 
   try {
     webPush.setVapidDetails(
-      process.env.VAPID_SUBJECT ?? "mailto:hello@built-to-kanso.local",
+      env.VAPID_SUBJECT ?? "mailto:hello@built-to-kanso.local",
       publicKey,
       privateKey,
     );

@@ -1,0 +1,81 @@
+{
+  "phase0Evidence": {
+    "empty_room_beauty": {
+      "renderOutcomes": []
+    },
+    "life_sketch_preservation": {
+      "templateOutcomes": [
+        {
+          "templateId": "resale-exec-1990s",
+          "roomCountsPreserved": false,
+          "wallTopologyPreserved": false,
+          "hdbSignaturesPreserved": false
+        },
+        {
+          "templateId": "tampines-greenweave",
+          "roomCountsPreserved": false,
+          "wallTopologyPreserved": false,
+          "hdbSignaturesPreserved": false
+        },
+        {
+          "templateId": "tengah-5room",
+          "roomCountsPreserved": false,
+          "wallTopologyPreserved": false,
+          "hdbSignaturesPreserved": false
+        }
+      ]
+    },
+    "webgpu_redmi_benchmark": {
+      "device": "Redmi Note 13",
+      "fpsSamples": [],
+      "tier4LookupSamples": [
+        {
+          "templateId": "resale-exec-1990s",
+          "lookupMs": []
+        },
+        {
+          "templateId": "tampines-greenweave",
+          "lookupMs": []
+        },
+        {
+          "templateId": "tengah-5room",
+          "lookupMs": []
+        }
+      ]
+    },
+    "live_studio_comprehension": {
+      "testerOutcomes": []
+    },
+    "magic_90_seconds": {
+      "testerOutcomes": []
+    },
+    "behavioral_overconfidence": {
+      "testerOutcomes": []
+    },
+    "resonance_historical_wind": {
+      "templateWeeks": [
+        {
+          "templateId": "resale-exec-1990s",
+          "weeklyFires": []
+        },
+        {
+          "templateId": "tampines-greenweave",
+          "weeklyFires": []
+        },
+        {
+          "templateId": "tengah-5room",
+          "weeklyFires": []
+        }
+      ]
+    },
+    "material_slider_comprehension": {
+      "testerOutcomes": []
+    }
+  },
+  "operationalEvidence": {
+    "openaiTier2Account": {
+      "verified": false,
+      "verifiedAtIso": ""
+    }
+  }
+}

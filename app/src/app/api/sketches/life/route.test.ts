@@ -18,6 +18,7 @@ const TINY_PNG_BASE64 =
 
 interface EnvSnapshot {
   OPENAI_API_KEY: string | undefined;
+  LIFE_ANCHOR_CACHE_ROOT: string | undefined;
   SKETCH_CACHE_DIR: string | undefined;
   SKETCH_CACHE_PROVIDER: string | undefined;
 }
@@ -25,6 +26,7 @@ interface EnvSnapshot {
 function snapshotEnv(): EnvSnapshot {
   return {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    LIFE_ANCHOR_CACHE_ROOT: process.env.LIFE_ANCHOR_CACHE_ROOT,
     SKETCH_CACHE_DIR: process.env.SKETCH_CACHE_DIR,
     SKETCH_CACHE_PROVIDER: process.env.SKETCH_CACHE_PROVIDER,
   };
@@ -42,10 +44,10 @@ interface PostBody {
   anchorPng?: string;
 }
 
-function postLife(body: PostBody, accept?: string): Request {
+function postLife(body: PostBody, accept?: string, url = "https://example.com/api/sketches/life"): Request {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (accept) headers.accept = accept;
-  return new Request("https://example.com/api/sketches/life", {
+  return new Request(url, {
     method: "POST",
     headers,
     body: JSON.stringify(body),
@@ -64,6 +66,7 @@ describe("Life Sketch route", () => {
     envSnap = snapshotEnv();
     originalFetch = globalThis.fetch;
     tempCacheDir = await mkdtemp(join(tmpdir(), "btk-life-route-"));
+    process.env.LIFE_ANCHOR_CACHE_ROOT = tempCacheDir;
     process.env.SKETCH_CACHE_PROVIDER = "file";
     process.env.SKETCH_CACHE_DIR = tempCacheDir;
     clearLifeAnchorByteCache();
@@ -102,7 +105,11 @@ describe("Life Sketch route", () => {
       );
     }) as typeof fetch;
 
-    const response = await POST(postLife({ templateId: "tengah-5room" }));
+    const response = await POST(postLife(
+      { templateId: "tengah-5room" },
+      undefined,
+      "https://example.com/api/sketches/life?materialize=1",
+    ));
     const bytes = Buffer.from(await response.arrayBuffer());
 
     assert.equal(response.status, 200);
@@ -135,7 +142,7 @@ describe("Life Sketch route", () => {
     assert.match(body, /Life Sketch anchor fallback/);
   });
 
-  it("anchor cache present + no OPENAI_API_KEY emits deterministic-anchor-svg fallback with prompt id", async () => {
+  it("anchor cache present + no OPENAI_API_KEY emits local prebaked anchor PNG", async () => {
     delete process.env.OPENAI_API_KEY;
 
     const cachePath = getLifeAnchorCachePath("tampines-greenweave");
@@ -144,14 +151,15 @@ describe("Life Sketch route", () => {
     writtenAnchors.push(cachePath.absolutePath);
 
     const response = await POST(postLife({ templateId: "tampines-greenweave" }));
+    const bytes = Buffer.from(await response.arrayBuffer());
 
     assert.equal(response.status, 200);
-    assert.equal(response.headers.get("content-type"), "image/svg+xml");
-    assert.equal(response.headers.get("x-sketch-fallback"), "deterministic-anchor-svg");
+    assert.equal(response.headers.get("content-type"), "image/png");
+    assert.equal(response.headers.get("x-sketch-fallback"), "local-prebaked-anchor");
+    assert.equal(response.headers.get("x-sketch-source"), "local-prebaked-anchor");
     assert.equal(response.headers.get("x-life-anchor-source"), "cache-png");
-    // Prompt id is surfaced because the route reached the OpenAI step and got
-    // no_cached_no_key back (cache miss + missing key).
-    assert.equal(response.headers.get("x-prompt-id"), "life-sketch-from-anchor");
+    assert.equal(response.headers.get("x-prompt-id"), null);
+    assert.equal(bytes.subarray(0, 8).toString("hex"), PNG_MAGIC.toString("hex"));
   });
 
   it("client-supplied anchorPng + no key + JSON Accept surfaces OPENAI_API_KEY in nextAction", async () => {

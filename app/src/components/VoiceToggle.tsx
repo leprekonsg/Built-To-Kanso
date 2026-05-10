@@ -1,15 +1,11 @@
 "use client";
 
 import { useCallback, useId, useRef } from "react";
-import { useVoiceStore, type VoiceMode } from "@/lib/voice";
+import { useVoiceStore, VOICE_MODES, type VoiceMode } from "@/lib/voice";
 import styles from "./VoiceToggle.module.css";
 
 // PRODUCT.md: Cultural is default; Designer adds quantities to the same calm.
 // Visual register is hairline + ink-fill on selected. No amber.
-const MODES: { id: VoiceMode; label: string }[] = [
-  { id: "cultural", label: "Cultural" },
-  { id: "designer", label: "Designer" },
-];
 
 export default function VoiceToggle() {
   // Subscribe to mode in render; setMode is module-stable (zustand singleton).
@@ -25,12 +21,12 @@ export default function VoiceToggle() {
     (e: React.KeyboardEvent<HTMLButtonElement>, current: VoiceMode) => {
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       e.preventDefault();
-      const idx = MODES.findIndex((m) => m.id === current);
+      const idx = VOICE_MODES.findIndex((m) => m.id === current);
       const nextIdx =
         e.key === "ArrowRight"
-          ? (idx + 1) % MODES.length
-          : (idx - 1 + MODES.length) % MODES.length;
-      const next = MODES[nextIdx].id;
+          ? (idx + 1) % VOICE_MODES.length
+          : (idx - 1 + VOICE_MODES.length) % VOICE_MODES.length;
+      const next = VOICE_MODES[nextIdx].id;
       setMode(next);
       tabRefs.current[next]?.focus();
     },
@@ -44,7 +40,7 @@ export default function VoiceToggle() {
       aria-label="Voice mode"
       aria-orientation="horizontal"
     >
-      {MODES.map((m) => {
+      {VOICE_MODES.map((m) => {
         const selected = mode === m.id;
         return (
           <button

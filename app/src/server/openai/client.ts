@@ -15,7 +15,7 @@ import type { ImagePromptKind } from "@/server/folio/prompts";
 const GENERATIONS_URL = "https://api.openai.com/v1/images/generations";
 const EDITS_URL = "https://api.openai.com/v1/images/edits";
 
-const DEFAULT_MODEL = "gpt-image-2-2026-04-21";
+const DEFAULT_MODEL = "gpt-image-2";
 const DEFAULT_TIMEOUT_MS = 25_000;
 
 export interface OpenAIImageEnv {
@@ -95,6 +95,27 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
   return n;
 }
 
+export function normalizeOpenAIImageModel(raw: string | undefined): string {
+  const model = raw?.trim();
+  if (!model) return DEFAULT_MODEL;
+
+  const label = model.toLowerCase().replace(/[\s_]+/g, "-");
+  if (
+    label === "chatgpt-image-2" ||
+    label === "chatgpt-image-2.0" ||
+    label === "gpt-image-2.0" ||
+    label === "gpt-image-2"
+  ) {
+    return DEFAULT_MODEL;
+  }
+
+  return model;
+}
+
+export function getOpenAIImageModel(env: OpenAIImageEnv = process.env): string {
+  return normalizeOpenAIImageModel(env.OPENAI_IMAGE_MODEL);
+}
+
 export function getOpenAIImageConfig(env: OpenAIImageEnv = process.env): OpenAIImageConfig {
   if (!env.OPENAI_API_KEY) {
     return {
@@ -108,7 +129,7 @@ export function getOpenAIImageConfig(env: OpenAIImageEnv = process.env): OpenAII
     ok: true,
     apiKey: env.OPENAI_API_KEY,
     orgId: env.OPENAI_ORG_ID,
-    model: env.OPENAI_IMAGE_MODEL ?? DEFAULT_MODEL,
+    model: getOpenAIImageModel(env),
     timeoutMs: parsePositiveInt(env.OPENAI_TIMEOUT_MS, DEFAULT_TIMEOUT_MS),
   };
 }

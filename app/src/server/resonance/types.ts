@@ -33,6 +33,6 @@ export interface ResonanceEvaluation {
 export type FloorTier = "ground" | "transition" | "golden" | "turbulent";
 
 // Brief 14.5 — three-tier frequency control. Calm/Standard/Active govern how
-// strict the resonance match must be and how long between pings. Comfort floor
-// (predicted indoor speed <= 0.25 m/s) is shared across tiers.
+// strict the resonance match must be and how long between pings. Calm and
+// Standard cap predicted indoor speed; Active intentionally does not.
 export type FrequencyTier = "calm" | "standard" | "active";

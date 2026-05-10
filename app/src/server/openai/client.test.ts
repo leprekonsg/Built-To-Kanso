@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import {
   callOpenAIImage,
   getOpenAIImageConfig,
+  getOpenAIImageModel,
+  normalizeOpenAIImageModel,
   sanitizeOpenAIErrorDetail,
 } from "./client";
 
@@ -32,6 +34,13 @@ describe("OpenAI image client config", () => {
     assert.match(detail, /\[redacted\]/);
   });
 
+  it("normalizes common ChatGPT Image 2 labels to the GPT Image 2 API model", () => {
+    assert.equal(getOpenAIImageModel({}), "gpt-image-2");
+    assert.equal(getOpenAIImageModel({ OPENAI_IMAGE_MODEL: "ChatGPT Image 2.0" }), "gpt-image-2");
+    assert.equal(normalizeOpenAIImageModel("gpt_image_2"), "gpt-image-2");
+    assert.equal(normalizeOpenAIImageModel("chatgpt-image-latest"), "chatgpt-image-latest");
+  });
+
   it("sends the current GPT Image 2 generation payload shape", async () => {
     const originalFetch = globalThis.fetch;
     const originalKey = process.env.OPENAI_API_KEY;
@@ -54,7 +63,7 @@ describe("OpenAI image client config", () => {
       });
 
       assert.equal(result.ok, true);
-      assert.equal(body?.model, "gpt-image-2-2026-04-21");
+      assert.equal(body?.model, "gpt-image-2");
       assert.equal(body?.output_format, "png");
       assert.equal(body?.size, "1024x1024");
       assert.equal(body?.n, 1);
@@ -94,7 +103,7 @@ describe("OpenAI image client config", () => {
       });
 
       assert.equal(result.ok, true);
-      assert.equal(form?.get("model"), "gpt-image-2-2026-04-21");
+      assert.equal(form?.get("model"), "gpt-image-2");
       assert.equal(form?.get("output_format"), "png");
       assert.equal(form?.get("size"), "1024x1024");
       assert.equal(form?.get("n"), "1");

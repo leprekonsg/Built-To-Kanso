@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
@@ -8,6 +8,7 @@ import { getPlanGeometry } from "@/server/geometry/registry";
 import { keyFor, putCached } from "@/server/openai/cache";
 import { renderPlanSketchFallbackSvg } from "@/server/openai/fallbackSvg";
 import { rasterizeSvgToPng } from "@/server/openai/svgRaster";
+import { getPlanSketchCachePath } from "@/server/sketches/planSketchAsset";
 import { POST } from "./route";
 
 // Minimal valid PNG (1x1) used as a stand-in for OpenAI/cache responses. We
@@ -19,6 +20,7 @@ const TINY_PNG = Buffer.from(TINY_PNG_BASE64, "base64");
 
 interface EnvSnapshot {
   OPENAI_API_KEY: string | undefined;
+  PLAN_SKETCH_CACHE_ROOT: string | undefined;
   SKETCH_CACHE_DIR: string | undefined;
   SKETCH_CACHE_PROVIDER: string | undefined;
 }
@@ -26,6 +28,7 @@ interface EnvSnapshot {
 function snapshotEnv(): EnvSnapshot {
   return {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    PLAN_SKETCH_CACHE_ROOT: process.env.PLAN_SKETCH_CACHE_ROOT,
     SKETCH_CACHE_DIR: process.env.SKETCH_CACHE_DIR,
     SKETCH_CACHE_PROVIDER: process.env.SKETCH_CACHE_PROVIDER,
   };
@@ -65,6 +68,7 @@ describe("Plan Sketch route", () => {
     envSnap = snapshotEnv();
     originalFetch = globalThis.fetch;
     tempDir = await mkdtemp(join(tmpdir(), "btk-plan-route-"));
+    process.env.PLAN_SKETCH_CACHE_ROOT = tempDir;
     process.env.SKETCH_CACHE_PROVIDER = "file";
     process.env.SKETCH_CACHE_DIR = tempDir;
   });
@@ -99,6 +103,27 @@ describe("Plan Sketch route", () => {
     assert.equal(response.headers.get("x-from-cache"), "true");
     assert.equal(response.headers.get("x-evidence-tier"), "prototype_visualisation");
     assert.equal(response.headers.get("x-prompt-id"), "plan-sketch-style-transfer");
+    assert.equal(Buffer.compare(bytes, TINY_PNG), 0);
+  });
+
+  it("serves local prebaked Plan Sketch PNG before OpenAI", async () => {
+    process.env.OPENAI_API_KEY = "sk-test";
+    const cache = getPlanSketchCachePath("resale-exec-1990s");
+    await mkdir(cache.directory, { recursive: true });
+    await writeFile(cache.absolutePath, TINY_PNG);
+
+    globalThis.fetch = (async () => {
+      throw new Error("fetch must not be called when local Plan Sketch exists");
+    }) as typeof fetch;
+
+    const response = await POST(postPlan("resale-exec-1990s"));
+    const bytes = Buffer.from(await response.arrayBuffer());
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("content-type"), "image/png");
+    assert.equal(response.headers.get("x-from-cache"), "true");
+    assert.equal(response.headers.get("x-sketch-source"), "local-prebaked");
+    assert.equal(response.headers.get("x-plan-sketch-cache-path"), "plan-sketches/resale-exec-1990s/plan.png");
     assert.equal(Buffer.compare(bytes, TINY_PNG), 0);
   });
 

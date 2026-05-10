@@ -65,7 +65,7 @@ export function clampPercent(value: unknown): number {
 
 /**
  * Sanitises a possibly-corrupt persisted payload back into a valid control set.
- * Unknown / out-of-range fields fall back to defaults so a bad localStorage
+ * Unknown / out-of-range fields fall back to defaults so a bad sessionStorage
  * entry never crashes the studio.
  */
 export function normalizeDesignerControls(input: unknown): DesignerMaterialControls {
@@ -92,7 +92,7 @@ export function readPersistedDesignerControls(): DesignerMaterialControls | null
   // SSR guard: window is undefined during server render.
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(DESIGNER_CONTROLS_STORAGE_KEY);
+    const raw = window.sessionStorage.getItem(DESIGNER_CONTROLS_STORAGE_KEY);
     if (!raw) return null;
     return normalizeDesignerControls(JSON.parse(raw));
   } catch {
@@ -104,7 +104,7 @@ export function readPersistedDesignerControls(): DesignerMaterialControls | null
 export function persistDesignerControls(controls: DesignerMaterialControls): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(DESIGNER_CONTROLS_STORAGE_KEY, JSON.stringify(controls));
+    window.sessionStorage.setItem(DESIGNER_CONTROLS_STORAGE_KEY, JSON.stringify(controls));
   } catch {
     // Quota / private-mode storage failures are silent; the Designer panel
     // continues to work in-memory for this session.

@@ -1,8 +1,8 @@
 /**
  * Tier 4 prebake cache loader.
  *
- * Per CLAUDE.md "Tier 4 fallback: if WebGPU fails, pre-baked LBM results
- * serve silently. Never surface the fallback to the user."
+ * The demo-facing fallback is a local/prebaked Tier 4 lookup. Callers surface
+ * that source explicitly in simulation metadata and UI captions.
  *
  * Vercel rule "server-cache-react": wrap the loader in `React.cache` so a
  * single request that calls it multiple times only hits disk once.

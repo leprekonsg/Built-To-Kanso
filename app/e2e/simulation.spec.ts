@@ -38,8 +38,8 @@ test.describe("Tier 4 simulation API", () => {
     expect(firstBody).toMatchObject({
       templateId: "resale-exec-1990s",
       condition: { id: "ne_monsoon", label: "NE monsoon" },
-      source: { kind: "cpu_reference" },
-      simulationSource: { kind: "cpu_reference" },
+      source: { kind: "prebaked_fallback", adapter: "prebaked" },
+      simulationSource: { kind: "prebaked_fallback", adapter: "prebaked" },
       tier: "prototype_visualisation",
       materialPreset: "monsoon_atelier_default",
       materialDefaults: {
@@ -145,9 +145,9 @@ test.describe("Tier 4 simulation API", () => {
       highwayNightBody.simulationSource.kind,
       neWindBody.simulationSource.kind,
     ]).toEqual([
-      "cpu_reference",
-      "cpu_reference",
-      "cpu_reference",
+      "prebaked_fallback",
+      "prebaked_fallback",
+      "prebaked_fallback",
     ]);
     expect(westSunBody.velocitySamples).not.toEqual(highwayNightBody.velocitySamples);
     expect(westSunBody.velocitySamples).not.toEqual(neWindBody.velocitySamples);

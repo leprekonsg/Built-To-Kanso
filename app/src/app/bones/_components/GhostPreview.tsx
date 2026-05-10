@@ -248,7 +248,7 @@ export default function GhostPreview({
           ) : null}
 
           <p className={styles.placementCount}>
-            <span>{placedCount} of 6</span> tokens placed. Drop to commit.
+            <span>{placedCount} of 6</span> tokens placed. Drop to place.
           </p>
         </>
       ) : (

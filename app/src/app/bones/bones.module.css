@@ -340,6 +340,20 @@
   font-weight: 500;
   margin-bottom: 4px;
 }
+.dampHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+.dampTier {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  line-height: 1.35;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
 .dampList span,
 .dampCard p,
 .dampCard span {
@@ -466,6 +480,21 @@
   font-size: 0.875rem;
   line-height: 1.54;
   color: var(--fg-2);
+}
+.checkHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  margin-bottom: 6px;
+}
+.checkTier {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  line-height: 1.35;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-3);
 }
 
 /* Brief Section 15, item 22: tap-to-trial buttons. The whole row is the

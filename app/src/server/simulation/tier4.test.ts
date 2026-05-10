@@ -1,5 +1,6 @@
 import { strict as assert } from "node:assert";
 import { describe, it } from "node:test";
+import { listGeometrySummaries } from "@/server/geometry/registry";
 import { buildTier4Simulation, validateSimulationRequest } from "./tier4";
 import type { SimulationRequestInput, ValidSimulationRequest } from "./tier4";
 
@@ -20,10 +21,11 @@ describe("buildTier4Simulation", () => {
     assert.equal(neField.condition.id, "ne_monsoon");
     assert.equal(swField.condition.id, "sw_monsoon");
     assert.equal(stillField.condition.id, "west_sun_still_air");
-    assert.equal(neField.source.kind, "cpu_reference");
-    assert.equal(swField.source.kind, "cpu_reference");
-    assert.equal(stillField.source.kind, "cpu_reference");
-    assert.equal(neField.simulationSource.kind, "cpu_reference");
+    assert.equal(neField.source.kind, "prebaked_fallback");
+    assert.equal(swField.source.kind, "prebaked_fallback");
+    assert.equal(stillField.source.kind, "prebaked_fallback");
+    assert.equal(neField.simulationSource.kind, "prebaked_fallback");
+    assert.equal(neField.simulationSource.adapter, "prebaked");
 
     assert.notDeepEqual(neField.velocitySamples, swField.velocitySamples);
     assert.notDeepEqual(neField.velocitySamples, stillField.velocitySamples);
@@ -69,6 +71,33 @@ describe("buildTier4Simulation", () => {
     for (let i = 1; i < drift.length; i++) {
       assert.ok(drift[i].delayMs > drift[i - 1].delayMs);
     }
+  });
+
+  it("keeps Tier 4 local lookup under the Phase 0 200ms benchmark across Phase 1 templates", () => {
+    const conditionIds = ["west_sun_1720", "highway_night", "ne_monsoon_wind"] as const;
+    let slowestMs = 0;
+
+    for (const summary of listGeometrySummaries()) {
+      for (const condition of conditionIds) {
+        const request = validRequest({
+          templateId: summary.templateId,
+          tokenPlacements: [],
+          condition,
+        });
+        const started = process.hrtime.bigint();
+        const field = buildTier4Simulation(request);
+        const elapsedMs = Number(process.hrtime.bigint() - started) / 1_000_000;
+        slowestMs = Math.max(slowestMs, elapsedMs);
+
+        assert.equal(field.source.adapter, "prebaked");
+        assert.ok(
+          elapsedMs < 200,
+          `${summary.templateId}/${condition} Tier 4 lookup took ${elapsedMs.toFixed(2)}ms; expected <200ms`,
+        );
+      }
+    }
+
+    assert.ok(slowestMs > 0);
   });
 });
 

@@ -58,8 +58,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: validationError }, { status: 400 });
   }
 
-  const now = body.nowIso ? new Date(body.nowIso) : new Date();
   const wind = body.wind ?? (await fetchCurrentWind({ siteLocation: body.siteLocation }));
+  const now = body.nowIso ? new Date(body.nowIso) : body.wind ? new Date(wind.timestamp) : new Date();
 
   // Single-user diagnostic path: evaluate against the supplied user without
   // ever sending. Mirrors check/route's userId branch for consistency.
@@ -173,7 +173,7 @@ function isWindReading(value: WindReading): boolean {
     typeof value.speedMps === "number" &&
     Number.isFinite(value.speedMps) &&
     typeof value.timestamp === "string" &&
+    !Number.isNaN(Date.parse(value.timestamp)) &&
     (value.source === "nea" || value.source === "mock")
   );
 }
-

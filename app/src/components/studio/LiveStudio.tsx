@@ -138,9 +138,9 @@ export function LiveStudio({
 
   // Tier 1 client upgrade: when WebGPU is available in the browser, run the
   // canonical 256x256 D2Q9 LBM and replace the SSR/API field with the live
-  // velocity field. Silent on failure — the existing CPU/prebake field stays
-  // visible (brief Section 11: "Tier 4 lookup runs silently; user never sees
-  // the difference"). Re-runs when template / placements / trial change.
+  // velocity field. Silent on failure — the existing prebaked field stays
+  // visible as the honest Tier 4 lookup in the caption. Re-runs when template /
+  // placements / trial change.
   useEffect(() => {
     if (typeof navigator === "undefined" || !("gpu" in navigator)) return;
 
@@ -197,6 +197,7 @@ export function LiveStudio({
     () => field?.particles.some((particle) => particle.kind === "pipeshaft_drift") ?? false,
     [field],
   );
+  const simulationSource = field?.simulationSource.kind ?? "none";
 
   return (
     <figure
@@ -205,6 +206,7 @@ export function LiveStudio({
       data-visibility-mode={visibilityMode}
       data-weather-trial={weatherTrial ?? "default"}
       data-designer-overrides={designerOverrides ? "true" : "false"}
+      data-simulation-source={simulationSource}
       style={designerControls ? designerRootStyle(designerControls) : undefined}
     >
       <svg
@@ -270,11 +272,23 @@ export function LiveStudio({
           : status === "unavailable"
             ? "Airflow visual unavailable. Check the simulation template data."
             : weatherTrial && field
-              ? `Weather Trial — ${field.condition.label}. Reverts when released.`
-              : "Tier 4 airflow visual. Prototype visualisation."}
+              ? `Weather Trial: ${field.condition.label}. ${simulationSourceCopy(field)}`
+              : field
+                ? simulationSourceCopy(field)
+                : "Tier 4 airflow visual. Prototype visualisation."}
       </figcaption>
     </figure>
   );
+}
+
+function simulationSourceCopy(field: Tier4SimulationField): string {
+  if (field.simulationSource.kind === "tier1_live") {
+    return "Tier 1 WebGPU live airflow visual. Prototype visualisation.";
+  }
+  if (field.simulationSource.kind === "prebaked_fallback") {
+    return "Tier 4 airflow visual. Prototype visualisation. Prebaked local lookup.";
+  }
+  return "Airflow visual. Prototype visualisation.";
 }
 
 // Hard Rule #16 reframing copy — pipeshaft = gray, clean = amber. The Cultural

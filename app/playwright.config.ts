@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = Number(process.env.PORT ?? 3030);
+const skipWebServer = process.env.PLAYWRIGHT_SKIP_WEBSERVER === "1";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -16,12 +17,15 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  webServer: {
-    command: `npm run dev -- --port ${PORT}`,
-    url: `http://localhost:${PORT}/threshold`,
-    reuseExistingServer: true,
-    timeout: 120_000,
-  },
+  webServer: skipWebServer
+    ? undefined
+    : {
+        command: `node ./scripts/playwright-web-server.mjs ${PORT}`,
+        url: `http://localhost:${PORT}/threshold`,
+        reuseExistingServer: true,
+        timeout: 120_000,
+        gracefulShutdown: { signal: "SIGTERM", timeout: 2_000 },
+      },
   projects: [
     {
       name: "chromium",

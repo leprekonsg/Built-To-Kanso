@@ -2,18 +2,20 @@
 //   X-Evidence-Tier            always "prototype_visualisation".
 //   X-Prompt-Id                present on PNG and on no-key SVG fall-through.
 //   X-From-Cache               "true"|"false" on PNG responses only.
-//   X-Sketch-Fallback          set on every SVG fallback. Values:
+//   X-Sketch-Source            "local-prebaked-anchor" on no-cloud anchor PNG.
+//   X-Sketch-Fallback          set on fallback responses. Values:
 //                                "deterministic-anchor-svg"  no-key path
+//                                "local-prebaked-anchor"     local PNG anchor path
 //                                "openai-error"              OpenAI returned !ok
 //                                "openai-timeout"            AbortController fired
 //                                "openai-unreachable"        network failure
 //   X-Life-Anchor-Source       cache-png | deterministic-svg | request-png.
-//   X-Life-Anchor-Cache-Path   relative path under .cache/render/life-anchors/.
+//   X-Life-Anchor-Cache-Path   relative path under public/life-anchors/.
 //   X-Life-Anchor-Scene        always "three-orthographic-scene-manifest".
 //
-// As of 2026-05-09 every failure mode lands on a calm 200 + SVG fallback.
-// The route never returns 5xx for an OpenAI miss; the UI renders a designed
-// surface, not an alarming error toast.
+// As of 2026-05-10 every failure mode lands on a calm 200 + local/deterministic
+// fallback. The route never returns 5xx for an OpenAI miss; the UI renders a
+// designed surface, not an alarming error toast.
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { NextResponse } from "next/server";
@@ -36,6 +38,7 @@ const REFERENCES_DIR = resolve(process.cwd(), "public", "references");
 
 type FallbackKind =
   | "deterministic-anchor-svg"
+  | "local-prebaked-anchor"
   | "openai-error"
   | "openai-timeout"
   | "openai-unreachable";
@@ -120,8 +123,52 @@ function fallbackSvgResponse(
   });
 }
 
+function localAnchorJson(
+  anchor: Extract<Awaited<ReturnType<typeof resolveLifeAnchorArtifact>>, { source: "cache-png" }>,
+  overrides?: { reason?: string; nextAction?: string; promptId?: string },
+) {
+  return {
+    fallback: true,
+    contentType: anchor.contentType,
+    reason: overrides?.reason ?? "local_prebaked_anchor",
+    nextAction: overrides?.nextAction ?? "Using the local prebaked Life anchor until GPT Image 2 materialization is configured.",
+    tier: anchor.manifest.metadata.tier,
+    promptId: overrides?.promptId,
+    source: "local-prebaked-anchor",
+    anchor: {
+      source: anchor.source,
+      cachePath: anchor.cachePath,
+      scene: anchor.manifest.metadata.source,
+      complianceTruth: anchor.manifest.metadata.complianceTruth,
+    },
+  };
+}
+
+function localAnchorPngResponse(
+  anchor: Extract<Awaited<ReturnType<typeof resolveLifeAnchorArtifact>>, { source: "cache-png" }>,
+  extraHeaders: Record<string, string> = {},
+) {
+  return new NextResponse(new Uint8Array(anchor.png), {
+    status: 200,
+    headers: {
+      "Content-Type": anchor.contentType,
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "X-Evidence-Tier": anchor.manifest.metadata.tier,
+      "X-From-Cache": "true",
+      "X-Sketch-Source": "local-prebaked-anchor",
+      "X-Sketch-Fallback": "local-prebaked-anchor",
+      ...anchorHeaders(anchor),
+      ...extraHeaders,
+    },
+  });
+}
+
 function wantsSvg(request: Request): boolean {
   return request.headers.get("accept")?.includes("image/svg+xml") ?? false;
+}
+
+function materializeRequested(request: Request): boolean {
+  return new URL(request.url).searchParams.get("materialize") === "1";
 }
 
 function requestAnchor(plan: Parameters<typeof buildLifeAnchorSceneManifest>[0]): LifeAnchorDescriptor {
@@ -193,19 +240,18 @@ export async function POST(request: Request) {
 
   if (!body.anchorPng || typeof body.anchorPng !== "string") {
     const anchor = await resolveLifeAnchorArtifact(plan);
-    if (wantsJson(request) || wantsSvg(request)) {
+    if (wantsSvg(request)) {
       const deterministic = deterministicAnchor(plan);
       const fallback = sketchFallbackArtifact("life-anchor", renderLifeAnchorFallbackSvg(plan));
-      if (wantsJson(request)) {
-        return NextResponse.json(fallbackJson(fallback, deterministic), {
-          status: 200,
-          headers: anchorHeaders(deterministic),
-        });
-      }
       return fallbackSvgResponse(fallback, deterministic);
     }
 
     if (anchor.source === "cache-png") {
+      if (!materializeRequested(request)) {
+        if (wantsJson(request)) return NextResponse.json(localAnchorJson(anchor), { status: 200, headers: anchorHeaders(anchor) });
+        return localAnchorPngResponse(anchor);
+      }
+
       const references = await loadLifeReferenceBundle();
       const result = await generateLifeSketch(anchor.png, references);
 
@@ -224,15 +270,13 @@ export async function POST(request: Request) {
       }
 
       // Any failure (no_cached_no_key, openai_error/timeout/unreachable,
-      // cache_env_error) falls through to the deterministic SVG with calm
+      // cache_env_error) falls through to the local PNG anchor with calm
       // telemetry. We never surface a 5xx to the UI.
-      const svg = renderLifeAnchorFallbackSvg(plan);
-      const fallback = sketchFallbackArtifact("life-anchor", svg);
       const kind = fallbackKindFor(result.reason);
       const copy = calmFallbackCopy(result.reason);
       if (wantsJson(request)) {
         return NextResponse.json(
-          fallbackJson(fallback, anchor, {
+          localAnchorJson(anchor, {
             reason: copy.reason,
             nextAction: copy.nextAction,
             promptId: result.promptId,
@@ -240,7 +284,10 @@ export async function POST(request: Request) {
           { status: 200, headers: anchorHeaders(anchor) },
         );
       }
-      return fallbackSvgResponse(fallback, anchor, kind, { "X-Prompt-Id": result.promptId });
+      return localAnchorPngResponse(anchor, {
+        "X-Sketch-Fallback": kind === "deterministic-anchor-svg" ? "local-prebaked-anchor" : kind,
+        "X-Prompt-Id": result.promptId,
+      });
     }
 
     const svg = renderLifeAnchorFallbackSvg(plan);

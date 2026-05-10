@@ -9,9 +9,11 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"src/**/*.test.ts\"",
-    "test:e2e": "playwright test",
-    "test:e2e:smoke": "playwright test --project=chromium",
+    "test:e2e": "node scripts/run-e2e.mjs",
+    "test:e2e:smoke": "node scripts/run-e2e.mjs --project=chromium",
+    "validate:phase1": "tsx scripts/validate-phase1-readiness.ts",
     "prebake:hero": "tsx scripts/prebake-empty-room.ts",
+    "prebake:plans": "tsx scripts/prebake-plan-sketches.ts",
     "prebake:anchors": "tsx scripts/prebake-life-anchors.ts"
   },
   "dependencies": {

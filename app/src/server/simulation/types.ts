@@ -1,7 +1,7 @@
 import type { EvidenceTier } from "@/server/evidence";
 import type { Point, TemplateId } from "@/server/geometry/types";
 
-export type SimulationSourceKind = "tier1_live" | "cpu_reference" | "prebaked_fallback";
+export type SimulationSourceKind = "tier1_live" | "prebaked_fallback";
 export type WeatherTrialConditionId =
   | "baseline_monsoon"
   | "ne_monsoon"
@@ -25,7 +25,7 @@ export interface WeatherTrialCondition {
 export interface SimulationSourceMetadata {
   kind: SimulationSourceKind;
   engine: "d2q9_lbm";
-  adapter: "webgpu" | "cpu" | "prebaked";
+  adapter: "webgpu" | "prebaked";
   grid: {
     width: number;
     height: number;

@@ -2,6 +2,8 @@
 //   X-Evidence-Tier      always "prototype_visualisation".
 //   X-Prompt-Id          present on PNG and on no-key SVG fall-through.
 //   X-From-Cache         "true"|"false" on PNG responses only.
+//   X-Sketch-Source      "local-prebaked" on committed public demo assets.
+//   X-Plan-Sketch-Cache-Path relative path under public/plan-sketches/.
 //   X-Sketch-Fallback    set on every SVG fallback. Values:
 //                          "deterministic-svg"        no-key path
 //                          "openai-error"             OpenAI returned !ok
@@ -21,6 +23,7 @@ import {
 } from "@/server/openai/fallbackSvg";
 import { generatePlanSketch } from "@/server/openai/sketches";
 import { rasterizeSvgToPng } from "@/server/openai/svgRaster";
+import { resolvePlanSketchArtifact, type PlanSketchArtifact } from "@/server/sketches/planSketchAsset";
 
 interface PlanSketchRequestBody {
   templateId?: string;
@@ -67,6 +70,34 @@ function jsonFallbackResponse(
       nextAction: overrides?.nextAction ?? fallback.nextAction,
       tier: fallback.tier,
       promptId: overrides?.promptId,
+    },
+    { status: 200 },
+  );
+}
+
+function localPngResponse(artifact: PlanSketchArtifact) {
+  return new NextResponse(new Uint8Array(artifact.png), {
+    status: 200,
+    headers: {
+      "Content-Type": artifact.contentType,
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "X-Evidence-Tier": artifact.tier,
+      "X-From-Cache": "true",
+      "X-Sketch-Source": artifact.source,
+      "X-Plan-Sketch-Cache-Path": artifact.cachePath,
+    },
+  });
+}
+
+function localJsonResponse(artifact: PlanSketchArtifact) {
+  return NextResponse.json(
+    {
+      fallback: false,
+      contentType: artifact.contentType,
+      source: artifact.source,
+      cachePath: artifact.cachePath,
+      tier: artifact.tier,
+      nextAction: "Using local prebaked Plan Sketch asset.",
     },
     { status: 200 },
   );
@@ -121,8 +152,15 @@ export async function POST(request: Request) {
 
   const plan = getPlanGeometry(body.templateId);
   const svg = renderPlanSketchFallbackSvg(plan);
-  if (wantsJson(request)) return jsonFallbackResponse(svg);
   if (wantsSvg(request)) return svgFallbackResponse(svg);
+
+  const local = await resolvePlanSketchArtifact(body.templateId);
+  if (local) {
+    if (wantsJson(request)) return localJsonResponse(local);
+    return localPngResponse(local);
+  }
+
+  if (wantsJson(request)) return jsonFallbackResponse(svg);
 
   // Rasterize the deterministic plan SVG so GPT Image 2 receives a PNG
   // structural reference (Section 16.1 style transfer). If the optional

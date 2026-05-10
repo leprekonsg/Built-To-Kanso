@@ -4,8 +4,8 @@
 // a per-process LRU keyed on a content-addressable hash of (promptKind,
 // imageHashes, seed). The on-disk FileSketchCache is retained because the
 // prebake scripts (Empty Room hero, Three.js anchors) write artifacts to
-// `<cwd>/public/...` and `<cwd>/.cache/render/life-anchors/...` which the
-// route layer reads directly. The runtime cache itself is memory-only.
+// `<cwd>/public/...`, including `public/life-anchors/...`, which the route
+// layer reads directly. The runtime cache itself is memory-only.
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { PlanGeometry } from "@/server/geometry/types";
 import { computeCrossVentCorridor } from "@/server/resonance/corridor";
-import { floorToTier } from "@/server/resonance/floorTier";
+import { defaultFrequencyTierForFloor, floorToTier } from "@/server/resonance/floorTier";
 import { fetchCurrentWind } from "@/server/resonance/nea";
 import {
   evaluateResonance,
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
   }
 
   const floor = body.floor;
-  const tierFromBody: FrequencyTier = body.frequencyTier ?? "standard";
+  const tierFromBody: FrequencyTier = body.frequencyTier ?? defaultFrequencyTierForFloor(floor);
 
   // Fetch wind in parallel with corridor compute. Corridor is sync — we wrap
   // it so Promise.all lets fetchCurrentWind dominate the wall clock.

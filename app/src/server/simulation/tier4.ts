@@ -1,16 +1,10 @@
 import type { TemplateId } from "@/server/geometry/types";
 import { getPlanGeometry, isTemplateId } from "@/server/geometry/registry";
 import { runTier1IfAvailable } from "@/server/lbm/gpuSolver";
-import { runLbmCpu } from "@/server/lbm/solver";
-import type { RawVelocityField } from "@/server/lbm/types";
 import { allowedTokenPlacements, isTokenPlacement, type TokenPlacement } from "@/server/rules/tokens";
 import {
-  buildParticles,
-  buildPipeshaftJetParticles,
-  buildStreamlines,
   composeTier1Field,
   MATERIAL_DEFAULTS,
-  sampleVelocityField,
   simulationSourceMetadata,
   WEATHER_TRIALS,
   withPlanCondition,
@@ -21,12 +15,7 @@ import {
   TIER4_WEATHER_CONDITIONS,
 } from "./prebaked";
 import type {
-  SimulationParticle,
-  SimulationSourceMetadata,
-  SimulationStreamline,
   Tier4SimulationField,
-  VelocitySample,
-  WeatherTrialCondition,
   WeatherTrialConditionId,
 } from "./types";
 
@@ -46,8 +35,6 @@ export interface ValidSimulationRequest {
 }
 
 const DEFAULT_CONDITION: WeatherTrialConditionId = DEFAULT_TIER4_WEATHER_CONDITION;
-const CPU_GRID = 64;
-const CPU_ITERATIONS = 140;
 /** Tier 1 GPU solve iteration count. The 256x256 D2Q9 BGK pipeline reaches a
  *  reasonable steady state for streamline extraction at this depth; the solver
  *  is incremental, callers can call step() more times before readback. */
@@ -105,7 +92,12 @@ export function buildTier4Simulation(input: ValidSimulationRequest | string): Ti
     candidatePositions: input.candidatePositions,
     weatherCondition: condition.id,
   });
-  const sourceMeta = simulationSourceMetadata("cpu_reference", "prebaked", { width: 0, height: 0, iterations: 0 });
+  const sourceMeta = simulationSourceMetadata(
+    "prebaked_fallback",
+    "prebaked",
+    { width: 0, height: 0, iterations: 0 },
+    "Tier 4 deterministic lookup is the no-cloud demo fallback.",
+  );
 
   return {
     templateId: input.templateId,
@@ -132,9 +124,8 @@ export function buildTier4Simulation(input: ValidSimulationRequest | string): Ti
 }
 
 /**
- * Tier 1 entry point: attempt a live WebGPU LBM solve, fall back silently to
- * Tier 4 if WebGPU is unavailable or any step in the pipeline fails. Brief
- * Section 11: "Tier 4 lookup runs silently; user never sees the difference."
+ * Tier 1 entry point: attempt a live WebGPU LBM solve, then fall through to the
+ * explicit Tier 4 prebaked lookup when WebGPU is unavailable or any step fails.
  *
  * Server-side this always falls through to Tier 4 (no `navigator.gpu` in
  * Node). Browser callers get a 256x256 live velocity field deterministically
@@ -168,25 +159,12 @@ export async function buildSimulation(
     });
   }
 
-  const cpu = buildCpuReferenceField(plan, condition, placements);
-  return {
+  return buildTier4Simulation({
     templateId: input.templateId,
-    condition,
-    resolution: {
-      width: plan.bounds.width,
-      height: plan.bounds.height,
-      units: "meters",
-      sampleStepM: 1.2,
-    },
-    materialPreset: "monsoon_atelier_default",
-    materialDefaults: MATERIAL_DEFAULTS,
-    streamlines: cpu.streamlines,
-    particles: cpu.particles,
-    velocitySamples: cpu.velocitySamples,
-    source: cpu.source,
-    simulationSource: cpu.source,
-    tier: "prototype_visualisation",
-  };
+    tokenPlacements: placements,
+    candidatePositions: input.candidatePositions,
+    condition: input.condition,
+  });
 }
 
 function isTokenPlacementLike(value: unknown): value is TokenPlacement {
@@ -216,102 +194,4 @@ const WEATHER_CONDITION_ERROR =
 
 function isWeatherTrialConditionId(value: string): value is WeatherTrialConditionId {
   return value in TIER4_WEATHER_CONDITIONS;
-}
-
-function buildCpuReferenceField(
-  plan: ReturnType<typeof getPlanGeometry>,
-  condition: WeatherTrialCondition,
-  placements: TokenPlacement[],
-): {
-  streamlines: SimulationStreamline[];
-  particles: SimulationParticle[];
-  velocitySamples: VelocitySample[];
-  source: SimulationSourceMetadata;
-} {
-  try {
-    const field = runLbmCpu(plan, condition.compassDeg, condition.ambientWindMps, CPU_ITERATIONS, CPU_GRID);
-    const raw = field as unknown as RawVelocityField;
-    return {
-      streamlines: buildStreamlines(field, plan, condition, placements),
-      particles: buildParticles(field, plan, condition, placements),
-      velocitySamples: sampleVelocityField(field, plan),
-      source: simulationSourceMetadata("cpu_reference", "cpu", { width: raw.width, height: raw.height, iterations: CPU_ITERATIONS }),
-    };
-  } catch (error) {
-    const fallback = buildPrebakedFallbackField(plan, condition);
-    return {
-      streamlines: fallback.streamlines,
-      particles: fallback.particles,
-      velocitySamples: fallback.velocitySamples,
-      source: simulationSourceMetadata(
-        "prebaked_fallback",
-        "prebaked",
-        { width: 0, height: 0, iterations: 0 },
-        error instanceof Error ? error.message : "CPU reference failed.",
-      ),
-    };
-  }
-}
-
-function buildPrebakedFallbackField(
-  plan: ReturnType<typeof getPlanGeometry>,
-  condition: WeatherTrialCondition,
-): {
-  streamlines: SimulationStreamline[];
-  particles: SimulationParticle[];
-  velocitySamples: VelocitySample[];
-} {
-  const direction = compassVector(condition.compassDeg);
-  const speed = round(condition.ambientWindMps * 0.08);
-  const centerY = plan.bounds.y + plan.bounds.height / 2;
-  const startX = direction.x < 0 ? plan.bounds.x + plan.bounds.width * 0.86 : plan.bounds.x + plan.bounds.width * 0.14;
-
-  const streamlines: SimulationStreamline[] = [0, 1, 2].map((index) => {
-    const y = centerY + (index - 1) * plan.bounds.height * 0.16;
-    return {
-      id: `${condition.id}-fallback-${index + 1}`,
-      material: index === 2 ? "sumi_ink" : "silk_ribbon",
-      speedMps: speed,
-      points: [
-        { x: roundPoint(startX), y: roundPoint(y) },
-        { x: roundPoint(startX + direction.x * plan.bounds.width * 0.24), y: roundPoint(y + direction.y * plan.bounds.height * 0.18) },
-        { x: roundPoint(startX + direction.x * plan.bounds.width * 0.48), y: roundPoint(y + direction.y * plan.bounds.height * 0.32) },
-      ],
-    };
-  });
-  const velocitySamples = streamlines.map((line) => ({
-    x: line.points[1].x,
-    y: line.points[1].y,
-    vx: round(direction.x * speed),
-    vy: round(direction.y * speed),
-    speedMps: speed,
-  }));
-  const particles: SimulationParticle[] = velocitySamples.slice(0, 3).map((sample, index) => ({
-    id: `p${index + 1}`,
-    kind: "clean_air" as const,
-    material: "sunlit_dust" as const,
-    x: sample.x,
-    y: sample.y,
-    delayMs: index * 420,
-    speedMps: sample.speedMps,
-  }));
-  particles.push(...buildPipeshaftJetParticles(plan, condition, 1260, 1));
-
-  return { streamlines, particles, velocitySamples };
-}
-
-function round(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-function roundPoint(value: number): number {
-  return Math.round(value * 1000) / 1000;
-}
-
-function compassVector(compassDeg: number) {
-  const rad = (compassDeg * Math.PI) / 180;
-  return {
-    x: -Math.sin(rad),
-    y: -Math.cos(rad),
-  };
 }

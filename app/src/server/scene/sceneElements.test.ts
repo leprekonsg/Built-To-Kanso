@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { getPlanGeometry, listGeometrySummaries } from "@/server/geometry/registry";
 import type { PlanGeometry } from "@/server/geometry/types";
+import { buildTier4Simulation } from "@/server/simulation/tier4";
 import type { Tier4SimulationField, VelocitySample } from "@/server/simulation/types";
 import { buildSceneElementSpec, SHADOW_FRAME_COUNT } from "./sceneElements";
 
@@ -194,5 +196,26 @@ describe("buildSceneElementSpec", () => {
       assert.equal(leaf.rotationDeg, 0);
     }
     assert.equal(spec.kitchenShadow?.frameIndex, 0);
+  });
+
+  it("verifies every Phase 1 template supports kitchen shadow and Shaft Buffer demo mechanics", () => {
+    for (const { templateId } of listGeometrySummaries()) {
+      const plan = getPlanGeometry(templateId);
+      const field = buildTier4Simulation({
+        templateId,
+        condition: "ne_monsoon_wind",
+        tokenPlacements: [],
+        candidatePositions: [],
+      });
+      const spec = buildSceneElementSpec(plan, field);
+      const pipeshaft = plan.fixedElements.find((element) => element.kind === "pipeshaft_opening");
+
+      assert.ok(spec.kitchenShadow, `${templateId} must support the perforated kitchen-partition shadow`);
+      assert.ok(spec.kitchenShadow.bounds.width > 0, `${templateId} kitchen shadow must have positive width`);
+      assert.ok(spec.kitchenShadow.bounds.height > 0, `${templateId} kitchen shadow must have positive height`);
+      assert.ok(pipeshaft, `${templateId} must mark a pipeshaft opening`);
+      assert.equal(pipeshaft.bufferEligible, true, `${templateId} pipeshaft must be Shaft Buffer eligible`);
+      assert.equal(plan.pipeshaft.bufferRadiusM, 0.6, `${templateId} Shaft Buffer radius must remain 0.6m`);
+    }
   });
 });

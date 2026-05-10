@@ -20,10 +20,15 @@ test.describe("Reading the Bones", () => {
 
     await expect(page.getByText("HDB / SCDF fixed")).toBeVisible();
     await expect(page.getByText(/Shaft Buffer is the only exception/)).toBeVisible();
+    await expect(page.getByText(/Template plans are for design exploration only/)).toBeVisible();
+    await expect(page.getByText(/Contractor-facing work still needs official HDB plans/)).toBeVisible();
     await expect(page.getByText("What the home is asking", { exact: true })).toBeVisible();
     await expect(page.getByText("Damp Risk wants a buffer.")).toBeVisible();
     await expect(page.getByText(/High Damp Risk\. Place a Shaft Buffer/)).toBeVisible();
+    await expect(page.getByRole("region", { name: "Damp reading" })).toContainText("Heuristic estimate");
     await expect(page.getByText("4 bedrooms share this damp recommendation.")).toBeVisible();
+    await expect(page.getByText("Anti-cure")).toBeVisible();
+    await expect(page.getByText("One corner the home is asking you not to fill for ninety days.")).toBeVisible();
     await expect(page.getByText(/RH at pillow/)).not.toBeVisible();
   });
 
@@ -42,13 +47,16 @@ test.describe("Reading the Bones", () => {
 
     await expect(page.getByRole("region", { name: "LiveStudio" })).toContainText("LiveStudio");
     await expect(page.getByText("Environmental material system")).toBeVisible();
+    await expect(page.getByTestId("resonance-push-disabled")).toContainText("VAPID is not configured");
     await expect(page.getByRole("region", { name: "Weather Trial" })).toContainText("West Sun 17:20");
     await expect(page.getByRole("region", { name: "Weather Trial" })).toContainText("Highway Night");
     await expect(page.getByRole("region", { name: "Weather Trial" })).toContainText("NE Monsoon Wind");
 
-    await expect(page.getByRole("region", { name: "Glow, Quiet, and Damp checks" })).toContainText("Glow");
-    await expect(page.getByRole("region", { name: "Glow, Quiet, and Damp checks" })).toContainText("Quiet");
-    await expect(page.getByRole("region", { name: "Glow, Quiet, and Damp checks" })).toContainText("Damp");
+    const checks = page.getByRole("region", { name: "Glow, Quiet, and Damp checks" });
+    await expect(checks).toContainText("Glow");
+    await expect(checks).toContainText("Quiet");
+    await expect(checks).toContainText("Damp");
+    await expect(checks.getByText("Heuristic estimate")).toHaveCount(3);
     await expect(page.getByText(/severity|scanner|defect backlog/i)).not.toBeVisible();
 
     await page.getByRole("tab", { name: "Designer" }).click();
@@ -163,7 +171,7 @@ test.describe("Reading the Bones", () => {
     await expect(page.getByText("dust 31%")).toBeVisible();
   });
 
-  test("Designer mode persists controls to localStorage across reloads", async ({ page }) => {
+  test("Designer mode keeps controls in sessionStorage across reloads", async ({ page }) => {
     await page.goto("/bones?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
     await page.getByRole("tab", { name: "Designer" }).click();
 
@@ -171,7 +179,7 @@ test.describe("Reading the Bones", () => {
     await page.getByTestId("designer-control-turbulence").fill("77");
 
     const stored = await page.evaluate(() =>
-      window.localStorage.getItem("built-to-kanso:designer-controls"),
+      window.sessionStorage.getItem("built-to-kanso:designer-controls"),
     );
     expect(stored).not.toBeNull();
     const parsed = JSON.parse(stored ?? "{}");

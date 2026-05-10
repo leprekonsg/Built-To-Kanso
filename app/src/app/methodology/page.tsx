@@ -1,55 +1,17 @@
 import type { Metadata } from "next";
 import styles from "./methodology.module.css";
+import {
+  methodologyDisclosures,
+  methodologyEvidenceTiers,
+  methodologyHardRules,
+  methodologyMeasuredClaims,
+} from "@/lib/methodologyContent";
 
 export const metadata: Metadata = {
   title: "Methodology | Built-To-Kanso",
   description:
     "How Built-To-Kanso separates cultural framing, heuristic estimates, official constraints, weather context, and prototype visualisation.",
 };
-
-const evidenceTiers = [
-  {
-    tier: "Official constraint",
-    source: "HDB, SCDF, fixed compliance limits",
-    use: "Hard stops. The product does not suggest moving, hiding, or altering fixed regulated elements.",
-  },
-  {
-    tier: "Template fact",
-    source: "Curated HDB plan geometry",
-    use: "Room outlines, walls, openings, shafts, and legal token zones read from the template file.",
-  },
-  {
-    tier: "Heuristic estimate",
-    source: "Rule-based Phase 1 briefing model",
-    use: "Scout asks, Damp bands, stagnation hints, and token effects. Useful for triage, not certification.",
-  },
-  {
-    tier: "Weather context",
-    source: "Singapore wind, monsoon, humidity, and west-sun patterns",
-    use: "Explains why a reading changes with NE or SW monsoon behavior and late-afternoon heat.",
-  },
-  {
-    tier: "Prototype visualisation",
-    source: "Cloud-grade design simulation",
-    use: "Wind and material views that explain assumptions. Not engineering certification.",
-  },
-] as const;
-
-const hardRules = [
-  "AI never edits compliance geometry, walls, streamlines, Damp Risk logic, or Black-state decisions.",
-  "Streamlines are deterministic first. Image generation may polish allowed visuals only after the facts are fixed.",
-  "Scout Pass surfaces at most three Asking Points. No scanner language, severity dashboards, or ranked defect backlog.",
-  "Damp Risk appears as Clear, Watch, or High, and Watch or High always comes with a recommended action.",
-  "Cosmological vocabulary is Cultural framing only. It never becomes a physical prediction.",
-] as const;
-
-const measured = [
-  "opening area and cross-vent potential",
-  "door facing, floor band, and monsoon exposure",
-  "room adjacency to shafts, baths, windows, and fixed elements",
-  "west-sun heat path from 16:00 to 18:30",
-  "bedroom Damp Risk band, kept band-only in homeowner UI",
-] as const;
 
 export default function MethodologyPage() {
   return (
@@ -82,21 +44,12 @@ export default function MethodologyPage() {
 
       <section className={styles.statement} aria-label="Methodology framing">
         <div className={styles.statementMain}>
-          <p>
-            The product uses a hidden Scout and Shikaku diagnostic spine. It stays behind the surface:
-            Breath, Glow, Quiet, Damp, and Shelter checks become calm Asking Points, not a defect report.
-          </p>
-          <p>
-            We are not Hong Kong feng shui. We are not Beijing feng shui. We are Nanyang feng shui,
-            the tropical school calibrated for 1.35° N, where wind is welcomed and west sun is designed against.
-          </p>
+          <p>{methodologyDisclosures.systemFraming}</p>
+          <p>{methodologyDisclosures.nanyangPositioning}</p>
         </div>
         <aside className={styles.disclosure} aria-label="Cultural disclosure">
-          <span className={styles.label}>Cultural framing</span>
-          <p>
-            Built-To-Kanso draws its name from kansō (簡素), pared-down simplicity. The geomantic
-            logic is Chinese Form-School feng shui (峦头派) and building science, not Japanese kasō (家相).
-          </p>
+          <span className={styles.label}>{methodologyDisclosures.culturalLabel}</span>
+          <p>{methodologyDisclosures.etymology}</p>
         </aside>
       </section>
 
@@ -104,13 +57,10 @@ export default function MethodologyPage() {
         <div className={styles.sectionHead}>
           <p className={styles.sectionNum}>01</p>
           <h2 id="evidence-title">Evidence ladder</h2>
-          <p>
-            Every physical claim receives one of five tiers. Cultural framing is separate and never
-            used as evidence for a physical effect.
-          </p>
+          <p>{methodologyDisclosures.evidenceIntro}</p>
         </div>
         <div className={styles.evidenceList}>
-          {evidenceTiers.map((item) => (
+          {methodologyEvidenceTiers.map((item) => (
             <article className={styles.evidenceRow} key={item.tier}>
               <h3>{item.tier}</h3>
               <p className={styles.source}>{item.source}</p>
@@ -124,13 +74,10 @@ export default function MethodologyPage() {
         <div className={styles.sectionHead}>
           <p className={styles.sectionNum}>02</p>
           <h2 id="measure-title">What we measure</h2>
-          <p>
-            Phase 1 reads geometry and context. It does not claim lab measurement, medical diagnosis,
-            prosperity forecasting, or HDB approval.
-          </p>
+          <p>{methodologyDisclosures.measureIntro}</p>
         </div>
         <ul className={styles.measureList}>
-          {measured.map((item) => (
+          {methodologyMeasuredClaims.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
@@ -141,11 +88,7 @@ export default function MethodologyPage() {
           <p className={styles.sectionNum}>03</p>
           <h2 id="audit-title">Audit gap</h2>
         </div>
-        <p>
-          Apartment-scale qi-flow validation is essentially absent from peer-reviewed literature beyond
-          So and Lu, 2001. Prototype visualisations therefore ship as design simulation, with solver
-          assumptions and grid resolution disclosed when rendered.
-        </p>
+        <p>{methodologyDisclosures.auditGap}</p>
       </section>
 
       <section id="rules" className={styles.section} aria-labelledby="rules-title">
@@ -155,7 +98,7 @@ export default function MethodologyPage() {
           <p>These rules protect compliance, cultural honesty, and the homeowner voice.</p>
         </div>
         <ol className={styles.ruleList}>
-          {hardRules.map((rule) => (
+          {methodologyHardRules.map((rule) => (
             <li key={rule}>{rule}</li>
           ))}
         </ol>

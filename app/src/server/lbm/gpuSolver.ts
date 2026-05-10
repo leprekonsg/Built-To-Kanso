@@ -4,12 +4,12 @@
  * Tier 1 of the brief's airflow stack: a real WebGPU D2Q9 BGK pipeline that
  * runs collide -> stream -> inlet -> outlet on the GPU and reads back a
  * VelocityField. The CPU reference (`runLbmCpu` in `solver.ts`) is the
- * algorithmic source of truth and is also the Tier 4 fallback.
+ * algorithmic reference used by tests/prebakes; the demo fallback presented to
+ * users is the Tier 4 prebaked local lookup.
  *
- * Falls back to the CPU reference when `device.createBuffer` is unavailable —
- * the unit-test mock and Node both lack a real WebGPU device. In a real
- * browser the `init()` call latches `useGpu = true` and the rest of the
- * lifecycle dispatches WGSL compute passes.
+ * Uses the CPU reference only for unit-test mocks that expose `navigator.gpu`
+ * without the full compute surface. In a real browser the `init()` call latches
+ * `useGpu = true` and the rest of the lifecycle dispatches WGSL compute passes.
  */
 
 import { equilibrium, Q } from "./lattice";
@@ -117,7 +117,7 @@ const GPU_MAP_MODE_READ = 0x0001;
 export interface LbmComputeCapability {
   webGpuAvailable: boolean;
   webGpuImplemented: boolean;
-  cpuReferenceAvailable: true;
+  prebakedFallbackAvailable: true;
   reason: string;
 }
 
@@ -129,10 +129,10 @@ export function getLbmComputeCapability(): LbmComputeCapability {
   return {
     webGpuAvailable: Boolean(nav?.gpu),
     webGpuImplemented: true,
-    cpuReferenceAvailable: true,
+    prebakedFallbackAvailable: true,
     reason: nav?.gpu
       ? "WebGPU adapter is available; live LBM adapter dispatches D2Q9 collide/stream/inlet/outlet kernels in the browser."
-      : "WebGPU adapter is unavailable in this runtime; server simulation uses the CPU reference and Tier 4 fallback.",
+      : "WebGPU adapter is unavailable in this runtime; the demo uses the Tier 4 prebaked local lookup.",
   };
 }
 
@@ -263,9 +263,10 @@ export class GpuLbmSolver {
 
   /**
    * Read back the velocity field. On a real WebGPU device we run any
-   * outstanding iterations on the GPU and read the velocity buffer. Without
-   * a real device (test mock, Node) we run the CPU reference instead — the
-   * physics is the same, the fallback is invisible to callers.
+   * outstanding iterations on the GPU and read the velocity buffer. Unit-test
+   * mocks without the full compute surface use the CPU reference so adapter
+   * tests stay deterministic; product callers still fall through to Tier 4
+   * when `runTier1IfAvailable` cannot acquire a real browser WebGPU path.
    */
   async readVelocityField(): Promise<VelocityField> {
     if (this.cachedField) return this.cachedField;
@@ -657,12 +658,8 @@ export class GpuLbmSolver {
 /**
  * Best-effort Tier 1 dispatch: build the GPU pipeline, run `iterations`
  * steps, read back the velocity field. On any failure (WebGPU unavailable,
- * adapter rejection, dispatch error, readback timeout), returns `null`
- * silently so the caller can fall through to Tier 4.
- *
- * Per CLAUDE.md "Tier 4 fallback: if WebGPU fails, pre-baked LBM results
- * serve silently. Never surface the fallback to the user." Errors are
- * deliberately swallowed here; do not log.
+ * adapter rejection, dispatch error, readback timeout), returns `null` so the
+ * caller can fall through to the explicitly surfaced Tier 4 prebaked lookup.
  *
  * Server-side this resolves to `null` (no `navigator.gpu` in Node). On the
  * client it produces a 256x256 velocity field ready for the streamlines

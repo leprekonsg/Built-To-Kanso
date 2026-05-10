@@ -92,6 +92,10 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
               Fixed areas include {blackKinds.map(formatKind).join(", ")}. Tokens cannot alter these
               areas. Shaft Buffer is the only exception, and only within the 0.6m pipeshaft clearance.
             </p>
+            <p className={styles.smallCopy}>
+              Template plans are for design exploration only. Contractor-facing work still needs official HDB plans,
+              site measurement, or professional verification.
+            </p>
           </section>
         }
       >

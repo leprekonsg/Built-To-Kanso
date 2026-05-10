@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { describe, it } from "node:test";
 import * as THREE from "three";
-import { getPlanGeometry } from "@/server/geometry/registry";
+import { getPlanGeometry, listGeometrySummaries } from "@/server/geometry/registry";
 import {
   buildLifeAnchorSceneManifest,
   clearLifeAnchorByteCache,
@@ -100,6 +100,35 @@ describe("Life Sketch anchor pipeline", () => {
 
     for (const opening of plan.openings) {
       assert.ok(scene.getObjectByName(`opening:${opening.id}`), `missing opening mesh for ${opening.id}`);
+    }
+  });
+
+  it("preserves structural counts and HDB signature anchors for every Phase 1 template", () => {
+    for (const summary of listGeometrySummaries()) {
+      const plan = getPlanGeometry(summary.templateId);
+      const manifest = buildLifeAnchorSceneManifest(plan);
+      const { scene } = createLifeAnchorThreeScene(plan);
+
+      assert.equal(manifest.rooms.length, plan.rooms.length, `${plan.templateId} room count changed`);
+      assert.equal(manifest.openings.length, plan.openings.length, `${plan.templateId} opening count changed`);
+      assert.equal(manifest.fixedElements.length, plan.fixedElements.length, `${plan.templateId} fixed-element count changed`);
+      assert.deepEqual(
+        manifest.rooms.map((room) => room.id).sort(),
+        plan.rooms.map((room) => room.id).sort(),
+      );
+      assert.deepEqual(
+        manifest.openings.map((opening) => opening.id).sort(),
+        plan.openings.map((opening) => opening.id).sort(),
+      );
+      assert.deepEqual(
+        manifest.fixedElements.map((element) => element.id).sort(),
+        plan.fixedElements.map((element) => element.id).sort(),
+      );
+      assert.ok(scene.getObjectByName(`pipeshaft:${plan.pipeshaft.id}`), `${plan.templateId} missing pipeshaft anchor`);
+      assert.ok(
+        plan.fixedElements.some((element) => element.kind === "pipeshaft_opening" && element.bufferEligible),
+        `${plan.templateId} missing buffer-eligible pipeshaft opening`,
+      );
     }
   });
 

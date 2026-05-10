@@ -18,7 +18,11 @@ export interface SketchCacheEnv {
   [key: string]: string | undefined;
 }
 
-const DEFAULT_CACHE_ROOT = resolve(/*turbopackIgnore: true*/ process.cwd(), ".cache", "render");
+function defaultCacheRoot(): string {
+  return process.env.LIFE_ANCHOR_CACHE_ROOT
+    ? resolve(/*turbopackIgnore: true*/ process.env.LIFE_ANCHOR_CACHE_ROOT)
+    : resolve(/*turbopackIgnore: true*/ process.cwd(), "public");
+}
 const ANCHOR_TIER = "prototype_visualisation" as const;
 const VIEWPORT = { width: 1536, height: 1024 } as const;
 const CAMERA_PADDING_METERS = 1.2;
@@ -143,7 +147,7 @@ export type LifeAnchorPngRenderResult =
   | { ok: true; png: Buffer; manifest: LifeAnchorSceneManifest }
   | { ok: false; reason: "png_renderer_unavailable"; manifest: LifeAnchorSceneManifest };
 
-export function getLifeAnchorCachePath(templateId: TemplateId, cacheRoot: string = DEFAULT_CACHE_ROOT): LifeAnchorCachePath {
+export function getLifeAnchorCachePath(templateId: TemplateId, cacheRoot: string = defaultCacheRoot()): LifeAnchorCachePath {
   const relativePath = join("life-anchors", templateId, "anchor.png");
   const absolutePath = join(cacheRoot, relativePath);
   return {

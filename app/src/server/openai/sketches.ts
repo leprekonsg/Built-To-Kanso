@@ -7,7 +7,7 @@
 
 import { hashBytes } from "@/lib/imageHash";
 import { getOpenAIImagePrompt, type ImagePromptKind } from "@/server/folio/prompts";
-import { callOpenAIImage, getOpenAIImageConfig } from "./client";
+import { callOpenAIImage, getOpenAIImageConfig, getOpenAIImageModel } from "./client";
 import { getConfiguredSketchCache, keyFor } from "./cache";
 
 // Sketches are tier "prototype_visualisation" per evidence.ts. Pinning the
@@ -47,8 +47,8 @@ const HERO_SEEDS: readonly [string, string, string, string, string] = [
   "kanso-empty-hush",
 ];
 
-const HERO_VARIANT_CUES: readonly [string, string, string, string, string] = [
-  "Variant cue: north-east monsoon softness, balcony light, empty threshold.",
+export const EMPTY_ROOM_HERO_VARIANT_CUES: readonly [string, string, string, string, string] = [
+  "Variant cue: morning east light through north-east monsoon softness, balcony light, empty threshold.",
   "Variant cue: morning east light, quiet balcony reveal, modest HDB proportions.",
   "Variant cue: evening west-amber cast light treated as heat to design around.",
   "Variant cue: rain-cooled monsoon sage undertone, still empty room.",
@@ -60,7 +60,8 @@ async function runOrCache(
   inputs: { imageHashes?: string[]; seed?: string },
   buildRequest: () => Parameters<typeof callOpenAIImage>[0],
 ): Promise<SketchResult> {
-  const key = keyFor(promptId, inputs);
+  const model = getOpenAIImageModel();
+  const key = keyFor(promptId, { ...inputs, model });
   const cacheResult = getConfiguredSketchCache();
   if (!cacheResult.ok) {
     return { ok: false, reason: cacheResult.reason, promptId, detail: cacheResult.message };
@@ -140,7 +141,7 @@ export type HeroRotationIndex = 0 | 1 | 2 | 3 | 4;
 export async function generateEmptyRoomHero(rotationIndex: HeroRotationIndex): Promise<SketchResult> {
   const spec = getOpenAIImagePrompt("empty-room-hero");
   const seed = HERO_SEEDS[rotationIndex];
-  const prompt = [spec.prompt, HERO_VARIANT_CUES[rotationIndex]].join("\n");
+  const prompt = [spec.prompt, EMPTY_ROOM_HERO_VARIANT_CUES[rotationIndex]].join("\n");
   return runOrCache(
     spec.kind,
     { seed },
