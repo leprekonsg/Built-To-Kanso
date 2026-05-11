@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { getPlanGeometry } from "@/server/geometry/registry";
 import { buildTier4Simulation } from "@/server/simulation/tier4";
 import type { Tier4SimulationField, SimulationStreamline } from "@/server/simulation/types";
-import { findSumiInkCrossings, renderWindSketchSvg } from "./fallbackSvg";
+import { findSumiInkCrossings, renderTopologyProofSvg, renderWindSketchSvg } from "./fallbackSvg";
 
 function baseField(): Tier4SimulationField {
   return buildTier4Simulation({
@@ -19,6 +19,26 @@ function withStreamlines(field: Tier4SimulationField, streamlines: SimulationStr
 }
 
 describe("Wind Sketch sumi-e brush filters", () => {
+  it("renders corridors as open circulation in the topology proof", () => {
+    const svg = renderTopologyProofSvg(getPlanGeometry("tampines-greenweave"));
+
+    assert.match(svg, /data-room-id="corridor"[^>]*stroke="none"/);
+    assert.doesNotMatch(svg, /data-wall-room="corridor"/);
+    assert.doesNotMatch(svg, /data-room-label="corridor"/);
+  });
+
+  it("renders wind flow over the architectural proof language without boxing corridors", () => {
+    const field = baseField();
+    const svg = renderWindSketchSvg(getPlanGeometry(field.templateId), field);
+
+    assert.match(svg, /DETERMINISTIC WIND FLOW/);
+    assert.match(svg, /data-layer="furniture-proof"/);
+    assert.match(svg, /data-layer="deterministic-streamlines"/);
+    assert.match(svg, /marker-end="url\(#flow-arrow-clean\)"/);
+    assert.doesNotMatch(svg, /data-wall-room="corridor"/);
+    assert.doesNotMatch(svg, /data-room-label="corridor"/);
+  });
+
   it("findSumiInkCrossings detects a real crossing between two sumi_ink streamlines", () => {
     const field = baseField();
     const lines: SimulationStreamline[] = [

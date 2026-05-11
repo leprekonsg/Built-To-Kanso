@@ -1,8 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { hashBytes } from "@/lib/imageHash";
 import type { TemplateId } from "@/server/geometry/types";
 
 const LIFE_SKETCH_TIER = "prototype_visualisation" as const;
+// v5 (2026-05-11): deterministic bathroom-count gate added to the QA review.
+// Prebakes baked under v4 may have a hallucinated extra bathroom because the
+// VLM accepted candidates without counting fixtures — bump invalidates them.
+const LIFE_SKETCH_INPUT_FINGERPRINT_VERSION = "topology-proof-v5-deterministic-bathroom-count" as const;
 
 function defaultLifeSketchRoot(): string {
   return process.env.LIFE_SKETCH_CACHE_ROOT
@@ -32,6 +37,9 @@ export interface AcceptedLifeSketchMetadata {
   cacheKey?: string;
   anchorCachePath?: string;
   topologyProof?: string;
+  inputFingerprintVersion?: typeof LIFE_SKETCH_INPUT_FINGERPRINT_VERSION;
+  anchorHash?: string;
+  topologyProofHash?: string;
 }
 
 export interface AcceptedLifeSketchArtifact {
@@ -63,11 +71,38 @@ export function getAcceptedLifeSketchCachePath(
   };
 }
 
+async function readRelativeHash(cacheRoot: string, relativePath: string | undefined): Promise<string | undefined> {
+  if (!relativePath || relativePath === "local-plan-sketch") return undefined;
+  try {
+    return hashBytes(await readFile(/*turbopackIgnore: true*/ join(cacheRoot, relativePath)));
+  } catch {
+    return undefined;
+  }
+}
+
+async function acceptedInputFingerprintIsCurrent(
+  cacheRoot: string,
+  metadata: AcceptedLifeSketchMetadata,
+): Promise<boolean> {
+  if (metadata.inputFingerprintVersion !== LIFE_SKETCH_INPUT_FINGERPRINT_VERSION) return false;
+  const [anchorHash, topologyProofHash] = await Promise.all([
+    readRelativeHash(cacheRoot, metadata.anchorCachePath),
+    readRelativeHash(cacheRoot, metadata.topologyProof),
+  ]);
+  return Boolean(
+    metadata.anchorHash &&
+      metadata.topologyProofHash &&
+      anchorHash === metadata.anchorHash &&
+      topologyProofHash === metadata.topologyProofHash,
+  );
+}
+
 export async function resolveAcceptedLifeSketchArtifact(
   templateId: TemplateId,
   cacheRoot?: string,
 ): Promise<AcceptedLifeSketchArtifact | null> {
-  const cache = getAcceptedLifeSketchCachePath(templateId, cacheRoot);
+  const root = cacheRoot ?? defaultLifeSketchRoot();
+  const cache = getAcceptedLifeSketchCachePath(templateId, root);
   try {
     const [png, rawMetadata] = await Promise.all([
       readFile(/*turbopackIgnore: true*/ cache.absolutePath),
@@ -85,6 +120,7 @@ export async function resolveAcceptedLifeSketchArtifact(
     ) {
       return null;
     }
+    if (!(await acceptedInputFingerprintIsCurrent(root, metadata))) return null;
 
     return {
       source: "accepted-gpt-image-2-prebake",
@@ -100,6 +136,8 @@ export async function resolveAcceptedLifeSketchArtifact(
     return null;
   }
 }
+
+export { LIFE_SKETCH_INPUT_FINGERPRINT_VERSION };
 
 function isPng(bytes: Buffer): boolean {
   return bytes.length >= 8 &&

@@ -3,18 +3,36 @@ import { getOpenAIImageConfig, sanitizeOpenAIErrorDetail } from "./client";
 const RESPONSES_URL = "https://api.openai.com/v1/responses";
 const DEFAULT_REVIEW_MODEL = "gpt-4.1-mini";
 
+// Bump when the QA gate's enforcement surface changes (new structural check,
+// new schema field, new deterministic post-check). Threaded into the sketch
+// cache key so previously-accepted candidates that pre-date the change are
+// invalidated automatically — the prebake re-runs and re-reviews them.
+//
+//   v1 (initial): VLM checks only — roomTopology, windowBalconyDirection,
+//                 kitchenHsPipeshaft, majorWallMasses, cameraView.
+//   v2 (2026-05-11): deterministic bathroom-count gate added on top of the
+//                    VLM verdict; reviewer must publish observedBathroomCount.
+export const LIFE_SKETCH_QA_GATE_VERSION = "v2-deterministic-bathroom-count";
+
 export type LifeSketchReviewCheck = "pass" | "fail" | "uncertain";
 
 export interface LifeSketchCandidateReview {
   candidateIndex: number;
   status: "accepted" | "rejected";
   reasons: string[];
+  // Plumbing fixtures the reviewer can see in the candidate. The locked plan
+  // is the source of truth; we reject deterministically downstream when this
+  // disagrees with `lockedBathroomCount`. Forcing a typed integer here is
+  // what makes the QA gate actually catch a hallucinated 3rd bathroom — the
+  // VLM cannot answer "all checks pass" without also publishing a count.
+  observedBathroomCount: number;
   checks: {
     roomTopology: LifeSketchReviewCheck;
     windowBalconyDirection: LifeSketchReviewCheck;
     kitchenHsPipeshaft: LifeSketchReviewCheck;
     majorWallMasses: LifeSketchReviewCheck;
     cameraView: LifeSketchReviewCheck;
+    bathroomCount: LifeSketchReviewCheck;
   };
 }
 
@@ -30,8 +48,10 @@ export type LifeSketchReviewResult =
       ok: false;
       reason:
         | "missing_topology_proof"
+        | "missing_locked_bathroom_count"
         | "candidate_batch_too_small"
         | "all_candidates_rejected"
+        | "bathroom_count_drift"
         | "openai_error"
         | "openai_unreachable"
         | "openai_timeout";
@@ -46,6 +66,9 @@ interface ReviewInput {
   topologyProof?: Buffer;
   candidates: Buffer[];
   manifestSummary?: string;
+  // Authoritative bathroom count from plan-geometry.json. Required so we can
+  // run a deterministic gate over the VLM verdict.
+  lockedBathroomCount?: number;
 }
 
 interface ResponsesPayload {
@@ -150,11 +173,24 @@ function reviewSchema() {
         items: {
           type: "object",
           additionalProperties: false,
-          required: ["candidateIndex", "status", "reasons", "checks"],
+          required: [
+            "candidateIndex",
+            "status",
+            "reasons",
+            "observedBathroomCount",
+            "checks",
+          ],
           properties: {
             candidateIndex: { type: "integer", minimum: 0, maximum: 9 },
             status: { type: "string", enum: ["accepted", "rejected"] },
             reasons: { type: "array", items: { type: "string" } },
+            observedBathroomCount: {
+              type: "integer",
+              minimum: 0,
+              maximum: 9,
+              description:
+                "Number of bathrooms (rooms containing a toilet bowl) visible in this candidate. Household Shelter, service yard, pipeshaft, and kitchen utility WCs do not count if absent in the locked references.",
+            },
             checks: {
               type: "object",
               additionalProperties: false,
@@ -164,6 +200,7 @@ function reviewSchema() {
                 "kitchenHsPipeshaft",
                 "majorWallMasses",
                 "cameraView",
+                "bathroomCount",
               ],
               properties: {
                 roomTopology: check,
@@ -171,6 +208,7 @@ function reviewSchema() {
                 kitchenHsPipeshaft: check,
                 majorWallMasses: check,
                 cameraView: check,
+                bathroomCount: check,
               },
             },
           },
@@ -181,13 +219,24 @@ function reviewSchema() {
 }
 
 function reviewPrompt(input: ReviewInput): string {
+  const lockedBath = input.lockedBathroomCount;
   return [
     "Return JSON only. Review GPT Image 2 Life Sketch candidates against the locked structural references.",
     "Image order: image 1 is the locked camera-view greybox anchor, image 2 is the top-down topology proof, then candidate images begin at image 3.",
-    "Reject a candidate if the room topology, room count, window or balcony side, kitchen/Household Shelter/service/pipeshaft relationship, major wall masses, or camera viewpoint drift from images 1 and 2.",
-    "Accept the first candidate that passes every structural check. If none pass, set acceptedCandidateIndex to -1 and reject all candidates.",
-    "Use concise machine-readable reasons such as room_topology_drift, window_side_drift, hs_pipeshaft_relation_drift, major_wall_mass_drift, camera_view_drift, extra_room, missing_room, visible_text, or generic_render_saas_staging.",
+    "Reject a candidate if the room topology, room count, bathroom count, bedroom corridor-door access, window or balcony side, kitchen/Household Shelter/service/pipeshaft relationship, major wall masses, or camera viewpoint drift from images 1 and 2.",
+    "Reject if Household Shelter, service yard, pipeshaft, or wet-zone overlays are rendered as an extra toilet, shower, or bathroom.",
+    "Reject if the main bedroom loses its corridor/circulation door and appears accessible only through a bathroom when the locked manifest lists a main-bedroom circulation door.",
+    "Bathroom counting protocol — do this BEFORE setting any check or status:",
+    "  1. Scan each candidate image rectangle by rectangle. Count only rooms that contain a visible toilet bowl. A sink or tiled floor alone is not a bathroom.",
+    "  2. Do not count Household Shelter, service yard, pipeshaft cabinet, kitchen utility, or storage cells as bathrooms.",
+    "  3. Set observedBathroomCount for the candidate to that integer.",
+    lockedBath !== undefined
+      ? `  4. The locked plan has exactly ${lockedBath} bathroom(s). If observedBathroomCount is anything other than ${lockedBath}, set checks.bathroomCount = "fail", add reason "bathroom_count_drift" or "household_shelter_as_bathroom", and set status = "rejected".`
+      : "  4. If observedBathroomCount disagrees with the locked manifest, set checks.bathroomCount = \"fail\" and reject the candidate.",
+    "Accept the first candidate that passes every structural check, including bathroomCount. If none pass, set acceptedCandidateIndex to -1 and reject all candidates.",
+    "Use concise machine-readable reasons such as room_topology_drift, window_side_drift, hs_pipeshaft_relation_drift, major_wall_mass_drift, camera_view_drift, extra_room, missing_room, bathroom_count_drift, missing_bedroom_corridor_door, household_shelter_as_bathroom, service_yard_as_bathroom, visible_text, or generic_render_saas_staging.",
     input.manifestSummary ? `Locked manifest summary: ${input.manifestSummary}` : "Locked manifest summary: unavailable.",
+    lockedBath !== undefined ? `Locked bathroom count: ${lockedBath}.` : "Locked bathroom count: unavailable.",
   ].join("\n");
 }
 
@@ -219,7 +268,11 @@ function requestBody(input: ReviewInput, model: string): Record<string, unknown>
   };
 }
 
-function validateReview(review: ReviewJson, candidateCount: number): LifeSketchReviewResult {
+function validateReview(
+  review: ReviewJson,
+  candidateCount: number,
+  lockedBathroomCount: number | undefined,
+): LifeSketchReviewResult {
   const accepted = review.acceptedCandidateIndex;
   const reviews = review.candidateReviews.filter((item) => item.candidateIndex >= 0 && item.candidateIndex < candidateCount);
   const acceptedReview = reviews.find((item) => item.candidateIndex === accepted);
@@ -230,6 +283,41 @@ function validateReview(review: ReviewJson, candidateCount: number): LifeSketchR
       reason: "all_candidates_rejected",
       detail: review.summary || "All candidates were rejected by structural QA.",
       candidateReviews: reviews,
+      summary: review.summary,
+    };
+  }
+
+  // Deterministic post-check: the VLM reviewer cannot lie its way through a
+  // typed-integer count. If the accepted candidate's observedBathroomCount
+  // disagrees with the locked manifest, override the accept and reject the
+  // batch. Without this, a candidate with a hallucinated 3rd bathroom (common
+  // GPT Image 2 HDB prior) sneaks through because the reviewer answers
+  // "all checks pass" without actually counting fixtures.
+  if (
+    lockedBathroomCount !== undefined &&
+    acceptedReview.observedBathroomCount !== lockedBathroomCount
+  ) {
+    const overridden: LifeSketchCandidateReview[] = reviews.map((item) =>
+      item.candidateIndex === accepted
+        ? {
+            ...item,
+            status: "rejected" as const,
+            reasons: Array.from(
+              new Set([
+                ...item.reasons,
+                "bathroom_count_drift",
+                `observed=${item.observedBathroomCount}_locked=${lockedBathroomCount}`,
+              ]),
+            ),
+            checks: { ...item.checks, bathroomCount: "fail" as const },
+          }
+        : { ...item, status: "rejected" as const },
+    );
+    return {
+      ok: false,
+      reason: "bathroom_count_drift",
+      detail: `Accepted candidate observed ${acceptedReview.observedBathroomCount} bathrooms; locked plan has ${lockedBathroomCount}.`,
+      candidateReviews: overridden,
       summary: review.summary,
     };
   }
@@ -251,6 +339,14 @@ export async function reviewLifeSketchCandidates(input: ReviewInput): Promise<Li
       ok: false,
       reason: "missing_topology_proof",
       detail: "Life Sketch candidate QA requires image 2: top-down topology proof.",
+    };
+  }
+  if (input.lockedBathroomCount === undefined) {
+    return {
+      ok: false,
+      reason: "missing_locked_bathroom_count",
+      detail:
+        "Life Sketch candidate QA requires lockedBathroomCount from plan-geometry.json to enforce the deterministic count gate.",
     };
   }
   if (input.candidates.length < 2) {
@@ -318,6 +414,6 @@ export async function reviewLifeSketchCandidates(input: ReviewInput): Promise<Li
     };
   }
 
-  const validated = validateReview(parsed, input.candidates.length);
+  const validated = validateReview(parsed, input.candidates.length, input.lockedBathroomCount);
   return validated.ok ? { ...validated, model } : { ...validated, model };
 }

@@ -1,0 +1,15 @@
+{
+  "templateId": "tengah-5room",
+  "source": "accepted_gpt_image_2_prebake",
+  "promptKind": "life-sketch-from-anchor",
+  "candidateCount": 3,
+  "acceptedCandidateIndex": 2,
+  "rejectedCandidates": [],
+  "acceptedAtIso": "2026-05-11T13:19:37.317Z",
+  "reviewerModel": "gpt-4.1-mini",
+  "anchorCachePath": "life-anchors/tengah-5room/anchor.png",
+  "topologyProof": "plan-sketches/tengah-5room/plan.png",
+  "inputFingerprintVersion": "topology-proof-v5-deterministic-bathroom-count",
+  "anchorHash": "fab4776a48093173",
+  "topologyProofHash": "9651f54b23faf251"
+}

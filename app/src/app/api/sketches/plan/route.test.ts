@@ -168,7 +168,11 @@ describe("Plan Sketch route", () => {
     assert.equal(response.headers.get("x-evidence-tier"), "prototype_visualisation");
     // Prompt-Id is surfaced via the no_cached_no_key fall-through branch.
     assert.equal(response.headers.get("x-prompt-id"), "plan-sketch-style-transfer");
-    assert.match(body, /Plan Sketch fallback/);
+    assert.match(body, /Topology proof/);
+    assert.match(body, /LOCKED TOPOLOGY PROOF/);
+    assert.match(body, /data-layer="clipped-wall-volumes"/);
+    assert.match(body, /data-layer="furniture-proof"/);
+    assert.match(body, /data-opening-kind="door"/);
   });
 
   it("returns JSON wrapper when Accept: application/json on fallback", async () => {
@@ -201,7 +205,7 @@ describe("Plan Sketch route", () => {
     assert.equal(response.headers.get("x-sketch-fallback"), "openai-error");
     assert.equal(response.headers.get("x-prompt-id"), "plan-sketch-style-transfer");
     assert.equal(response.headers.get("x-evidence-tier"), "prototype_visualisation");
-    assert.match(body, /Plan Sketch fallback/);
+    assert.match(body, /Topology proof/);
   });
 
   it("falls through to calm SVG fallback on OpenAI timeout", async () => {
@@ -225,7 +229,7 @@ describe("Plan Sketch route", () => {
       assert.equal(response.headers.get("content-type"), "image/svg+xml");
       assert.equal(response.headers.get("x-sketch-fallback"), "openai-timeout");
       assert.equal(response.headers.get("x-prompt-id"), "plan-sketch-style-transfer");
-      assert.match(body, /Plan Sketch fallback/);
+      assert.match(body, /Topology proof/);
     } finally {
       delete process.env.OPENAI_TIMEOUT_MS;
     }

@@ -22,18 +22,20 @@ describe("openai cache", () => {
     assert.match(a, /^[0-9a-f]{16}$/);
   });
 
-  it("keyFor differs by promptKind, model, prompt hash, image hashes, and seed", () => {
+  it("keyFor differs by promptKind, model, prompt hash, image hashes, seed, and QA gate version", () => {
     const base = keyFor("plan-sketch-style-transfer", { imageHashes: ["aa"], model: "gpt-image-2", promptHash: "p1", seed: "1" });
     const otherModel = keyFor("plan-sketch-style-transfer", { imageHashes: ["aa"], model: "chatgpt-image-latest", promptHash: "p1", seed: "1" });
     const otherKind = keyFor("life-sketch-from-anchor", { imageHashes: ["aa"], promptHash: "p1", seed: "1" });
     const otherPrompt = keyFor("plan-sketch-style-transfer", { imageHashes: ["aa"], promptHash: "p2", seed: "1" });
     const otherImage = keyFor("plan-sketch-style-transfer", { imageHashes: ["bb"], promptHash: "p1", seed: "1" });
     const otherSeed = keyFor("plan-sketch-style-transfer", { imageHashes: ["aa"], promptHash: "p1", seed: "2" });
+    const otherQa = keyFor("plan-sketch-style-transfer", { imageHashes: ["aa"], model: "gpt-image-2", promptHash: "p1", seed: "1", qaGateVersion: "v2" });
     assert.notEqual(base, otherModel);
     assert.notEqual(base, otherKind);
     assert.notEqual(base, otherPrompt);
     assert.notEqual(base, otherImage);
     assert.notEqual(base, otherSeed);
+    assert.notEqual(base, otherQa);
   });
 
   it("round-trips put then get", async () => {

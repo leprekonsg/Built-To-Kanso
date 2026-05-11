@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { getPlanGeometry } from "@/server/geometry/registry";
 import {
+  renderWindSketchOverBaseSvg,
   renderWindSketchSvg,
   wantsJson,
 } from "@/server/openai/fallbackSvg";
 import { generateWindSketchMicroPolish } from "@/server/openai/sketches";
 import { rasterizeSvgToPng } from "@/server/openai/svgRaster";
+import { resolveWindBaseArtifact } from "@/server/sketches/windBaseAsset";
 import { buildTier4Simulation, validateSimulationRequest } from "@/server/simulation/tier4";
 
 interface WindSketchRequestBody {
@@ -36,7 +38,14 @@ export async function POST(request: Request) {
 
   const plan = getPlanGeometry(valid.templateId);
   const field = buildTier4Simulation(valid);
-  const svg = renderWindSketchSvg(plan, field);
+  // Stage B/C/D pipeline (brief Section 6): prefer the prebaked sumi-e Stage B
+  // background when present; otherwise fall back to the procedural-background
+  // composite. Either path produces identical streamline geometry because
+  // Stage C is deterministic SVG composition.
+  const stageB = await resolveWindBaseArtifact(valid.templateId);
+  const svg = stageB
+    ? renderWindSketchOverBaseSvg(plan, field, stageB.png)
+    : renderWindSketchSvg(plan, field);
   const contentType = "image/svg+xml";
 
   const url = new URL(request.url);
@@ -58,7 +67,10 @@ export async function POST(request: Request) {
             "X-Evidence-Tier": result.tier,
             "X-Prompt-Id": result.promptId,
             "X-From-Cache": String(result.fromCache),
-            "X-Sketch-Source": "deterministic-svg-composite+micro-polish",
+            "X-Sketch-Source": stageB
+              ? "stage-b-background+deterministic-svg-composite+micro-polish"
+              : "deterministic-svg-composite+micro-polish",
+            "X-Wind-Stage-B": stageB ? stageB.cachePath : "none",
           },
         });
       }
@@ -70,11 +82,12 @@ export async function POST(request: Request) {
       {
         fallback: false,
         contentType,
-        source: "deterministic-svg-composite",
+        source: stageB ? "stage-b-background+deterministic-svg-composite" : "deterministic-svg-composite",
         tier: field.tier,
         streamlineCount: field.streamlines.length,
         polishRequested,
-        nextAction: "Request image/svg+xml to receive the deterministic Wind Sketch composite.",
+        windStageB: stageB ? stageB.cachePath : null,
+        nextAction: "Request image/svg+xml to receive the Wind Sketch composite.",
       },
       { status: 200 },
     );
@@ -86,7 +99,8 @@ export async function POST(request: Request) {
       "Content-Type": contentType,
       "Cache-Control": "private, max-age=300",
       "X-Evidence-Tier": field.tier,
-      "X-Sketch-Source": "deterministic-svg-composite",
+      "X-Sketch-Source": stageB ? "stage-b-background+deterministic-svg-composite" : "deterministic-svg-composite",
+      "X-Wind-Stage-B": stageB ? stageB.cachePath : "none",
     },
   });
 }

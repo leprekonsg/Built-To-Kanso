@@ -13,10 +13,10 @@ test.describe("Sketch route fallbacks", () => {
 
     const svg = await response.text();
     expect(svg).toContain("<svg");
-    expect(svg).toContain("Plan Sketch fallback");
+    expect(svg).toContain("Topology proof");
     expect(svg).toContain('data-render-watermark="draft"');
     expect(svg).toContain("DRAFT · PROTOTYPE VISUALISATION");
-    expect(svg).toContain("Master Bedroom");
+    expect(svg).toContain('data-room-id="main_bedroom"');
     expect(svg).not.toContain("streamline");
   });
 
@@ -89,7 +89,7 @@ test.describe("Sketch route fallbacks", () => {
       cachePath: "life-sketches/resale-exec-1990s/accepted.png",
       metadataPath: "life-sketches/resale-exec-1990s/accepted.json",
       candidateCount: 3,
-      acceptedCandidateIndex: 1,
+      acceptedCandidateIndex: expect.any(Number),
       anchor: {
         source: "cache-png",
         cachePath: "life-anchors/resale-exec-1990s/anchor.png",
@@ -97,41 +97,24 @@ test.describe("Sketch route fallbacks", () => {
     });
   });
 
-  test("serves accepted GPT Image 2 Life Sketch PNG by default when QA prebake exists", async ({ request }) => {
-    const response = await request.post("/api/sketches/life", {
-      data: { templateId: "resale-exec-1990s" },
-      headers: { accept: "image/png" },
-    });
-
-    expect(response.status()).toBe(200);
-    expect(response.headers()["content-type"]).toContain("image/png");
-    expect(response.headers()["x-sketch-source"]).toBe("accepted-gpt-image-2-prebake");
-    expect(response.headers()["x-life-sketch-mode"]).toBe("accepted-gpt-image-2-prebake");
-    expect(response.headers()["x-life-sketch-cache-path"]).toBe("life-sketches/resale-exec-1990s/accepted.png");
-    expect(response.headers()["x-life-sketch-metadata-path"]).toBe("life-sketches/resale-exec-1990s/accepted.json");
-    expect(response.headers()["x-life-sketch-qa"]).toBe("accepted_from_prebake");
-    expect(response.headers()["x-life-sketch-candidates"]).toBe("3");
-    expect(response.headers()["x-life-sketch-accepted-candidate"]).toBe("1");
-    const bytes = Buffer.from(await response.body());
-    expect(bytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
-  });
-
-  test("flags deterministic sumi-e fallback when accepted GPT prebake is missing", async ({ request }) => {
-    for (const templateId of ["tampines-greenweave", "tengah-5room"]) {
+  test("serves accepted GPT Image 2 Life Sketch PNG by default for every Phase 1 template", async ({ request }) => {
+    for (const templateId of ["tampines-greenweave", "tengah-5room", "resale-exec-1990s"]) {
       const response = await request.post("/api/sketches/life", {
         data: { templateId },
-        headers: { accept: "image/svg+xml" },
+        headers: { accept: "image/png" },
       });
 
       expect(response.status()).toBe(200);
-      expect(response.headers()["content-type"]).toContain("image/svg+xml");
-      expect(response.headers()["x-sketch-source"]).toBe("deterministic-sumi-e-life-sketch");
-      expect(response.headers()["x-life-sketch-mode"]).toBe("deterministic-sumi-e");
-      expect(response.headers()["x-sketch-fallback"]).toBe("missing-accepted-gpt-prebake");
-      expect(response.headers()["x-life-anchor-cache-path"]).toBe(`life-anchors/${templateId}/anchor.png`);
-      const svg = await response.text();
-      expect(svg).toContain('data-life-sketch-source="deterministic-sumi-e"');
-      expect(svg).toContain('data-layer="locked-anchor-materialized-surfaces"');
+      expect(response.headers()["content-type"]).toContain("image/png");
+      expect(response.headers()["x-sketch-source"]).toBe("accepted-gpt-image-2-prebake");
+      expect(response.headers()["x-life-sketch-mode"]).toBe("accepted-gpt-image-2-prebake");
+      expect(response.headers()["x-life-sketch-cache-path"]).toBe(`life-sketches/${templateId}/accepted.png`);
+      expect(response.headers()["x-life-sketch-metadata-path"]).toBe(`life-sketches/${templateId}/accepted.json`);
+      expect(response.headers()["x-life-sketch-qa"]).toBe("accepted_from_prebake");
+      expect(response.headers()["x-life-sketch-candidates"]).toBe("3");
+      expect(response.headers()["x-life-sketch-accepted-candidate"]).toMatch(/^[0-2]$/);
+      const bytes = Buffer.from(await response.body());
+      expect(bytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
     }
   });
 

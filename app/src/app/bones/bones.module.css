@@ -110,6 +110,7 @@
   font-size: 1.375rem;
   font-weight: 500;
   line-height: 1.1;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .shell {
@@ -236,6 +237,53 @@
   height: 2px;
   display: inline-block;
   background: currentColor;
+}
+
+.glyphKey {
+  margin-top: var(--s-4);
+  padding-top: var(--s-4);
+  border-top: 1px dashed var(--line-1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.glyphKeyList {
+  display: flex;
+  gap: var(--s-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  flex-wrap: wrap;
+}
+.glyphKeyItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  color: var(--fg-2);
+}
+.glyphKeyGlyph {
+  width: 26px;
+  height: 22px;
+  flex: 0 0 auto;
+  overflow: visible;
+}
+.glyphKeyItem span {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.2;
+}
+.glyphKeyItem strong {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--fg-1);
+}
+.glyphKeyItem em {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.8125rem;
+  color: var(--fg-2);
 }
 
 .sideStack {

@@ -146,6 +146,7 @@
   font-size: 1.375rem;
   font-weight: 500;
   line-height: 1.1;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .proofGrid {
@@ -284,6 +285,7 @@
 
 .room {
   fill: rgba(246,243,238,0.55);
+  stroke: rgba(17,17,17,0.2);
   stroke-width: 0.045;
   vector-effect: non-scaling-stroke;
 }
@@ -303,14 +305,24 @@
 }
 
 .openingOperable,
-.openingFixed {
+.openingFixed,
+.openingVoid {
   stroke-width: 0.08;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
 }
 
+.openingVoid {
+  stroke: var(--bg-1);
+  stroke-width: 0.18;
+}
+
 .openingOperable { stroke: var(--west-sun-amber); }
 .openingFixed { stroke: var(--hdb-concrete); }
+
+.proofWall {
+  fill: var(--ink-black);
+}
 
 .fixedElement {
   fill: rgba(17,17,17,0.88);
@@ -335,18 +347,25 @@
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
 }
 
 .cleanStreamline {
-  stroke: rgba(216,162,74,0.72);
-  stroke-width: 0.08;
+  stroke: rgba(100,112,87,0.9);
+  stroke-width: 0.1;
 }
 
 .shaftStreamline {
-  stroke: rgba(93,90,84,0.74);
-  stroke-width: 0.07;
+  stroke: rgba(72,69,63,0.84);
+  stroke-width: 0.09;
   stroke-dasharray: 0.22 0.12;
+}
+
+.cleanArrow {
+  fill: rgba(100,112,87,0.94);
+}
+
+.shaftArrow {
+  fill: rgba(72,69,63,0.9);
 }
 
 .cleanParticle {
@@ -373,6 +392,51 @@
   font-weight: 700;
   text-anchor: middle;
   dominant-baseline: middle;
+}
+
+.furniture {
+  pointer-events: none;
+}
+
+.furnitureWood {
+  fill: rgba(138,102,75,0.72);
+}
+
+.furnitureSoft {
+  fill: rgba(221,228,215,0.82);
+  stroke: rgba(245,241,232,0.9);
+  stroke-width: 0.035;
+  vector-effect: non-scaling-stroke;
+}
+
+.furnitureLight,
+.furnitureTable {
+  fill: rgba(245,241,232,0.78);
+  stroke: rgba(138,102,75,0.72);
+  stroke-width: 0.035;
+  vector-effect: non-scaling-stroke;
+}
+
+.furnitureRattan {
+  fill: rgba(201,182,140,0.84);
+  stroke: rgba(138,102,75,0.64);
+  stroke-width: 0.03;
+  vector-effect: non-scaling-stroke;
+}
+
+.furnitureConcrete,
+.serviceLine {
+  fill: rgba(167,159,147,0.5);
+  stroke: rgba(167,159,147,0.7);
+  stroke-width: 0.035;
+  vector-effect: non-scaling-stroke;
+}
+
+.stoveRing {
+  fill: none;
+  stroke: rgba(17,17,17,0.48);
+  stroke-width: 0.025;
+  vector-effect: non-scaling-stroke;
 }
 
 .sourceRail {

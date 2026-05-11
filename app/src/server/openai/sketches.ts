@@ -8,7 +8,11 @@
 import { hashBytes, hashString } from "@/lib/imageHash";
 import { getOpenAIImagePrompt, type ImagePromptKind } from "@/server/folio/prompts";
 import { callOpenAIImage, getOpenAIImageConfig, getOpenAIImageModel } from "./client";
-import { reviewLifeSketchCandidates, type LifeSketchCandidateReview } from "./lifeSketchReview";
+import {
+  LIFE_SKETCH_QA_GATE_VERSION,
+  reviewLifeSketchCandidates,
+  type LifeSketchCandidateReview,
+} from "./lifeSketchReview";
 import {
   getCachedMetadata,
   getConfiguredSketchCache,
@@ -143,6 +147,9 @@ export interface LifeSketchReferenceBundle {
 
 export interface LifeSketchReviewContext {
   manifestSummary?: string;
+  // Authoritative bathroom count from plan-geometry.json. The QA gate
+  // requires this so it can reject candidates that hallucinate fixtures.
+  lockedBathroomCount?: number;
 }
 
 export async function generateLifeSketch(
@@ -166,7 +173,12 @@ export async function generateLifeSketch(
     n: LIFE_SKETCH_CANDIDATE_COUNT,
     size: "1536x1024",
   };
-  const key = keyFor(spec.kind, { imageHashes, model, promptHash: hashString(request.prompt) });
+  const key = keyFor(spec.kind, {
+    imageHashes,
+    model,
+    promptHash: hashString(request.prompt),
+    qaGateVersion: LIFE_SKETCH_QA_GATE_VERSION,
+  });
   const cacheResult = getConfiguredSketchCache();
   if (!cacheResult.ok) {
     return { ok: false, reason: cacheResult.reason, promptId: spec.kind, detail: cacheResult.message };
@@ -205,6 +217,7 @@ export async function generateLifeSketch(
     topologyProof: references.topologyProof,
     candidates: result.candidates,
     manifestSummary: reviewContext.manifestSummary,
+    lockedBathroomCount: reviewContext.lockedBathroomCount,
   });
   if (!review.ok) {
     const reason = review.reason === "openai_timeout"
@@ -356,6 +369,36 @@ export async function generateWindSketchMicroPolish(svgRasterPng: Buffer): Promi
     spec.kind,
     { imageHashes: [imageHash] },
     () => ({ mode: "edit", promptId: spec.kind, prompt: spec.prompt, image: svgRasterPng }),
+  );
+}
+
+// Stage B of the brief's Wind Sketch pipeline. Produces a styled sumi-e top-
+// down background from a locked-plan rasterization. Stage C will composite
+// the deterministic LBM streamlines on top of this PNG, so this image must
+// not contain streamlines, arrows, or furniture itself.
+export async function generateWindSketchBase(lockedPlanRasterPng: Buffer): Promise<SketchResult> {
+  const spec = getOpenAIImagePrompt("wind-sketch-base");
+  const imageHash = hashBytes(lockedPlanRasterPng);
+  return runOrCache(
+    spec.kind,
+    { imageHashes: [imageHash] },
+    () => ({ mode: "edit", promptId: spec.kind, prompt: spec.prompt, image: lockedPlanRasterPng }),
+  );
+}
+
+// Resonance Hour still: the brief's closing image (Section 20). Takes the
+// polished Life Sketch as a 3D base and renders the moment "real evening
+// wind has just arrived" — sheer curtain barely lifts, dust motes in balcony
+// light, leaves tilt subtly. Wind is implied through environmental cues, NOT
+// arrows or streamlines. This is the user's home seen at 18:42 on a Tuesday;
+// the Wind Sketch top-down remains airflow source of truth.
+export async function generateResonanceHour(lifeSketchPng: Buffer): Promise<SketchResult> {
+  const spec = getOpenAIImagePrompt("resonance-hour-background");
+  const imageHash = hashBytes(lifeSketchPng);
+  return runOrCache(
+    spec.kind,
+    { imageHashes: [imageHash] },
+    () => ({ mode: "edit", promptId: spec.kind, prompt: spec.prompt, image: lifeSketchPng }),
   );
 }
 

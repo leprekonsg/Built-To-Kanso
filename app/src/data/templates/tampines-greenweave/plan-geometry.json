@@ -22,7 +22,13 @@
   ],
   "openings": [
     { "id": "main_door", "kind": "door", "roomIds": ["entry"], "start": { "x": 9.1, "y": 7.3 }, "end": { "x": 9.9, "y": 7.3 }, "operable": true },
-    { "id": "balcony_window", "kind": "window", "roomIds": ["living_dining"], "start": { "x": 6.8, "y": 1.1 }, "end": { "x": 10.1, "y": 1.1 }, "operable": true },
+    { "id": "main_bedroom_corridor_door", "kind": "door", "roomIds": ["main_bedroom", "corridor"], "start": { "x": 3.2, "y": 3.0 }, "end": { "x": 3.2, "y": 3.6 }, "operable": true },
+    { "id": "bedroom_2_corridor_door", "kind": "door", "roomIds": ["bedroom_2", "corridor"], "start": { "x": 4.1, "y": 2.9 }, "end": { "x": 4.8, "y": 2.9 }, "operable": true },
+    { "id": "bedroom_3_corridor_door", "kind": "door", "roomIds": ["bedroom_3", "corridor"], "start": { "x": 6.0, "y": 2.9 }, "end": { "x": 6.7, "y": 2.9 }, "operable": true },
+    { "id": "common_bath_corridor_door", "kind": "door", "roomIds": ["bath_common", "corridor"], "start": { "x": 3.2, "y": 4.4 }, "end": { "x": 3.9, "y": 4.4 }, "operable": true },
+    { "id": "master_bath_bedroom_door", "kind": "door", "roomIds": ["bath_master", "main_bedroom"], "start": { "x": 0.7, "y": 3.6 }, "end": { "x": 1.4, "y": 3.6 }, "operable": true },
+    { "id": "household_shelter_door", "kind": "door", "roomIds": ["household_shelter", "entry"], "start": { "x": 8.8, "y": 6.4 }, "end": { "x": 8.8, "y": 7.1 }, "operable": false },
+    { "id": "balcony_window", "kind": "window", "roomIds": ["living_dining"], "start": { "x": 8.1, "y": 1.1 }, "end": { "x": 10.1, "y": 1.1 }, "operable": true },
     { "id": "service_yard_louver", "kind": "louver", "roomIds": ["service_yard"], "start": { "x": 4.8, "y": 8 }, "end": { "x": 5.7, "y": 8 }, "operable": true },
     { "id": "main_bedroom_window", "kind": "window", "roomIds": ["main_bedroom"], "start": { "x": 0.3, "y": 1.2 }, "end": { "x": 0.3, "y": 2.7 }, "operable": true }
   ],

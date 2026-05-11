@@ -7,7 +7,7 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { getPlanGeometry, listGeometrySummaries } from "../src/server/geometry/registry";
-import { renderPlanSketchFallbackSvg } from "../src/server/openai/fallbackSvg";
+import { renderTopologyProofSvg } from "../src/server/openai/fallbackSvg";
 import { rasterizeSvgToPng } from "../src/server/openai/svgRaster";
 import { getPlanSketchCachePath } from "../src/server/sketches/planSketchAsset";
 
@@ -16,7 +16,7 @@ async function main() {
   for (const summary of listGeometrySummaries()) {
     const plan = getPlanGeometry(summary.templateId);
     const cache = getPlanSketchCachePath(plan.templateId);
-    const svg = renderPlanSketchFallbackSvg(plan);
+    const svg = renderTopologyProofSvg(plan);
     const raster = await rasterizeSvgToPng(svg);
     if (!raster.ok) {
       throw new Error(

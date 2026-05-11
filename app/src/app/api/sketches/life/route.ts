@@ -142,14 +142,28 @@ function acceptedLifeSketchHeaders(artifact: AcceptedLifeSketchArtifact): Record
   };
 }
 
-function lifeSketchReviewContext(anchor: LifeAnchorDescriptor): { manifestSummary: string } {
+function lifeSketchReviewContext(anchor: LifeAnchorDescriptor): {
+  manifestSummary: string;
+  lockedBathroomCount: number;
+} {
   const manifest = anchor.manifest;
   const rooms = manifest.rooms.map((room) => `${room.id}:${room.kind}`).join(",");
   const openings = manifest.openings
-    .map((opening) => `${opening.id}:${opening.kind}@${opening.position[0].toFixed(1)},${opening.position[2].toFixed(1)}`)
+    .map((opening) => `${opening.id}:${opening.kind}:${opening.roomIds.join("+")}@${opening.position[0].toFixed(1)},${opening.position[2].toFixed(1)}`)
     .join(",");
   const fixed = manifest.fixedElements
     .map((element) => `${element.id}:${element.kind}@${element.position[0].toFixed(1)},${element.position[2].toFixed(1)}`)
+    .join(",");
+  const bathroomCount = manifest.rooms.filter((room) => room.kind === "bathroom").length;
+  const shelterCount = manifest.rooms.filter((room) => room.kind === "shelter").length;
+  const roomById = new Map(manifest.rooms.map((room) => [room.id, room]));
+  const bedroomCirculationDoors = manifest.openings
+    .filter((opening) => {
+      if (opening.kind !== "door") return false;
+      const roomsForOpening = opening.roomIds.map((id) => roomById.get(id)).filter((room) => room !== undefined);
+      return roomsForOpening.some((room) => room.kind === "bedroom") && roomsForOpening.some((room) => room.kind === "corridor" || room.kind === "living" || room.kind === "entry");
+    })
+    .map((opening) => opening.id)
     .join(",");
 
   return {
@@ -157,11 +171,15 @@ function lifeSketchReviewContext(anchor: LifeAnchorDescriptor): { manifestSummar
       `template=${manifest.templateId}`,
       `source=${manifest.metadata.source}`,
       `rooms=${rooms}`,
+      `bathroomCount=${bathroomCount}`,
+      `householdShelterCount=${shelterCount}`,
       `openings=${openings}`,
+      `bedroomCirculationDoors=${bedroomCirculationDoors}`,
       `fixed=${fixed}`,
       `camera=${manifest.camera.position.map((v) => v.toFixed(2)).join(",")}`,
       `lookAt=${manifest.camera.lookAt.map((v) => v.toFixed(2)).join(",")}`,
     ].join("; "),
+    lockedBathroomCount: bathroomCount,
   };
 }
 

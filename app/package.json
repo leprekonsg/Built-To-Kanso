@@ -15,7 +15,13 @@
     "prebake:hero": "tsx scripts/prebake-empty-room.ts",
     "prebake:plans": "tsx scripts/prebake-plan-sketches.ts",
     "prebake:references": "tsx scripts/prebake-life-references.ts",
-    "prebake:anchors": "tsx scripts/prebake-life-anchors.ts"
+    "prebake:anchors": "tsx scripts/prebake-life-anchors.ts",
+    "prebake:life-sketches": "tsx scripts/prebake-life-sketches.ts",
+    "prebake:wind-base": "tsx scripts/prebake-wind-base.ts",
+    "prebake:resonance-hour": "tsx scripts/prebake-resonance-hour.ts",
+    "guide:screenshots": "tsx scripts/guide-capture.ts",
+    "guide:build": "tsx scripts/guide-build.ts",
+    "guide": "npm run guide:screenshots && npm run guide:build"
   },
   "dependencies": {
     "framer-motion": "^12.0.0",

@@ -180,6 +180,8 @@ function roomColor(room: RoomGeometry): number {
 
 function fixedColor(element: FixedElementGeometry): number {
   if (element.kind === "pipeshaft_opening") return 0xb96f4d;
+  if (element.kind === "household_shelter") return 0x6e675d;
+  if (element.kind === "wet_zone") return 0xa79f93;
   return 0x111111;
 }
 
@@ -241,12 +243,21 @@ function createOpeningMaterial(opening: OpeningGeometry): THREE.MeshPhysicalMate
 }
 
 function createFixedElementMaterial(element: FixedElementGeometry): THREE.MeshPhysicalMaterial {
+  const opacity =
+    element.kind === "pipeshaft_opening"
+      ? 0.82
+      : element.kind === "wet_zone"
+        ? 0.28
+        : element.kind === "household_shelter"
+          ? 0.62
+          : 0.5;
+
   return new THREE.MeshPhysicalMaterial({
     color: fixedColor(element),
     metalness: 0,
     roughness: element.kind === "pipeshaft_opening" ? 0.52 : 0.76,
     transparent: true,
-    opacity: element.kind === "pipeshaft_opening" ? 0.82 : 0.5,
+    opacity,
   });
 }
 
@@ -355,43 +366,133 @@ function createWallMesh(wall: LifeAnchorWallVolume): THREE.Mesh {
   return mesh;
 }
 
+// Room rects in plan-geometry.json overlap by convention (the rect encodes a
+// room's max extent, the smaller room "wins" the overlap region in the topology
+// proof). The 3D anchor must respect that convention or you get a Living/Dining
+// wall slicing through Bedroom 3. Algorithm: emit four wall segments per room,
+// then clip each segment against any OTHER room that "owns" the segment under
+// the smaller-wins rule. Ownership covers two cases with the same code path:
+//  - interior crossing: the segment's perpendicular coord is strictly inside
+//    the other room's perpendicular extent (Living/Dining intruding into a
+//    bedroom).
+//  - party wall: the perpendicular coord sits on the other room's boundary
+//    (two adjacent rooms sharing a wall). Without this case, both rooms emit a
+//    coplanar mesh and the topology proof z-fights.
+// One inclusive perpendicular test handles both.
+const WALL_CLIP_EPS = 0.001;
+
+interface Span {
+  start: number;
+  end: number;
+}
+
+function subtractSpan(spans: Span[], cut: Span): Span[] {
+  const next: Span[] = [];
+  for (const s of spans) {
+    if (cut.end <= s.start + WALL_CLIP_EPS || cut.start >= s.end - WALL_CLIP_EPS) {
+      next.push(s);
+      continue;
+    }
+    if (cut.start > s.start + WALL_CLIP_EPS) next.push({ start: s.start, end: cut.start });
+    if (cut.end < s.end - WALL_CLIP_EPS) next.push({ start: cut.end, end: s.end });
+  }
+  return next;
+}
+
+function clipWallSpan(
+  initial: Span,
+  perp: number,
+  perpAxis: "x" | "z",
+  others: ReadonlyArray<RoomGeometry>,
+): Span[] {
+  let spans: Span[] = [initial];
+  for (const o of others) {
+    const perpLo = perpAxis === "x" ? o.x : o.y;
+    const perpHi = perpLo + (perpAxis === "x" ? o.width : o.height);
+    // `o` owns this wall coord when `perp` is inside `o`'s perpendicular extent
+    // OR on its boundary. Interior covers overlap-crossing; boundary covers
+    // adjacent party walls. `o` is only in `others` if it won under the
+    // smaller-wins rule, so this clip removes the segment from the losing
+    // (bigger) room exactly when `o` is going to emit it instead.
+    if (perp < perpLo - WALL_CLIP_EPS || perp > perpHi + WALL_CLIP_EPS) continue;
+    const cutLo = perpAxis === "x" ? o.y : o.x;
+    const cutHi = cutLo + (perpAxis === "x" ? o.height : o.width);
+    spans = subtractSpan(spans, { start: cutLo, end: cutHi });
+    if (spans.length === 0) return spans;
+  }
+  return spans;
+}
+
+function emitsDedicatedWalls(room: RoomGeometry): boolean {
+  return room.kind !== "corridor";
+}
+
+function canClipRoomWall(owner: RoomGeometry, room: RoomGeometry): boolean {
+  if (emitsDedicatedWalls(owner)) return true;
+  return room.kind === "living" || room.kind === "entry" || room.kind === "kitchen" || room.kind === "service";
+}
+
 function buildWallVolumes(plan: PlanGeometry): LifeAnchorWallVolume[] {
-  return plan.rooms.flatMap((room) => {
-    const centerX = room.x + room.width / 2;
-    const centerY = room.y + room.height / 2;
-    const y = HDB_CEILING_HEIGHT_M / 2;
-    return [
-      {
-        roomId: room.id,
-        edge: "north" as const,
-        position: [centerX, y, room.y] as [number, number, number],
-        scale: [room.width + WALL_THICKNESS_M, HDB_CEILING_HEIGHT_M, WALL_THICKNESS_M] as [number, number, number],
-      },
-      {
-        roomId: room.id,
-        edge: "south" as const,
-        position: [centerX, y, room.y + room.height] as [number, number, number],
-        scale: [room.width + WALL_THICKNESS_M, HDB_CEILING_HEIGHT_M, WALL_THICKNESS_M] as [number, number, number],
-      },
-      {
-        roomId: room.id,
-        edge: "west" as const,
-        position: [room.x, y, centerY] as [number, number, number],
-        scale: [WALL_THICKNESS_M, HDB_CEILING_HEIGHT_M, room.height + WALL_THICKNESS_M] as [number, number, number],
-      },
-      {
-        roomId: room.id,
-        edge: "east" as const,
-        position: [room.x + room.width, y, centerY] as [number, number, number],
-        scale: [WALL_THICKNESS_M, HDB_CEILING_HEIGHT_M, room.height + WALL_THICKNESS_M] as [number, number, number],
-      },
-    ];
-  });
+  const walls: LifeAnchorWallVolume[] = [];
+  const y = HDB_CEILING_HEIGHT_M / 2;
+
+  for (const room of plan.rooms) {
+    // Smaller rooms win the overlap region. Only clip this room's walls
+    // against OTHER rooms that are strictly smaller in footprint; with equal
+    // area we tiebreak by id so the choice is stable.
+    const roomArea = room.width * room.height;
+    const others = plan.rooms.filter((r) => {
+      if (r.id === room.id) return false;
+      if (!canClipRoomWall(r, room)) return false;
+      const otherArea = r.width * r.height;
+      if (otherArea < roomArea) return true;
+      if (otherArea === roomArea) return r.id < room.id;
+      return false;
+    });
+    if (!emitsDedicatedWalls(room)) continue;
+
+    const east = room.x + room.width;
+    const south = room.y + room.height;
+
+    // North + south walls run along x. Their perpendicular coord is z (room.y axis).
+    for (const edge of ["north", "south"] as const) {
+      const perpZ = edge === "north" ? room.y : south;
+      const spans = clipWallSpan({ start: room.x, end: east }, perpZ, "z", others);
+      for (const span of spans) {
+        const length = span.end - span.start;
+        if (length <= WALL_CLIP_EPS) continue;
+        walls.push({
+          roomId: room.id,
+          edge,
+          position: [span.start + length / 2, y, perpZ],
+          scale: [length, HDB_CEILING_HEIGHT_M, WALL_THICKNESS_M],
+        });
+      }
+    }
+
+    // East + west walls run along z. Their perpendicular coord is x.
+    for (const edge of ["west", "east"] as const) {
+      const perpX = edge === "west" ? room.x : east;
+      const spans = clipWallSpan({ start: room.y, end: south }, perpX, "x", others);
+      for (const span of spans) {
+        const length = span.end - span.start;
+        if (length <= WALL_CLIP_EPS) continue;
+        walls.push({
+          roomId: room.id,
+          edge,
+          position: [perpX, y, span.start + length / 2],
+          scale: [WALL_THICKNESS_M, HDB_CEILING_HEIGHT_M, length],
+        });
+      }
+    }
+  }
+
+  return walls;
 }
 
 function fixedElementHeight(element: FixedElementGeometry): number {
   if (element.kind === "pipeshaft_opening") return 1.45;
-  if (element.kind === "wet_zone") return 1.25;
+  if (element.kind === "wet_zone") return 0.06;
   return HDB_CEILING_HEIGHT_M;
 }
 

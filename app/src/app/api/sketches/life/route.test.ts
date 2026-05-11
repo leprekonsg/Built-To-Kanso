@@ -7,8 +7,12 @@ import {
   clearLifeAnchorByteCache,
   getLifeAnchorCachePath,
 } from "@/server/anchors/lifeAnchor";
+import { hashBytes } from "@/lib/imageHash";
 import type { TemplateId } from "@/server/geometry/types";
-import { getAcceptedLifeSketchCachePath } from "@/server/sketches/lifeSketchAsset";
+import {
+  LIFE_SKETCH_INPUT_FINGERPRINT_VERSION,
+  getAcceptedLifeSketchCachePath,
+} from "@/server/sketches/lifeSketchAsset";
 import { POST } from "./route";
 
 // 1x1 PNG — magic-number-valid bytes used as both a fake anchor and a fake
@@ -22,7 +26,7 @@ function candidateBase64(index: number): string {
   return Buffer.concat([PNG_MAGIC, Buffer.from([index])]).toString("base64");
 }
 
-function reviewPayload(acceptedCandidateIndex = 1): Record<string, unknown> {
+function reviewPayload(acceptedCandidateIndex = 1, acceptedObserved = 2): Record<string, unknown> {
   return {
     acceptedCandidateIndex,
     summary: "candidate_1_preserves_locked_topology",
@@ -31,36 +35,42 @@ function reviewPayload(acceptedCandidateIndex = 1): Record<string, unknown> {
         candidateIndex: 0,
         status: "rejected",
         reasons: ["window_side_drift"],
+        observedBathroomCount: 2,
         checks: {
           roomTopology: "pass",
           windowBalconyDirection: "fail",
           kitchenHsPipeshaft: "pass",
           majorWallMasses: "pass",
           cameraView: "pass",
+          bathroomCount: "pass",
         },
       },
       {
         candidateIndex: 1,
         status: "accepted",
         reasons: [],
+        observedBathroomCount: acceptedObserved,
         checks: {
           roomTopology: "pass",
           windowBalconyDirection: "pass",
           kitchenHsPipeshaft: "pass",
           majorWallMasses: "pass",
           cameraView: "pass",
+          bathroomCount: acceptedObserved === 2 ? "pass" : "fail",
         },
       },
       {
         candidateIndex: 2,
         status: "rejected",
         reasons: ["hs_pipeshaft_relation_drift"],
+        observedBathroomCount: 2,
         checks: {
           roomTopology: "pass",
           windowBalconyDirection: "pass",
           kitchenHsPipeshaft: "fail",
           majorWallMasses: "pass",
           cameraView: "pass",
+          bathroomCount: "pass",
         },
       },
     ],
@@ -109,7 +119,13 @@ function postLife(body: PostBody, accept?: string, url = "https://example.com/ap
 
 async function seedAcceptedLifeSketch(root: string, templateId: TemplateId) {
   const cachePath = getAcceptedLifeSketchCachePath(templateId, root);
+  const anchorPath = join(root, "life-anchors", templateId, "anchor.png");
+  const topologyPath = join(root, "plan-sketches", templateId, "plan.png");
   await mkdir(cachePath.directory, { recursive: true });
+  await mkdir(join(root, "life-anchors", templateId), { recursive: true });
+  await mkdir(join(root, "plan-sketches", templateId), { recursive: true });
+  await writeFile(anchorPath, Buffer.concat([PNG_MAGIC, Buffer.from([1])]));
+  await writeFile(topologyPath, Buffer.concat([PNG_MAGIC, Buffer.from([2])]));
   await writeFile(cachePath.absolutePath, PNG_MAGIC);
   await writeFile(cachePath.metadataAbsolutePath, JSON.stringify({
     templateId,
@@ -124,6 +140,11 @@ async function seedAcceptedLifeSketch(root: string, templateId: TemplateId) {
     acceptedAtIso: "2026-05-11T00:45:34.708Z",
     reviewerModel: "gpt-4.1-mini",
     reviewerSummary: "candidate_1_preserves_locked_topology",
+    anchorCachePath: `life-anchors/${templateId}/anchor.png`,
+    topologyProof: `plan-sketches/${templateId}/plan.png`,
+    inputFingerprintVersion: LIFE_SKETCH_INPUT_FINGERPRINT_VERSION,
+    anchorHash: hashBytes(Buffer.concat([PNG_MAGIC, Buffer.from([1])])),
+    topologyProofHash: hashBytes(Buffer.concat([PNG_MAGIC, Buffer.from([2])])),
   }));
   return cachePath;
 }

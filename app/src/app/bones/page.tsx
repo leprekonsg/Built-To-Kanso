@@ -7,7 +7,8 @@ import {
   type ThresholdParamIssue,
 } from "@/lib/thresholdParams";
 import { getPlanGeometry } from "@/server/geometry/registry";
-import type { ConfidenceState, FixedElementGeometry, PlanGeometry } from "@/server/geometry/types";
+import type { ConfidenceState, FixedElementGeometry, PlanGeometry, RoomGeometry } from "@/server/geometry/types";
+import { PlanGlyph, PROTECTED_GLYPH_KINDS, glyphKindLabel } from "@/components/PlanGlyph";
 import { BonesInteractive } from "./_components";
 import styles from "./bones.module.css";
 
@@ -128,6 +129,7 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
             <LegendItem label="Caution" tone="red" />
             <LegendItem label="HDB / SCDF fixed" tone="black" />
           </div>
+          <GlyphKey plan={plan} />
         </div>
       </BonesInteractive>
     </main>
@@ -292,18 +294,14 @@ function PlanSvg({ plan }: { plan: PlanGeometry }) {
         className={styles.planBounds}
       />
       {plan.rooms.map((room) => (
-        <g key={room.id}>
-          <rect
-            x={room.x}
-            y={room.y}
-            width={room.width}
-            height={room.height}
-            className={`${styles.room} ${styles[room.confidence]}`}
-          />
-          <text x={room.x + room.width / 2} y={room.y + room.height / 2} className={styles.roomLabel}>
-            {room.label}
-          </text>
-        </g>
+        <rect
+          key={room.id}
+          x={room.x}
+          y={room.y}
+          width={room.width}
+          height={room.height}
+          className={`${styles.room} ${styles[room.confidence]}`}
+        />
       ))}
       {plan.openings.map((opening) => (
         <line
@@ -331,6 +329,27 @@ function PlanSvg({ plan }: { plan: PlanGeometry }) {
         r={plan.pipeshaft.bufferRadiusM}
         className={styles.bufferCircle}
       />
+      {plan.rooms.map((room) =>
+        room.confidence === "black" ? (
+          <PlanGlyph
+            key={`${room.id}-glyph`}
+            kind={room.kind}
+            cx={room.x + room.width / 2}
+            cy={room.y + room.height / 2}
+            label={room.label}
+            tone="light"
+          />
+        ) : (
+          <text
+            key={`${room.id}-label`}
+            x={room.x + room.width / 2}
+            y={room.y + room.height / 2}
+            className={styles.roomLabel}
+          >
+            {room.label}
+          </text>
+        ),
+      )}
     </svg>
   );
 }
@@ -351,6 +370,47 @@ function LegendItem({ label, tone }: { label: string; tone: ConfidenceState }) {
       {label}
     </span>
   );
+}
+
+function GlyphKey({ plan }: { plan: PlanGeometry }) {
+  const kinds = uniqueProtectedKinds(plan.rooms);
+  if (kinds.length === 0) return null;
+  return (
+    <div className={styles.glyphKey} aria-label="HDB-protected glyph key">
+      <span className={styles.eyebrow}>Protected zones</span>
+      <ul className={styles.glyphKeyList}>
+        {kinds.map((kind) => {
+          const rooms = plan.rooms.filter((r) => r.confidence === "black" && r.kind === kind);
+          const names = rooms.map((r) => r.label).join(", ");
+          return (
+            <li key={kind} className={styles.glyphKeyItem}>
+              <svg
+                className={styles.glyphKeyGlyph}
+                viewBox="-0.4 -0.3 0.8 0.6"
+                aria-hidden
+              >
+                <PlanGlyph kind={kind} cx={0} cy={0} label="" tone="dark" />
+              </svg>
+              <span>
+                <strong>{glyphKindLabel(kind)}</strong>
+                <em>{names}</em>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function uniqueProtectedKinds(rooms: ReadonlyArray<RoomGeometry>): ReadonlyArray<RoomGeometry["kind"]> {
+  const seen = new Set<RoomGeometry["kind"]>();
+  for (const room of rooms) {
+    if (room.confidence === "black" && PROTECTED_GLYPH_KINDS.includes(room.kind)) {
+      seen.add(room.kind);
+    }
+  }
+  return Array.from(seen);
 }
 
 function Metric({ label, value }: { label: string; value: number }) {

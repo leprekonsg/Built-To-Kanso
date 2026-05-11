@@ -31,6 +31,13 @@ export interface CacheKeyInputs {
   model?: string;
   promptHash?: string;
   seed?: string;
+  // QA gate version. Bumping this string invalidates every cached PNG that
+  // was accepted under an older gate, so the next call re-renders and
+  // re-reviews. Use this when changing what the reviewer enforces (e.g.
+  // adding a deterministic bathroom-count check) rather than mutating the
+  // prompt text alone — prompt mutations also work, but tying invalidation
+  // to a named gate version is intentional and reviewable.
+  qaGateVersion?: string;
 }
 
 export interface SketchCacheMetadata {
@@ -60,6 +67,7 @@ export function keyFor(promptKind: ImagePromptKind, inputs: CacheKeyInputs): str
     `prompt=${inputs.promptHash ?? ""}`,
     `images=${(inputs.imageHashes ?? []).join(",")}`,
     `seed=${inputs.seed ?? ""}`,
+    `qa=${inputs.qaGateVersion ?? ""}`,
   ];
   return hashString(parts.join("|"));
 }

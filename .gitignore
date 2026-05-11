@@ -34,6 +34,7 @@ pnpm-debug.log*
 threshold-*.png
 grade-*.png
 harden-*.png
+app/guide-output/
 
 # Local editor/project state
 .vscode/

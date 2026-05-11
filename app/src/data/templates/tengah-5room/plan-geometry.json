@@ -24,7 +24,14 @@
   ],
   "openings": [
     { "id": "main_door", "kind": "door", "roomIds": ["entry"], "start": { "x": 9.7, "y": 7.8 }, "end": { "x": 10.5, "y": 7.8 }, "operable": true },
-    { "id": "living_window", "kind": "window", "roomIds": ["living_dining"], "start": { "x": 7.6, "y": 1 }, "end": { "x": 11.4, "y": 1 }, "operable": true },
+    { "id": "main_bedroom_corridor_door", "kind": "door", "roomIds": ["main_bedroom", "corridor"], "start": { "x": 3.5, "y": 3.2 }, "end": { "x": 3.5, "y": 3.9 }, "operable": true },
+    { "id": "bedroom_2_corridor_door", "kind": "door", "roomIds": ["bedroom_2", "corridor"], "start": { "x": 4.4, "y": 3.2 }, "end": { "x": 5.1, "y": 3.2 }, "operable": true },
+    { "id": "bedroom_3_corridor_door", "kind": "door", "roomIds": ["bedroom_3", "corridor"], "start": { "x": 6.6, "y": 3.2 }, "end": { "x": 7.3, "y": 3.2 }, "operable": true },
+    { "id": "bedroom_4_corridor_door", "kind": "door", "roomIds": ["bedroom_4", "corridor"], "start": { "x": 3.1, "y": 4.15 }, "end": { "x": 3.1, "y": 4.55 }, "operable": true },
+    { "id": "common_bath_corridor_door", "kind": "door", "roomIds": ["bath_common", "corridor"], "start": { "x": 3.5, "y": 4.6 }, "end": { "x": 4.2, "y": 4.6 }, "operable": true },
+    { "id": "master_bath_bedroom_door", "kind": "door", "roomIds": ["bath_master", "bedroom_4"], "start": { "x": 0.8, "y": 6.8 }, "end": { "x": 1.5, "y": 6.8 }, "operable": true },
+    { "id": "household_shelter_door", "kind": "door", "roomIds": ["household_shelter", "entry"], "start": { "x": 10.7, "y": 6.8 }, "end": { "x": 10.7, "y": 7.5 }, "operable": false },
+    { "id": "living_window", "kind": "window", "roomIds": ["living_dining"], "start": { "x": 8.8, "y": 1 }, "end": { "x": 11.4, "y": 1 }, "operable": true },
     { "id": "service_yard_louver", "kind": "louver", "roomIds": ["service_yard"], "start": { "x": 5, "y": 8.5 }, "end": { "x": 6, "y": 8.5 }, "operable": true },
     { "id": "main_bedroom_window", "kind": "window", "roomIds": ["main_bedroom"], "start": { "x": 0.4, "y": 1.2 }, "end": { "x": 0.4, "y": 3.1 }, "operable": true }
   ],

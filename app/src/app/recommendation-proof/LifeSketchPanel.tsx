@@ -61,18 +61,27 @@ export default function LifeSketchPanel({ templateId, anchorSrc }: LifeSketchPan
         const cachePath = response.headers.get("X-Life-Sketch-Cache-Path");
         const tier = response.headers.get("X-Evidence-Tier") ?? "prototype_visualisation";
         const accepted = source === "accepted-gpt-image-2-prebake";
-        const meta = [
-          tier,
-          mode ?? (accepted ? "accepted-gpt-image-2-prebake" : "deterministic-sumi-e"),
-          source ?? "deterministic-sumi-e-life-sketch",
-          candidateCount ? `${candidateCount} candidates` : null,
-          acceptedCandidate ? `accepted ${acceptedCandidate}` : null,
-          qaModel ? `reviewed by ${qaModel}` : null,
-          cachePath ? `cache ${cachePath}` : null,
-          fallback ? `fallback ${fallback}` : null,
-          anchorSource ? `anchor ${anchorSource}` : "anchor source unavailable",
-          anchorScene ?? "three-perspective-greybox-scene-manifest",
-        ].filter((item): item is string => Boolean(item));
+        const resolvedMode = mode ?? (accepted ? "accepted-gpt-image-2-prebake" : "deterministic-sumi-e");
+        const resolvedSource = source ?? "deterministic-sumi-e-life-sketch";
+        const meta = Array.from(
+          new Set(
+            [
+              tier,
+              resolvedMode,
+              // Mode and source frequently agree on the accepted path. Drop
+              // the duplicate so React keys stay unique and the rail does not
+              // repeat the same line twice.
+              resolvedMode === resolvedSource ? null : resolvedSource,
+              candidateCount ? `${candidateCount} candidates` : null,
+              acceptedCandidate ? `accepted ${acceptedCandidate}` : null,
+              qaModel ? `reviewed by ${qaModel}` : null,
+              cachePath ? `cache ${cachePath}` : null,
+              fallback ? `fallback ${fallback}` : null,
+              anchorSource ? `anchor ${anchorSource}` : "anchor source unavailable",
+              anchorScene ?? "three-perspective-greybox-scene-manifest",
+            ].filter((item): item is string => Boolean(item)),
+          ),
+        );
 
         setState({
           status: fallback ? "fallback" : "ready",

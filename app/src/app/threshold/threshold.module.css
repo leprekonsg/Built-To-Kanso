@@ -374,6 +374,7 @@
   line-height: 1;
   letter-spacing: -0.04em;
   color: var(--fg-1);
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .compassFacing {
   font-family: var(--font-serif);
@@ -440,6 +441,7 @@
   display: inline-flex;
   align-items: baseline;
   gap: var(--s-3);
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .floorBigPre {
   font-family: var(--font-mono);
@@ -696,6 +698,7 @@
   font-weight: 500;
   letter-spacing: -0.01em;
   color: var(--fg-1);
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .readingRowSub {
   font-family: var(--font-mono);

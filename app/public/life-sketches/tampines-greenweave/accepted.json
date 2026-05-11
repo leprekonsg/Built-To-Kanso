@@ -1,0 +1,15 @@
+{
+  "templateId": "tampines-greenweave",
+  "source": "accepted_gpt_image_2_prebake",
+  "promptKind": "life-sketch-from-anchor",
+  "candidateCount": 3,
+  "acceptedCandidateIndex": 2,
+  "rejectedCandidates": [],
+  "acceptedAtIso": "2026-05-11T13:19:37.284Z",
+  "reviewerModel": "gpt-4.1-mini",
+  "anchorCachePath": "life-anchors/tampines-greenweave/anchor.png",
+  "topologyProof": "plan-sketches/tampines-greenweave/plan.png",
+  "inputFingerprintVersion": "topology-proof-v5-deterministic-bathroom-count",
+  "anchorHash": "7c46a2693eb820a9",
+  "topologyProofHash": "a4aee968fd153d2e"
+}

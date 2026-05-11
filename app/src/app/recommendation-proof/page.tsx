@@ -7,9 +7,11 @@ import {
   parseThresholdParams,
   type ThresholdParamIssue,
 } from "@/lib/thresholdParams";
+import { PlanGlyph } from "@/components/PlanGlyph";
 import { EVIDENCE_TIER_LABELS, type EvidenceTier } from "@/server/evidence";
+import { buildLifeAnchorSceneManifest } from "@/server/anchors/lifeAnchor";
 import { getPlanGeometry } from "@/server/geometry/registry";
-import type { Point } from "@/server/geometry/types";
+import type { Point, RoomGeometry } from "@/server/geometry/types";
 import { buildRecommendationProof, type RecommendationAction, type RecommendationProof } from "@/server/recommendations/proof";
 import type { SimulationStreamline } from "@/server/simulation/types";
 import LifeSketchPanel from "./LifeSketchPanel";
@@ -58,11 +60,9 @@ export default async function RecommendationProofPage({ searchParams }: Recommen
           <span className={styles.brandSub}>Stage Six · Recommendation Proof</span>
         </Link>
         <nav className={styles.crumbs} aria-label="Journey">
-          <Link href={backHref} className={styles.crumbDim}>
-            <span className={styles.crumbNum}>02</span> Bones
-          </Link>
+          <Link href={backHref} className={styles.crumbDim}>Bones</Link>
           <span className={styles.crumbDot} aria-hidden />
-          <span className={styles.crumbActive}><span className={styles.crumbNum}>06</span> Proof</span>
+          <span className={styles.crumbActive}>Proof</span>
         </nav>
         <VoiceToggle />
       </header>
@@ -230,9 +230,19 @@ function ParamErrorsState({ issues }: { issues: ThresholdParamIssue[] }) {
 function ProofPlan({ proof }: { proof: RecommendationProof }) {
   const { plan } = proof;
   const viewBox = `${plan.bounds.x - 0.45} ${plan.bounds.y - 0.45} ${plan.bounds.width + 0.9} ${plan.bounds.height + 0.9}`;
+  const manifest = buildLifeAnchorSceneManifest(plan);
+  const rooms = [...plan.rooms].sort((a, b) => b.width * b.height - a.width * a.height || a.id.localeCompare(b.id));
 
   return (
     <svg className={styles.proofPlan} viewBox={viewBox} role="img" aria-label={`${plan.templateId} recommendation proof plan`}>
+      <defs>
+        <marker id="proof-flow-arrow-clean" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0 0 L6 3 L0 6 Z" className={styles.cleanArrow} />
+        </marker>
+        <marker id="proof-flow-arrow-shaft" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0 0 L6 3 L0 6 Z" className={styles.shaftArrow} />
+        </marker>
+      </defs>
       <rect
         x={plan.bounds.x}
         y={plan.bounds.y}
@@ -240,29 +250,76 @@ function ProofPlan({ proof }: { proof: RecommendationProof }) {
         height={plan.bounds.height}
         className={styles.planBounds}
       />
-      {plan.rooms.map((room) => (
-        <g key={room.id}>
-          <rect
-            x={room.x}
-            y={room.y}
-            width={room.width}
-            height={room.height}
-            className={`${styles.room} ${styles[room.confidence]}`}
-          />
-          <text x={room.x + room.width / 2} y={room.y + room.height / 2} className={styles.roomLabel}>
-            {room.label}
-          </text>
-        </g>
-      ))}
-      {plan.openings.map((opening) => (
-        <line
-          key={opening.id}
-          x1={opening.start.x}
-          y1={opening.start.y}
-          x2={opening.end.x}
-          y2={opening.end.y}
-          className={opening.operable ? styles.openingOperable : styles.openingFixed}
+      {rooms.map((room) => (
+        <rect
+          key={room.id}
+          x={room.x}
+          y={room.y}
+          width={room.width}
+          height={room.height}
+          className={styles.room}
+          style={{ fill: proofRoomFill(room), stroke: room.kind === "corridor" ? "none" : undefined }}
         />
+      ))}
+      <g aria-label="Furniture placement cues">
+        {rooms.map((room) => (
+          <RoomFurniture key={`${room.id}-furniture`} room={room} />
+        ))}
+      </g>
+      <g aria-label="Deterministic airflow streamlines">
+        {proof.streamlines.map((line) => (
+          <path
+            key={line.id}
+            d={streamlinePath(line)}
+            className={line.material === "sumi_ink" ? styles.shaftStreamline : styles.cleanStreamline}
+            markerEnd={line.material === "sumi_ink" ? "url(#proof-flow-arrow-shaft)" : "url(#proof-flow-arrow-clean)"}
+          />
+        ))}
+      </g>
+      <g aria-label="Air particles">
+        {proof.particles.map((particle) => (
+          <circle
+            key={particle.id}
+            cx={particle.x}
+            cy={particle.y}
+            r={particle.kind === "pipeshaft_drift" ? 0.08 : 0.07}
+            className={particle.kind === "pipeshaft_drift" ? styles.shaftParticle : styles.cleanParticle}
+          />
+        ))}
+      </g>
+      {manifest.wallVolumes.map((wall) => {
+        const horizontal = wall.edge === "north" || wall.edge === "south";
+        const length = horizontal ? wall.scale[0] : wall.scale[2];
+        const x = horizontal ? wall.position[0] - length / 2 : wall.position[0] - wall.scale[0] / 2;
+        const y = horizontal ? wall.position[2] - wall.scale[2] / 2 : wall.position[2] - length / 2;
+        return (
+          <rect
+            key={`${wall.roomId}-${wall.edge}-${wall.position.join("-")}`}
+            x={x}
+            y={y}
+            width={horizontal ? length : wall.scale[0]}
+            height={horizontal ? wall.scale[2] : length}
+            className={styles.proofWall}
+          />
+        );
+      })}
+      {plan.openings.map((opening) => (
+        <g key={opening.id}>
+          <line
+            x1={opening.start.x}
+            y1={opening.start.y}
+            x2={opening.end.x}
+            y2={opening.end.y}
+            className={styles.openingVoid}
+          />
+          <line
+            x1={opening.start.x}
+            y1={opening.start.y}
+            x2={opening.end.x}
+            y2={opening.end.y}
+            className={opening.operable ? styles.openingOperable : styles.openingFixed}
+          />
+        </g>
       ))}
       {plan.fixedElements.map((element) => (
         <rect
@@ -280,26 +337,27 @@ function ProofPlan({ proof }: { proof: RecommendationProof }) {
         r={plan.pipeshaft.bufferRadiusM}
         className={styles.bufferCircle}
       />
-      <g aria-label="Deterministic airflow streamlines">
-        {proof.streamlines.map((line) => (
-          <path
-            key={line.id}
-            d={streamlinePath(line)}
-            className={line.material === "sumi_ink" ? styles.shaftStreamline : styles.cleanStreamline}
+      {plan.rooms.filter((room) => room.kind !== "corridor").map((room) =>
+        room.confidence === "black" ? (
+          <PlanGlyph
+            key={`${room.id}-glyph`}
+            kind={room.kind}
+            cx={room.x + room.width / 2}
+            cy={room.y + room.height / 2}
+            label={room.label}
+            tone="light"
           />
-        ))}
-      </g>
-      <g aria-label="Air particles">
-        {proof.particles.map((particle) => (
-          <circle
-            key={particle.id}
-            cx={particle.x}
-            cy={particle.y}
-            r={particle.kind === "pipeshaft_drift" ? 0.08 : 0.07}
-            className={particle.kind === "pipeshaft_drift" ? styles.shaftParticle : styles.cleanParticle}
-          />
-        ))}
-      </g>
+        ) : (
+          <text
+            key={`${room.id}-label`}
+            x={room.x + room.width / 2}
+            y={room.y + room.height / 2}
+            className={styles.roomLabel}
+          >
+            {room.label}
+          </text>
+        ),
+      )}
       <g aria-label="Recommended placement markers">
         {proof.actions.map((action) => (
           <g key={action.id} className={styles.actionPoint}>
@@ -309,6 +367,82 @@ function ProofPlan({ proof }: { proof: RecommendationProof }) {
         ))}
       </g>
     </svg>
+  );
+}
+
+function proofRoomFill(room: RoomGeometry): string {
+  if (room.confidence === "black") return "#DDD6C8";
+  if (room.kind === "bedroom") return "#D7C2A2";
+  if (room.kind === "kitchen") return "#E5DDD0";
+  if (room.kind === "service" || room.kind === "entry") return "#EAE4D8";
+  return "#F7F2E8";
+}
+
+function RoomFurniture({ room }: { room: RoomGeometry }) {
+  if (room.kind === "bedroom") return <BedroomFurniture room={room} />;
+  if (room.kind === "living") return <LivingFurniture room={room} />;
+  if (room.kind === "kitchen") return <KitchenFurniture room={room} />;
+  if (room.kind === "bathroom") return <BathFurniture room={room} />;
+  if (room.kind === "service") return <ServiceFurniture room={room} />;
+  return null;
+}
+
+function BedroomFurniture({ room }: { room: RoomGeometry }) {
+  const bedW = room.width * 0.52;
+  const bedH = room.height * 0.56;
+  const x = room.x + room.width * 0.11;
+  const y = room.y + room.height * 0.1;
+  return (
+    <g className={styles.furniture}>
+      <rect x={x} y={y} width={bedW} height={bedH} className={styles.furnitureWood} />
+      <rect x={x + bedW * 0.08} y={y + bedH * 0.1} width={bedW * 0.84} height={bedH * 0.78} className={styles.furnitureSoft} />
+      <rect x={x + bedW * 0.14} y={y + bedH * 0.15} width={bedW * 0.28} height={bedH * 0.18} className={styles.furnitureLight} />
+    </g>
+  );
+}
+
+function LivingFurniture({ room }: { room: RoomGeometry }) {
+  return (
+    <g className={styles.furniture}>
+      <rect x={room.x + room.width * 0.73} y={room.y + room.height * 0.16} width={room.width * 0.2} height={room.height * 0.46} className={styles.furnitureRattan} />
+      <rect x={room.x + room.width * 0.42} y={room.y + room.height * 0.62} width={room.width * 0.19} height={room.height * 0.13} className={styles.furnitureTable} />
+      <rect x={room.x + room.width * 0.34} y={room.y + room.height * 0.65} width={room.width * 0.045} height={room.height * 0.07} className={styles.furnitureRattan} />
+      <rect x={room.x + room.width * 0.65} y={room.y + room.height * 0.65} width={room.width * 0.045} height={room.height * 0.07} className={styles.furnitureRattan} />
+    </g>
+  );
+}
+
+function KitchenFurniture({ room }: { room: RoomGeometry }) {
+  const counter = Math.min(room.width, room.height) * 0.16;
+  return (
+    <g className={styles.furniture}>
+      <rect x={room.x + room.width * 0.06} y={room.y + room.height - counter * 1.5} width={room.width * 0.72} height={counter} className={styles.furnitureLight} />
+      <rect x={room.x + room.width * 0.06} y={room.y + room.height * 0.22} width={counter} height={room.height * 0.55} className={styles.furnitureLight} />
+      <circle cx={room.x + room.width * 0.48} cy={room.y + room.height - counter} r={counter * 0.22} className={styles.stoveRing} />
+      <circle cx={room.x + room.width * 0.58} cy={room.y + room.height - counter} r={counter * 0.22} className={styles.stoveRing} />
+    </g>
+  );
+}
+
+function BathFurniture({ room }: { room: RoomGeometry }) {
+  const r = Math.max(0.12, Math.min(room.width, room.height) * 0.12);
+  return (
+    <g className={styles.furniture}>
+      <circle cx={room.x + room.width * 0.32} cy={room.y + room.height * 0.38} r={r} className={styles.furnitureLight} />
+      <rect x={room.x + room.width * 0.54} y={room.y + room.height * 0.22} width={room.width * 0.26} height={room.height * 0.22} className={styles.furnitureLight} />
+      <rect x={room.x + room.width * 0.14} y={room.y + room.height * 0.68} width={room.width * 0.64} height={room.height * 0.08} className={styles.furnitureConcrete} />
+    </g>
+  );
+}
+
+function ServiceFurniture({ room }: { room: RoomGeometry }) {
+  return (
+    <g className={styles.furniture}>
+      {[0, 1, 2, 3].map((index) => {
+        const x = room.x + room.width * (0.22 + index * 0.14);
+        return <line key={index} x1={x} y1={room.y + room.height * 0.18} x2={x} y2={room.y + room.height * 0.82} className={styles.serviceLine} />;
+      })}
+    </g>
   );
 }
 
