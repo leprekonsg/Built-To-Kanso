@@ -10,6 +10,8 @@
 // a true cache miss, and we surface the missing-key state clearly to the
 // route layer instead of failing open.
 
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { hashString } from "@/lib/imageHash";
 import type { ImagePromptKind } from "@/server/folio/prompts";
 import { getOpenAIImageModel, normalizeOpenAIImageModel } from "./client";
@@ -27,14 +29,35 @@ import {
 export interface CacheKeyInputs {
   imageHashes?: string[];
   model?: string;
+  promptHash?: string;
   seed?: string;
 }
+
+export interface SketchCacheMetadata {
+  key: string;
+  promptKind: ImagePromptKind;
+  candidateCount: number;
+  acceptedCandidateIndex: number;
+  rejectedCandidates: Array<{ candidateIndex: number; reason: string }>;
+  acceptedAtIso: string;
+  reviewerModel?: string;
+  reviewerSummary?: string;
+  candidateReviews?: Array<{
+    candidateIndex: number;
+    status: "accepted" | "rejected";
+    reasons: string[];
+    checks: Record<string, string>;
+  }>;
+}
+
+const METADATA_CACHE = new Map<string, SketchCacheMetadata>();
 
 export function keyFor(promptKind: ImagePromptKind, inputs: CacheKeyInputs): string {
   const model = inputs.model ? normalizeOpenAIImageModel(inputs.model) : getOpenAIImageModel();
   const parts = [
     `kind=${promptKind}`,
     `model=${model}`,
+    `prompt=${inputs.promptHash ?? ""}`,
     `images=${(inputs.imageHashes ?? []).join(",")}`,
     `seed=${inputs.seed ?? ""}`,
   ];
@@ -54,6 +77,42 @@ export async function putCached(key: string, bytes: Buffer, dir: string = DEFAUL
 
 export function getConfiguredSketchCache(): SketchCacheConfigResult {
   return createSketchCacheFromEnv();
+}
+
+export async function putCachedMetadata(
+  metadata: SketchCacheMetadata,
+  dir: string = process.env.SKETCH_CACHE_DIR ?? DEFAULT_SKETCH_CACHE_DIR,
+): Promise<void> {
+  METADATA_CACHE.set(metadata.key, metadata);
+  if ((process.env.SKETCH_CACHE_PROVIDER ?? "memory").toLowerCase() !== "file") return;
+  await mkdir(dir, { recursive: true });
+  await writeFile(metadataPath(dir, metadata.key), JSON.stringify(metadata, null, 2), "utf8");
+}
+
+export async function getCachedMetadata(
+  key: string,
+  dir: string = process.env.SKETCH_CACHE_DIR ?? DEFAULT_SKETCH_CACHE_DIR,
+): Promise<SketchCacheMetadata | undefined> {
+  const memory = METADATA_CACHE.get(key);
+  if (memory) return memory;
+  if ((process.env.SKETCH_CACHE_PROVIDER ?? "memory").toLowerCase() !== "file") return undefined;
+  try {
+    const raw = await readFile(metadataPath(dir, key), "utf8");
+    const metadata = JSON.parse(raw) as SketchCacheMetadata;
+    if (metadata.key !== key) return undefined;
+    METADATA_CACHE.set(key, metadata);
+    return metadata;
+  } catch {
+    return undefined;
+  }
+}
+
+function metadataPath(dir: string, key: string): string {
+  return join(dir, `${safeKey(key)}.json`);
+}
+
+function safeKey(key: string): string {
+  return key.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
 export type { SketchCache };

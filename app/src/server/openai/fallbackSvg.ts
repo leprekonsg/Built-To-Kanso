@@ -1,4 +1,6 @@
 import type { FixedElementGeometry, PlanGeometry, Rect } from "@/server/geometry/types";
+import { buildLifeAnchorSceneManifest } from "@/server/anchors/lifeAnchor";
+import { renderLifeAnchorSceneSvg } from "@/server/anchors/lifeAnchorRender";
 import type { Tier4SimulationField, SimulationStreamline } from "@/server/simulation/types";
 
 const SKETCH_TIER = "prototype_visualisation" as const;
@@ -259,40 +261,7 @@ export function renderPlanSketchFallbackSvg(plan: PlanGeometry): string {
 }
 
 export function renderLifeAnchorFallbackSvg(plan: PlanGeometry): string {
-  const { width, height, margin, scale } = viewBoxFor(plan);
-  const planWidth = plan.bounds.width * scale;
-  const planHeight = plan.bounds.height * scale;
-  const footerY = margin + planHeight + 52;
-
-  const rooms = plan.rooms
-    .map((room) => {
-      const box = xy(room, scale, margin);
-      const label = center(room, scale, margin);
-      const wallColor = room.confidence === "black" ? COLORS.black : COLORS.concrete;
-
-      return `<g>
-  <rect x="${(box.x + 14).toFixed(1)}" y="${(box.y - 18).toFixed(1)}" width="${box.width.toFixed(1)}" height="${box.height.toFixed(1)}" fill="${COLORS.concrete}" opacity="0.2" />
-  <rect x="${box.x.toFixed(1)}" y="${box.y.toFixed(1)}" width="${box.width.toFixed(1)}" height="${box.height.toFixed(1)}" fill="${roomFill(room.confidence)}" stroke="${wallColor}" stroke-width="2.4" />
-  <text x="${label.x.toFixed(1)}" y="${label.y.toFixed(1)}" text-anchor="middle" dominant-baseline="middle">${escapeSvg(room.label)}</text>
-</g>`;
-    })
-    .join("");
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 ${width} ${height}">
-<title>Life Sketch anchor fallback for ${escapeSvg(plan.templateId)}</title>
-<desc>Deterministic structural anchor generated from locked plan geometry when the Three.js anchor PNG is unavailable.</desc>
-<rect width="100%" height="100%" fill="${COLORS.bone}" />
-<g font-family="Inter, Arial, sans-serif" font-size="24" fill="${COLORS.black}">
-  <g transform="translate(18 -12)">
-    <path d="M ${margin} ${margin + planHeight} L ${margin + 18} ${margin + planHeight - 12} L ${(margin + planWidth + 18).toFixed(1)} ${(margin + planHeight - 12).toFixed(1)} L ${(margin + planWidth).toFixed(1)} ${(margin + planHeight).toFixed(1)} Z" fill="${COLORS.concrete}" opacity="0.22" />
-  </g>
-  ${rooms}
-  ${renderOpenings(plan, scale, margin)}
-  <circle cx="${(margin + plan.pipeshaft.openingPoint.x * scale).toFixed(1)}" cy="${(margin + plan.pipeshaft.openingPoint.y * scale).toFixed(1)}" r="11" fill="${COLORS.terracotta}" />
-  <text x="${margin}" y="${footerY}" font-family="JetBrains Mono, ui-monospace, monospace" font-size="18" letter-spacing="2" fill="${COLORS.mute}">LIFE SKETCH ANCHOR FALLBACK · ${escapeSvg(plan.templateId)}</text>
-  ${renderDraftWatermark(width, height)}
-</g>
-</svg>`;
+  return renderLifeAnchorSceneSvg(buildLifeAnchorSceneManifest(plan));
 }
 
 export function renderWindSketchSvg(plan: PlanGeometry, field: Tier4SimulationField): string {

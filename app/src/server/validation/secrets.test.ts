@@ -24,6 +24,6 @@ describe("operational secret hygiene", () => {
     assert.match(checklist, /Operational secrets and credentials are intentionally not checked into the repo/);
     assert.match(checklist, /R2 and VAPID are not required for the demo path/);
     assert.match(checklist, /OPENAI_API_KEY configured.*intentionally not committed/);
-    assert.match(checklist, /VAPID keypair generated\/configured.*waived for demo/);
+    assert.match(checklist, /VAPID\/Web Push demo posture.*waived for demo/);
   });
 });

@@ -35,8 +35,10 @@ describe("render asset validation", () => {
     const report = await validateExpectedRenderAssets();
 
     assert.equal(report.ok, true, report.assets.flatMap((asset) => asset.issues).join("\n"));
-    assert.equal(report.assetCount, 11);
+    assert.equal(report.assetCount, 13);
     assert.equal(report.assetCount, expectedRenderAssets().length);
+    assert.ok(report.assets.some((asset) => asset.relativePath === "references/brand-v3-poster.png"));
+    assert.ok(report.assets.some((asset) => asset.relativePath === "references/hdb-material-board.png"));
   });
 });
 

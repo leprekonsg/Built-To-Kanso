@@ -30,6 +30,7 @@ import type {
   Tier4SimulationField,
   WeatherTrialConditionId,
 } from "@/server/simulation/types";
+import { TokenVisualProof } from "./TokenVisualProof";
 import styles from "./LiveStudio.module.css";
 
 /** Browser-side Tier 1 LBM iteration count. Mirrors server tier4.TIER1_ITERATIONS. */
@@ -233,6 +234,9 @@ export function LiveStudio({
       </svg>
 
       {hasPipeshaftDrift ? <PipeshaftLegend voiceMode={voiceMode} /> : null}
+      {voiceMode === "designer" && designerControls?.preset === "audit_lic" && tokenPlacements.length > 0 ? (
+        <TokenVisualProof placements={tokenPlacements} />
+      ) : null}
 
       <div className={styles.controls}>
         <label className={styles.sliderLabel} htmlFor={sliderId}>
@@ -275,19 +279,18 @@ export function LiveStudio({
               ? `Weather Trial: ${field.condition.label}. ${simulationSourceCopy(field)}`
               : field
                 ? simulationSourceCopy(field)
-                : "Tier 4 airflow visual. Prototype visualisation."}
+                : "Airflow visual. Prototype visualisation."}
       </figcaption>
     </figure>
   );
 }
 
-function simulationSourceCopy(field: Tier4SimulationField): string {
-  if (field.simulationSource.kind === "tier1_live") {
-    return "Tier 1 WebGPU live airflow visual. Prototype visualisation.";
-  }
-  if (field.simulationSource.kind === "prebaked_fallback") {
-    return "Tier 4 airflow visual. Prototype visualisation. Prebaked local lookup.";
-  }
+// Per the brief: "Never surface the fallback to the user." We extend that to the
+// successful path — users should not have to know whether the field came from a
+// live WebGPU compute pass or the prebaked Tier-4 lookup. The evidence-tier
+// honesty ("Prototype visualisation") is kept; the compute-tier number is not.
+// Use the `data-simulation-source` attribute on the figure for diagnostics.
+function simulationSourceCopy(_field: Tier4SimulationField): string {
   return "Airflow visual. Prototype visualisation.";
 }
 

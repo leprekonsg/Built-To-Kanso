@@ -8,7 +8,8 @@
 // the OpenAI-Organization header when present.
 //
 // All requests run under an AbortController-driven timeout so a hung upstream
-// can never pin a route. Default is 25 s, overridable via OPENAI_TIMEOUT_MS.
+// can never pin a route. Default is 120 s for local GPT Image 2 materialization,
+// overridable via OPENAI_TIMEOUT_MS.
 
 import type { ImagePromptKind } from "@/server/folio/prompts";
 
@@ -16,7 +17,7 @@ const GENERATIONS_URL = "https://api.openai.com/v1/images/generations";
 const EDITS_URL = "https://api.openai.com/v1/images/edits";
 
 const DEFAULT_MODEL = "gpt-image-2";
-const DEFAULT_TIMEOUT_MS = 25_000;
+const DEFAULT_TIMEOUT_MS = 120_000;
 
 export interface OpenAIImageEnv {
   [key: string]: string | undefined;
@@ -37,6 +38,7 @@ export interface GenerateRequest {
   promptId: ImagePromptKind;
   prompt: string;
   size?: string;
+  n?: number;
   model?: string;
   timeoutMs?: number;
 }
@@ -52,6 +54,7 @@ export interface EditRequest {
   referenceImages?: Buffer[];
   mask?: Buffer;
   size?: string;
+  n?: number;
   model?: string;
   timeoutMs?: number;
 }
@@ -65,7 +68,7 @@ export type ImageFailureReason =
   | "openai_timeout";
 
 export type ImageResult =
-  | { ok: true; promptId: ImagePromptKind; png: Buffer }
+  | { ok: true; promptId: ImagePromptKind; png: Buffer; candidates: Buffer[] }
   | { ok: false; reason: ImageFailureReason; promptId: ImagePromptKind; detail?: string };
 
 interface OpenAIDataResponse {
@@ -149,10 +152,17 @@ function authHeaders(config: Extract<OpenAIImageConfig, { ok: true }>): Record<s
   return headers;
 }
 
-function decodeFirstImage(payload: OpenAIDataResponse): Buffer | null {
-  const b64 = payload.data?.[0]?.b64_json;
-  if (!b64) return null;
-  return Buffer.from(b64, "base64");
+function decodeImages(payload: OpenAIDataResponse): Buffer[] {
+  return payload.data
+    ?.map((item) => item.b64_json)
+    .filter((b64): b64 is string => Boolean(b64))
+    .map((b64) => Buffer.from(b64, "base64")) ?? [];
+}
+
+function clampImageCount(raw: number | undefined): number {
+  if (!raw) return 1;
+  if (!Number.isFinite(raw)) return 1;
+  return Math.max(1, Math.min(10, Math.trunc(raw)));
 }
 
 interface FetchTimeoutOutcome {
@@ -196,7 +206,7 @@ export async function callOpenAIImage(req: ImageRequest): Promise<ImageResult> {
       prompt: req.prompt,
       output_format: "png",
       size: req.size ?? "1024x1024",
-      n: 1,
+      n: clampImageCount(req.n),
     };
 
     const outcome = await fetchWithTimeout(
@@ -229,11 +239,11 @@ export async function callOpenAIImage(req: ImageRequest): Promise<ImageResult> {
     if (!outcome.response.ok) {
       return { ok: false, reason: "openai_error", promptId: req.promptId, detail: sanitizeOpenAIErrorDetail(json.error?.message) };
     }
-    const png = decodeFirstImage(json);
-    if (!png) {
+    const candidates = decodeImages(json);
+    if (!candidates[0]) {
       return { ok: false, reason: "openai_error", promptId: req.promptId, detail: "empty response" };
     }
-    return { ok: true, promptId: req.promptId, png };
+    return { ok: true, promptId: req.promptId, png: candidates[0], candidates };
   }
 
   const form = new FormData();
@@ -241,7 +251,7 @@ export async function callOpenAIImage(req: ImageRequest): Promise<ImageResult> {
   form.set("prompt", req.prompt);
   form.set("output_format", "png");
   form.set("size", req.size ?? "1024x1024");
-  form.set("n", "1");
+  form.set("n", String(clampImageCount(req.n)));
   form.append(
     "image[]",
     new Blob([new Uint8Array(req.image)], { type: "image/png" }),
@@ -294,9 +304,9 @@ export async function callOpenAIImage(req: ImageRequest): Promise<ImageResult> {
   if (!outcome.response.ok) {
     return { ok: false, reason: "openai_error", promptId: req.promptId, detail: sanitizeOpenAIErrorDetail(json.error?.message) };
   }
-  const png = decodeFirstImage(json);
-  if (!png) {
+  const candidates = decodeImages(json);
+  if (!candidates[0]) {
     return { ok: false, reason: "openai_error", promptId: req.promptId, detail: "empty response" };
   }
-  return { ok: true, promptId: req.promptId, png };
+  return { ok: true, promptId: req.promptId, png: candidates[0], candidates };
 }

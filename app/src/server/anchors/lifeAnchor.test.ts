@@ -14,6 +14,7 @@ import {
   renderLifeAnchorPng,
   resolveLifeAnchorArtifact,
 } from "./lifeAnchor";
+import { renderLifeSketchSumiSvg } from "./lifeAnchorRender";
 
 const PNG_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -46,16 +47,17 @@ describe("Life Sketch anchor pipeline", () => {
       assert.equal(artifact.source, "deterministic-svg");
       assert.equal(artifact.contentType, "image/svg+xml");
       assert.equal(artifact.cachePath, `life-anchors/tampines-greenweave/anchor.png`);
-      assert.match(artifact.svg, /Life Sketch anchor fallback/);
-      assert.equal(artifact.manifest.camera.kind, "orthographic");
+      assert.equal(artifact.manifest.camera.kind, "perspective");
       assert.equal(artifact.manifest.metadata.complianceTruth, false);
       assert.equal(artifact.manifest.metadata.geometrySource, "architect_curated_template");
+      assert.equal(artifact.manifest.metadata.source, "three-perspective-greybox-scene-manifest");
+      assert.match(artifact.svg, /camera-view greybox anchor/);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 
-  it("builds a Node-safe orthographic Three.js manifest without mutating plan geometry", () => {
+  it("builds a Node-safe perspective Three.js manifest without mutating plan geometry", () => {
     const plan = getPlanGeometry("tengah-5room");
     const before = JSON.stringify(plan);
 
@@ -63,23 +65,43 @@ describe("Life Sketch anchor pipeline", () => {
 
     assert.equal(JSON.stringify(plan), before);
     assert.equal(manifest.templateId, "tengah-5room");
-    assert.equal(manifest.camera.kind, "orthographic");
-    assert.deepEqual(manifest.camera.up, [0, 0, -1]);
+    assert.equal(manifest.camera.kind, "perspective");
+    assert.equal(manifest.camera.aspect, 1536 / 1024);
+    assert.deepEqual(manifest.camera.up, [0, 1, 0]);
     assert.equal(manifest.rooms.length, plan.rooms.length);
+    assert.equal(manifest.wallVolumes.length, plan.rooms.length * 4);
     assert.equal(manifest.fixedElements.length, plan.fixedElements.length);
+    assert.equal(manifest.metadata.hdbCeilingHeightM, 2.6);
+    assert.equal(manifest.metadata.topologyProof, "plan-sketches/tengah-5room/plan.png");
     assert.ok(manifest.cachePath.endsWith(`${sep}life-anchors${sep}tengah-5room${sep}anchor.png`));
   });
 
-  it("fits the orthographic camera to the fixed 1536x1024 anchor viewport", () => {
+  it("renders a deterministic sumi-e Life Sketch from the same locked anchor manifest", () => {
     const plan = getPlanGeometry("resale-exec-1990s");
     const manifest = buildLifeAnchorSceneManifest(plan);
-    const frustumWidth = manifest.camera.right - manifest.camera.left;
-    const frustumHeight = manifest.camera.top - manifest.camera.bottom;
+    const first = renderLifeSketchSumiSvg(manifest);
+    const second = renderLifeSketchSumiSvg(manifest);
 
-    assert.equal(Number((frustumWidth / frustumHeight).toFixed(6)), Number((1536 / 1024).toFixed(6)));
+    assert.equal(first, second);
+    assert.match(first, /data-life-sketch-source="deterministic-sumi-e"/);
+    assert.match(first, /data-layer="locked-anchor-materialized-surfaces"/);
+    assert.match(first, /fixed:household_shelter_black/);
+    assert.match(first, /opening:/);
+    assert.doesNotMatch(first, /Master Bedroom/);
+    assert.doesNotMatch(first, /DRAFT · PROTOTYPE VISUALISATION/);
   });
 
-  it("builds a stable top-down camera basis for plan-coordinate projection", () => {
+  it("fits the perspective camera to the fixed 1536x1024 anchor viewport", () => {
+    const plan = getPlanGeometry("resale-exec-1990s");
+    const manifest = buildLifeAnchorSceneManifest(plan);
+
+    assert.equal(Number(manifest.camera.aspect.toFixed(6)), Number((1536 / 1024).toFixed(6)));
+    assert.equal(manifest.camera.fov, 46);
+    assert.equal(manifest.viewport.width, 1536);
+    assert.equal(manifest.viewport.height, 1024);
+  });
+
+  it("builds a stable eye-level camera basis for plan-coordinate projection", () => {
     const plan = getPlanGeometry("tampines-greenweave");
     const { camera } = createLifeAnchorThreeScene(plan);
     camera.updateMatrixWorld(true);
@@ -87,8 +109,9 @@ describe("Life Sketch anchor pipeline", () => {
     const projected = new THREE.Vector3(plan.bounds.x, 0, plan.bounds.y).project(camera);
 
     assert.equal(camera.up.x, 0);
-    assert.equal(camera.up.y, 0);
-    assert.equal(camera.up.z, -1);
+    assert.equal(camera.up.y, 1);
+    assert.equal(camera.up.z, 0);
+    assert.ok(camera.position.y > 7 && camera.position.y < 8);
     assert.ok(Number.isFinite(projected.x));
     assert.ok(Number.isFinite(projected.y));
     assert.ok(Number.isFinite(projected.z));
@@ -103,6 +126,26 @@ describe("Life Sketch anchor pipeline", () => {
     }
   });
 
+  it("uses physical materials for anchor surfaces without changing geometry counts", () => {
+    const plan = getPlanGeometry("resale-exec-1990s");
+    const { scene } = createLifeAnchorThreeScene(plan);
+    const floor = scene.getObjectByName(`room:${plan.rooms[0].id}`) as THREE.Mesh;
+    const wall = scene.getObjectByName(`wall:${plan.rooms[0].id}:north`) as THREE.Mesh;
+    const windowOpening = plan.openings.find((opening) => opening.kind === "window");
+    assert.ok(windowOpening);
+    const windowMesh = scene.getObjectByName(`opening:${windowOpening.id}`) as THREE.Mesh;
+    const floorMaterial = floor.material;
+    const wallMaterial = wall.material;
+    const windowMaterial = windowMesh.material;
+
+    assert.ok(floorMaterial instanceof THREE.MeshPhysicalMaterial);
+    assert.ok(wallMaterial instanceof THREE.MeshPhysicalMaterial);
+    assert.ok(windowMaterial instanceof THREE.MeshPhysicalMaterial);
+    assert.equal(floorMaterial.clearcoat, 0.34);
+    assert.equal(wallMaterial.clearcoat, 0);
+    assert.equal(windowMaterial.transmission, 0.85);
+  });
+
   it("preserves structural counts and HDB signature anchors for every Phase 1 template", () => {
     for (const summary of listGeometrySummaries()) {
       const plan = getPlanGeometry(summary.templateId);
@@ -110,6 +153,7 @@ describe("Life Sketch anchor pipeline", () => {
       const { scene } = createLifeAnchorThreeScene(plan);
 
       assert.equal(manifest.rooms.length, plan.rooms.length, `${plan.templateId} room count changed`);
+      assert.equal(manifest.wallVolumes.length, plan.rooms.length * 4, `${plan.templateId} wall volume count changed`);
       assert.equal(manifest.openings.length, plan.openings.length, `${plan.templateId} opening count changed`);
       assert.equal(manifest.fixedElements.length, plan.fixedElements.length, `${plan.templateId} fixed-element count changed`);
       assert.deepEqual(
@@ -125,6 +169,7 @@ describe("Life Sketch anchor pipeline", () => {
         plan.fixedElements.map((element) => element.id).sort(),
       );
       assert.ok(scene.getObjectByName(`pipeshaft:${plan.pipeshaft.id}`), `${plan.templateId} missing pipeshaft anchor`);
+      assert.ok(scene.getObjectByName(`wall:${plan.rooms[0].id}:north`), `${plan.templateId} missing extruded wall volume`);
       assert.ok(
         plan.fixedElements.some((element) => element.kind === "pipeshaft_opening" && element.bufferEligible),
         `${plan.templateId} missing buffer-eligible pipeshaft opening`,
@@ -160,11 +205,12 @@ describe("Life Sketch anchor pipeline", () => {
     });
 
     assert.equal(result.ok, true);
-    assert.ok(geometryDisposeCount >= plan.rooms.length + plan.fixedElements.length + plan.openings.length + 1);
-    assert.ok(materialDisposeCount >= plan.rooms.length + plan.fixedElements.length + plan.openings.length + 1);
+    const expectedMeshes = plan.rooms.length + plan.rooms.length * 4 + plan.fixedElements.length + plan.openings.length + 1;
+    assert.ok(geometryDisposeCount >= expectedMeshes);
+    assert.ok(materialDisposeCount >= expectedMeshes);
   });
 
-  it("derives a stable per-template R2 cache key", () => {
+  it("derives a stable per-template legacy anchor cache key", () => {
     assert.equal(lifeAnchorSketchCacheKey("tampines-greenweave"), "life-anchor:tampines-greenweave");
     assert.equal(lifeAnchorSketchCacheKey("tengah-5room"), "life-anchor:tengah-5room");
     assert.equal(lifeAnchorSketchCacheKey("resale-exec-1990s"), "life-anchor:resale-exec-1990s");

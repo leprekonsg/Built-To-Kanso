@@ -3,10 +3,11 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { hashBytes } from "@/lib/imageHash";
+import { hashBytes, hashString } from "@/lib/imageHash";
 import { getPlanGeometry } from "@/server/geometry/registry";
 import { keyFor, putCached } from "@/server/openai/cache";
 import { renderPlanSketchFallbackSvg } from "@/server/openai/fallbackSvg";
+import { getOpenAIImagePrompt } from "@/server/folio/prompts";
 import { rasterizeSvgToPng } from "@/server/openai/svgRaster";
 import { getPlanSketchCachePath } from "@/server/sketches/planSketchAsset";
 import { POST } from "./route";
@@ -56,7 +57,8 @@ async function planCacheKeyFor(templateId: "tampines-greenweave" | "tengah-5room
   const svg = renderPlanSketchFallbackSvg(plan);
   const raster = await rasterizeSvgToPng(svg);
   if (!raster.ok) throw new Error(`rasterizer unavailable in test env: ${raster.message}`);
-  return keyFor("plan-sketch-style-transfer", { imageHashes: [hashBytes(raster.png)] });
+  const prompt = getOpenAIImagePrompt("plan-sketch-style-transfer").prompt;
+  return keyFor("plan-sketch-style-transfer", { imageHashes: [hashBytes(raster.png)], promptHash: hashString(prompt) });
 }
 
 describe("Plan Sketch route", () => {

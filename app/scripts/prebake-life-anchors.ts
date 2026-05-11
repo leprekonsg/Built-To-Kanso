@@ -24,11 +24,10 @@ import process from "node:process";
 import { getPlanGeometry } from "../src/server/geometry/registry";
 import type { TemplateId } from "../src/server/geometry/types";
 import {
-  buildLifeAnchorSceneManifest,
   getLifeAnchorCachePath,
   renderLifeAnchorPng,
-  type LifeAnchorSceneManifest,
 } from "../src/server/anchors/lifeAnchor";
+import { renderLifeAnchorSceneSvg } from "../src/server/anchors/lifeAnchorRender";
 
 const TEMPLATE_IDS: readonly TemplateId[] = [
   "tampines-greenweave",
@@ -58,67 +57,6 @@ function rasterizeSvgToPng(resvg: ResvgModule, svg: string): Buffer {
   return Buffer.from(out);
 }
 
-function renderManifestSvg(manifest: LifeAnchorSceneManifest): string {
-  const { width, height } = manifest.viewport;
-  const { left, right, top, bottom, lookAt } = manifest.camera;
-  const frustumWidth = right - left;
-  const frustumHeight = top - bottom;
-  const cx = lookAt[0];
-  const cz = lookAt[2];
-  const px = (x: number) => ((x - cx - left) / frustumWidth) * width;
-  const py = (z: number) => height - ((z - cz - bottom) / frustumHeight) * height;
-  const roomFill = (confidence: string) =>
-    confidence === "black" ? "#DDD6C8" : confidence === "amber" ? "#F0D7A3" : "#EFE9DC";
-
-  const rooms = manifest.rooms
-    .map((room) => {
-      const [x, , z] = room.position;
-      const [w, , h] = room.scale;
-      return (
-        `<rect data-room="${room.id}" x="${round(px(x - w / 2))}" y="${round(py(z + h / 2))}" ` +
-        `width="${round((w / frustumWidth) * width)}" height="${round((h / frustumHeight) * height)}" ` +
-        `fill="${roomFill(room.confidence)}" stroke="#111111" stroke-opacity="0.14"/>`
-      );
-    })
-    .join("");
-  const fixed = manifest.fixedElements
-    .map((element) => {
-      const [x, , z] = element.position;
-      const [w, , h] = element.scale;
-      const fill = element.kind === "pipeshaft_opening" ? "#B96F4D" : "#111111";
-      return (
-        `<rect data-fixed="${element.id}" x="${round(px(x - w / 2))}" y="${round(py(z + h / 2))}" ` +
-        `width="${round((w / frustumWidth) * width)}" height="${round((h / frustumHeight) * height)}" ` +
-        `fill="${fill}" fill-opacity="0.22" stroke="${fill}" stroke-opacity="0.55"/>`
-      );
-    })
-    .join("");
-  const openings = manifest.openings
-    .map((opening) => {
-      const color = opening.kind === "door" ? "#D8A24A" : opening.kind === "window" ? "#7C856D" : "#A79F93";
-      return (
-        `<line data-opening="${opening.id}" x1="${round(px(opening.start[0]))}" y1="${round(py(opening.start[2]))}" ` +
-        `x2="${round(px(opening.end[0]))}" y2="${round(py(opening.end[2]))}" ` +
-        `stroke="${color}" stroke-width="8" stroke-linecap="round"/>`
-      );
-    })
-    .join("");
-
-  return (
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" ` +
-    `data-anchor-source="${manifest.metadata.source}">` +
-    `<rect width="100%" height="100%" fill="#F5F1E8"/>` +
-    rooms +
-    fixed +
-    openings +
-    `</svg>`
-  );
-}
-
-function round(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
 interface BakeOutcome {
   templateId: TemplateId;
   contentType: "image/png" | "image/svg+xml";
@@ -138,7 +76,7 @@ async function bakeTemplate(
   if (resvg) {
     const rendered = await renderLifeAnchorPng(plan, {
       async renderPng({ manifest }) {
-        return rasterizeSvgToPng(resvg, renderManifestSvg(manifest));
+        return rasterizeSvgToPng(resvg, renderLifeAnchorSceneSvg(manifest));
       },
     });
     if (!rendered.ok) {
@@ -158,7 +96,8 @@ async function bakeTemplate(
   // path remains absent so resolveLifeAnchorArtifact() falls through to
   // its inline deterministic SVG path; this sidecar exists only as a build
   // artifact for inspection.
-  const svg = renderManifestSvg(buildLifeAnchorSceneManifest(plan));
+  const rendered = await renderLifeAnchorPng(plan);
+  const svg = renderLifeAnchorSceneSvg(rendered.manifest);
   const svgPath = cache.absolutePath.replace(/\.png$/, ".svg");
   await writeFile(svgPath, svg, "utf8");
   return {

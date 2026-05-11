@@ -18,6 +18,7 @@ For a visual map of how the pieces fit together, open [built-to-kanso-architectu
 | --- | --- |
 | `/threshold` | Choose a flat template, compass direction, floor level, and opening scenario. |
 | `/bones` | Read the plan, place tokens, preview consequences, and get a short House Changelog. |
+| `/recommendation-proof` | Three concrete moves the home is asking for, with deterministic flow, Life Sketch panel, and a one-page receipt. |
 | `/methodology` | See how the app separates culture, weather context, layout estimates, and hard constraints. |
 
 ## Current Experience
@@ -103,6 +104,7 @@ npm.cmd run build
 | root `index.html` | Standalone marketing page |
 | `/threshold` | Stage 1 onboarding: template, compass, floor, scenario |
 | `/bones` | Stage 2 plan reading: plan editor/canvas, Black-state protection, Asking Points, tokens, Ghost Futures, Kanso Reserve, Anti-Cure, House Changelog |
+| `/recommendation-proof` | Stage 6: deterministic flow, Life Sketch anchor, placement plan, House Changelog receipt |
 | `/methodology` | Evidence ladder, cultural framing, audit gap, hard rules |
 | `app/public/service-worker.js` | Push-notification scaffold for Phase 2; Phase 1 Resonance surface is the in-app `ResonanceBanner`. |
 
@@ -132,6 +134,9 @@ npm.cmd run build
 - `POST /api/sketches/plan`: deterministic SVG fallback, cached/generated PNG when configured.
 - `POST /api/sketches/life`: cached Three.js anchor PNG seam, deterministic SVG fallback, optional OpenAI materialization.
 - `POST /api/sketches/wind`: deterministic Wind Sketch SVG composition; streamlines never go through GPT image generation.
+- `POST /api/tokens/generate`: visual-only token GLB seam. Validates `tokenId` against the six Phase 1 tokens, returns `{ modelUrl, provider, prompt, disclaimer }`. The GLB is visual evidence, never compliance truth.
+- `GET /api/tokens/model/[modelId]`: serves the cached or deterministic local-demo GLB referenced by a `tokens/generate` response.
+- `GET /api/validation/render-assets`: build-time audit of every prebaked image asset (heroes, plan sketches, life anchors, references). Returns per-asset width/height/byte/aspect checks.
 
 ## Environment
 
@@ -176,7 +181,7 @@ npm.cmd run test
 npm.cmd run build
 ```
 
-Result: `typecheck` clean, 188/188 unit tests pass.
+Result: `typecheck` clean, 277/277 unit tests pass, 65/67 e2e tests pass (2 mobile-viewport specs skipped).
 
 ## Remaining Limitations
 

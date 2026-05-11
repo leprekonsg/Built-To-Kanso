@@ -3,7 +3,7 @@ import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { getCached, keyFor, putCached } from "./cache";
+import { getCached, getCachedMetadata, keyFor, putCached, putCachedMetadata } from "./cache";
 
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), "btk-cache-"));
@@ -22,14 +22,16 @@ describe("openai cache", () => {
     assert.match(a, /^[0-9a-f]{16}$/);
   });
 
-  it("keyFor differs by promptKind, model, image hashes, and seed", () => {
-    const base = keyFor("plan-sketch-style-transfer", { imageHashes: ["aa"], model: "gpt-image-2", seed: "1" });
-    const otherModel = keyFor("plan-sketch-style-transfer", { imageHashes: ["aa"], model: "chatgpt-image-latest", seed: "1" });
-    const otherKind = keyFor("life-sketch-from-anchor", { imageHashes: ["aa"], seed: "1" });
-    const otherImage = keyFor("plan-sketch-style-transfer", { imageHashes: ["bb"], seed: "1" });
-    const otherSeed = keyFor("plan-sketch-style-transfer", { imageHashes: ["aa"], seed: "2" });
+  it("keyFor differs by promptKind, model, prompt hash, image hashes, and seed", () => {
+    const base = keyFor("plan-sketch-style-transfer", { imageHashes: ["aa"], model: "gpt-image-2", promptHash: "p1", seed: "1" });
+    const otherModel = keyFor("plan-sketch-style-transfer", { imageHashes: ["aa"], model: "chatgpt-image-latest", promptHash: "p1", seed: "1" });
+    const otherKind = keyFor("life-sketch-from-anchor", { imageHashes: ["aa"], promptHash: "p1", seed: "1" });
+    const otherPrompt = keyFor("plan-sketch-style-transfer", { imageHashes: ["aa"], promptHash: "p2", seed: "1" });
+    const otherImage = keyFor("plan-sketch-style-transfer", { imageHashes: ["bb"], promptHash: "p1", seed: "1" });
+    const otherSeed = keyFor("plan-sketch-style-transfer", { imageHashes: ["aa"], promptHash: "p1", seed: "2" });
     assert.notEqual(base, otherModel);
     assert.notEqual(base, otherKind);
+    assert.notEqual(base, otherPrompt);
     assert.notEqual(base, otherImage);
     assert.notEqual(base, otherSeed);
   });
@@ -52,6 +54,44 @@ describe("openai cache", () => {
     await withTempDir(async (dir) => {
       const out = await getCached("nonexistent_key_xyz", dir);
       assert.equal(out, null);
+    });
+  });
+
+  it("stores candidate QA metadata beside accepted cached output", async () => {
+    await withTempDir(async (dir) => {
+      const previousProvider = process.env.SKETCH_CACHE_PROVIDER;
+      const previousDir = process.env.SKETCH_CACHE_DIR;
+      process.env.SKETCH_CACHE_PROVIDER = "file";
+      process.env.SKETCH_CACHE_DIR = dir;
+      try {
+        const key = keyFor("life-sketch-from-anchor", { imageHashes: ["anchor", "topology"] });
+        await putCachedMetadata({
+          key,
+          promptKind: "life-sketch-from-anchor",
+          candidateCount: 3,
+          acceptedCandidateIndex: 0,
+          rejectedCandidates: [
+            { candidateIndex: 1, reason: "window_side_drift" },
+            { candidateIndex: 2, reason: "hs_pipeshaft_relation_drift" },
+          ],
+          acceptedAtIso: "2026-05-10T00:00:00.000Z",
+          reviewerModel: "gpt-4.1-mini",
+          reviewerSummary: "candidate_0_preserves_locked_topology",
+        }, dir);
+
+        assert.deepEqual((await getCachedMetadata(key, dir))?.rejectedCandidates, [
+          { candidateIndex: 1, reason: "window_side_drift" },
+          { candidateIndex: 2, reason: "hs_pipeshaft_relation_drift" },
+        ]);
+
+        const files = await readdir(dir);
+        assert.deepEqual(files, [`${key}.json`]);
+      } finally {
+        if (previousProvider === undefined) delete process.env.SKETCH_CACHE_PROVIDER;
+        else process.env.SKETCH_CACHE_PROVIDER = previousProvider;
+        if (previousDir === undefined) delete process.env.SKETCH_CACHE_DIR;
+        else process.env.SKETCH_CACHE_DIR = previousDir;
+      }
     });
   });
 });

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
@@ -7,6 +7,8 @@ import {
   clearLifeAnchorByteCache,
   getLifeAnchorCachePath,
 } from "@/server/anchors/lifeAnchor";
+import type { TemplateId } from "@/server/geometry/types";
+import { getAcceptedLifeSketchCachePath } from "@/server/sketches/lifeSketchAsset";
 import { POST } from "./route";
 
 // 1x1 PNG — magic-number-valid bytes used as both a fake anchor and a fake
@@ -16,9 +18,59 @@ const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const TINY_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==";
 
+function candidateBase64(index: number): string {
+  return Buffer.concat([PNG_MAGIC, Buffer.from([index])]).toString("base64");
+}
+
+function reviewPayload(acceptedCandidateIndex = 1): Record<string, unknown> {
+  return {
+    acceptedCandidateIndex,
+    summary: "candidate_1_preserves_locked_topology",
+    candidateReviews: [
+      {
+        candidateIndex: 0,
+        status: "rejected",
+        reasons: ["window_side_drift"],
+        checks: {
+          roomTopology: "pass",
+          windowBalconyDirection: "fail",
+          kitchenHsPipeshaft: "pass",
+          majorWallMasses: "pass",
+          cameraView: "pass",
+        },
+      },
+      {
+        candidateIndex: 1,
+        status: "accepted",
+        reasons: [],
+        checks: {
+          roomTopology: "pass",
+          windowBalconyDirection: "pass",
+          kitchenHsPipeshaft: "pass",
+          majorWallMasses: "pass",
+          cameraView: "pass",
+        },
+      },
+      {
+        candidateIndex: 2,
+        status: "rejected",
+        reasons: ["hs_pipeshaft_relation_drift"],
+        checks: {
+          roomTopology: "pass",
+          windowBalconyDirection: "pass",
+          kitchenHsPipeshaft: "fail",
+          majorWallMasses: "pass",
+          cameraView: "pass",
+        },
+      },
+    ],
+  };
+}
+
 interface EnvSnapshot {
   OPENAI_API_KEY: string | undefined;
   LIFE_ANCHOR_CACHE_ROOT: string | undefined;
+  LIFE_SKETCH_CACHE_ROOT: string | undefined;
   SKETCH_CACHE_DIR: string | undefined;
   SKETCH_CACHE_PROVIDER: string | undefined;
 }
@@ -27,6 +79,7 @@ function snapshotEnv(): EnvSnapshot {
   return {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     LIFE_ANCHOR_CACHE_ROOT: process.env.LIFE_ANCHOR_CACHE_ROOT,
+    LIFE_SKETCH_CACHE_ROOT: process.env.LIFE_SKETCH_CACHE_ROOT,
     SKETCH_CACHE_DIR: process.env.SKETCH_CACHE_DIR,
     SKETCH_CACHE_PROVIDER: process.env.SKETCH_CACHE_PROVIDER,
   };
@@ -54,6 +107,27 @@ function postLife(body: PostBody, accept?: string, url = "https://example.com/ap
   });
 }
 
+async function seedAcceptedLifeSketch(root: string, templateId: TemplateId) {
+  const cachePath = getAcceptedLifeSketchCachePath(templateId, root);
+  await mkdir(cachePath.directory, { recursive: true });
+  await writeFile(cachePath.absolutePath, PNG_MAGIC);
+  await writeFile(cachePath.metadataAbsolutePath, JSON.stringify({
+    templateId,
+    source: "accepted_gpt_image_2_prebake",
+    promptKind: "life-sketch-from-anchor",
+    candidateCount: 3,
+    acceptedCandidateIndex: 1,
+    rejectedCandidates: [
+      { candidateIndex: 0, reason: "window_side_drift" },
+      { candidateIndex: 2, reason: "camera_view_drift" },
+    ],
+    acceptedAtIso: "2026-05-11T00:45:34.708Z",
+    reviewerModel: "gpt-4.1-mini",
+    reviewerSummary: "candidate_1_preserves_locked_topology",
+  }));
+  return cachePath;
+}
+
 describe("Life Sketch route", () => {
   let tempCacheDir: string;
   let envSnap: EnvSnapshot;
@@ -67,6 +141,7 @@ describe("Life Sketch route", () => {
     originalFetch = globalThis.fetch;
     tempCacheDir = await mkdtemp(join(tmpdir(), "btk-life-route-"));
     process.env.LIFE_ANCHOR_CACHE_ROOT = tempCacheDir;
+    process.env.LIFE_SKETCH_CACHE_ROOT = tempCacheDir;
     process.env.SKETCH_CACHE_PROVIDER = "file";
     process.env.SKETCH_CACHE_DIR = tempCacheDir;
     clearLifeAnchorByteCache();
@@ -96,11 +171,31 @@ describe("Life Sketch route", () => {
     await writeFile(cachePath.absolutePath, PNG_MAGIC);
     writtenAnchors.push(cachePath.absolutePath);
 
-    let openAICalls = 0;
-    globalThis.fetch = (async () => {
-      openAICalls += 1;
+    let imageCalls = 0;
+    let reviewCalls = 0;
+    let editForm: FormData | undefined;
+    let reviewBody: Record<string, unknown> | undefined;
+    globalThis.fetch = (async (url, init) => {
+      const href = String(url);
+      if (href.includes("/v1/responses")) {
+        reviewCalls += 1;
+        reviewBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return new Response(
+          JSON.stringify({ output_text: JSON.stringify(reviewPayload(1)) }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      imageCalls += 1;
+      editForm = init?.body as FormData;
       return new Response(
-        JSON.stringify({ data: [{ b64_json: TINY_PNG_BASE64 }] }),
+        JSON.stringify({
+          data: [
+            { b64_json: candidateBase64(0) },
+            { b64_json: candidateBase64(1) },
+            { b64_json: candidateBase64(2) },
+          ],
+        }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }) as typeof fetch;
@@ -118,31 +213,87 @@ describe("Life Sketch route", () => {
     assert.equal(response.headers.get("x-evidence-tier"), "prototype_visualisation");
     assert.equal(response.headers.get("x-prompt-id"), "life-sketch-from-anchor");
     assert.equal(response.headers.get("x-life-anchor-source"), "cache-png");
+    assert.equal(response.headers.get("x-life-anchor-scene"), "three-perspective-greybox-scene-manifest");
+    assert.equal(response.headers.get("x-life-topology-proof"), "local-plan-sketch");
+    assert.equal(response.headers.get("x-life-brand-reference"), "present");
+    assert.equal(response.headers.get("x-life-material-reference"), "present");
+    assert.equal(response.headers.get("x-life-sketch-candidates"), "3");
+    assert.equal(response.headers.get("x-life-sketch-qa"), "accepted");
+    assert.equal(response.headers.get("x-life-sketch-qa-model"), "gpt-4.1-mini");
+    assert.equal(response.headers.get("x-life-sketch-accepted-candidate"), "1");
     assert.equal(
       response.headers.get("x-life-anchor-cache-path"),
       "life-anchors/tengah-5room/anchor.png",
     );
     assert.equal(bytes.subarray(0, 8).toString("hex"), PNG_MAGIC.toString("hex"));
-    assert.equal(openAICalls, 1);
+    assert.equal(bytes[8], 1);
+    assert.equal(imageCalls, 1);
+    assert.equal(reviewCalls, 1);
+    assert.equal(editForm?.getAll("image[]").length, 4);
+    const reviewInput = reviewBody?.input as Array<{ content: Array<{ type: string }> }> | undefined;
+    const reviewImageInputs = reviewInput?.[0]?.content.filter((item) => item.type === "input_image") ?? [];
+    assert.equal(reviewImageInputs.length, 5);
+
+    const files = await readdir(tempCacheDir);
+    const metadataFile = files.find((file) => file.endsWith(".json"));
+    assert.ok(metadataFile);
+    const metadata = JSON.parse(await readFile(join(tempCacheDir, metadataFile), "utf8")) as {
+      rejectedCandidates: Array<{ candidateIndex: number; reason: string }>;
+    };
+    assert.deepEqual(metadata.rejectedCandidates, [
+      { candidateIndex: 0, reason: "window_side_drift" },
+      { candidateIndex: 2, reason: "hs_pipeshaft_relation_drift" },
+    ]);
   });
 
   it("anchor-only path (no anchor cache, no OpenAI key, Accept svg) returns deterministic anchor SVG", async () => {
     delete process.env.OPENAI_API_KEY;
 
     const response = await POST(
-      postLife({ templateId: "resale-exec-1990s" }, "image/svg+xml"),
+      postLife({ templateId: "resale-exec-1990s" }, "image/svg+xml", "https://example.com/api/sketches/life?anchor=1"),
     );
     const body = await response.text();
 
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("content-type"), "image/svg+xml");
     assert.equal(response.headers.get("x-life-anchor-source"), "deterministic-svg");
+    assert.equal(response.headers.get("x-life-anchor-scene"), "three-perspective-greybox-scene-manifest");
     assert.equal(response.headers.get("x-sketch-fallback"), "deterministic-anchor-svg");
     assert.equal(response.headers.get("x-evidence-tier"), "prototype_visualisation");
-    assert.match(body, /Life Sketch anchor fallback/);
+    assert.match(body, /camera-view greybox anchor/);
+    assert.doesNotMatch(body, /DRAFT · PROTOTYPE VISUALISATION/);
   });
 
-  it("anchor cache present + no OPENAI_API_KEY emits local prebaked anchor PNG", async () => {
+  it("default path serves accepted GPT Image 2 prebake before deterministic fallback", async () => {
+    delete process.env.OPENAI_API_KEY;
+
+    const anchorPath = getLifeAnchorCachePath("resale-exec-1990s");
+    await mkdir(anchorPath.directory, { recursive: true });
+    await writeFile(anchorPath.absolutePath, PNG_MAGIC);
+    writtenAnchors.push(anchorPath.absolutePath);
+    const acceptedPath = await seedAcceptedLifeSketch(tempCacheDir, "resale-exec-1990s");
+
+    const response = await POST(postLife({ templateId: "resale-exec-1990s" }, "image/png"));
+    const bytes = Buffer.from(await response.arrayBuffer());
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("content-type"), "image/png");
+    assert.equal(response.headers.get("x-sketch-source"), "accepted-gpt-image-2-prebake");
+    assert.equal(response.headers.get("x-life-sketch-mode"), "accepted-gpt-image-2-prebake");
+    assert.equal(response.headers.get("x-sketch-fallback"), null);
+    assert.equal(response.headers.get("x-prompt-id"), "life-sketch-from-anchor");
+    assert.equal(response.headers.get("x-life-sketch-qa"), "accepted_from_prebake");
+    assert.equal(response.headers.get("x-life-sketch-candidates"), "3");
+    assert.equal(response.headers.get("x-life-sketch-accepted-candidate"), "1");
+    assert.equal(response.headers.get("x-life-sketch-qa-model"), "gpt-4.1-mini");
+    assert.equal(response.headers.get("x-life-sketch-cache-path"), acceptedPath.relativePath);
+    assert.equal(response.headers.get("x-life-sketch-metadata-path"), acceptedPath.metadataRelativePath);
+    assert.equal(response.headers.get("x-life-anchor-source"), "cache-png");
+    assert.equal(response.headers.get("x-life-anchor-scene"), "three-perspective-greybox-scene-manifest");
+    assert.equal(bytes.subarray(0, 8).toString("hex"), PNG_MAGIC.toString("hex"));
+  });
+
+  it("default path flags deterministic sumi-e when accepted GPT prebake is missing", async () => {
     delete process.env.OPENAI_API_KEY;
 
     const cachePath = getLifeAnchorCachePath("tampines-greenweave");
@@ -150,7 +301,32 @@ describe("Life Sketch route", () => {
     await writeFile(cachePath.absolutePath, PNG_MAGIC);
     writtenAnchors.push(cachePath.absolutePath);
 
-    const response = await POST(postLife({ templateId: "tampines-greenweave" }));
+    const response = await POST(postLife({ templateId: "tampines-greenweave" }, "image/svg+xml"));
+    const body = await response.text();
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("content-type"), "image/svg+xml");
+    assert.equal(response.headers.get("x-sketch-source"), "deterministic-sumi-e-life-sketch");
+    assert.equal(response.headers.get("x-life-sketch-mode"), "deterministic-sumi-e");
+    assert.equal(response.headers.get("x-sketch-fallback"), "missing-accepted-gpt-prebake");
+    assert.equal(response.headers.get("x-life-anchor-source"), "cache-png");
+    assert.equal(response.headers.get("x-life-anchor-scene"), "three-perspective-greybox-scene-manifest");
+    assert.equal(response.headers.get("x-prompt-id"), null);
+    assert.match(body, /data-life-sketch-source="deterministic-sumi-e"/);
+    assert.match(body, /locked-anchor-materialized-surfaces/);
+  });
+
+  it("anchor-only cache path emits local prebaked anchor PNG", async () => {
+    delete process.env.OPENAI_API_KEY;
+
+    const cachePath = getLifeAnchorCachePath("tampines-greenweave");
+    await mkdir(cachePath.directory, { recursive: true });
+    await writeFile(cachePath.absolutePath, PNG_MAGIC);
+    writtenAnchors.push(cachePath.absolutePath);
+
+    const response = await POST(
+      postLife({ templateId: "tampines-greenweave" }, undefined, "https://example.com/api/sketches/life?anchor=1"),
+    );
     const bytes = Buffer.from(await response.arrayBuffer());
 
     assert.equal(response.status, 200);
@@ -158,6 +334,7 @@ describe("Life Sketch route", () => {
     assert.equal(response.headers.get("x-sketch-fallback"), "local-prebaked-anchor");
     assert.equal(response.headers.get("x-sketch-source"), "local-prebaked-anchor");
     assert.equal(response.headers.get("x-life-anchor-source"), "cache-png");
+    assert.equal(response.headers.get("x-life-anchor-scene"), "three-perspective-greybox-scene-manifest");
     assert.equal(response.headers.get("x-prompt-id"), null);
     assert.equal(bytes.subarray(0, 8).toString("hex"), PNG_MAGIC.toString("hex"));
   });
@@ -180,16 +357,38 @@ describe("Life Sketch route", () => {
     assert.equal(body.tier, "prototype_visualisation");
     assert.match(body.nextAction, /OPENAI_API_KEY/);
     assert.equal(body.anchor.source, "request-png");
+    assert.equal(body.anchor.scene, "three-perspective-greybox-scene-manifest");
+    assert.equal(response.headers.get("x-life-topology-proof"), "local-plan-sketch");
+    assert.equal(response.headers.get("x-life-brand-reference"), "present");
+    assert.equal(response.headers.get("x-life-material-reference"), "present");
   });
 
   it("client-supplied anchorPng path stubs OpenAI and returns PNG", async () => {
     process.env.OPENAI_API_KEY = "sk-test";
 
-    let openAICalls = 0;
-    globalThis.fetch = (async () => {
-      openAICalls += 1;
+    let imageCalls = 0;
+    let reviewCalls = 0;
+    let editForm: FormData | undefined;
+    globalThis.fetch = (async (url, init) => {
+      const href = String(url);
+      if (href.includes("/v1/responses")) {
+        reviewCalls += 1;
+        return new Response(
+          JSON.stringify({ output_text: JSON.stringify(reviewPayload(1)) }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      imageCalls += 1;
+      editForm = init?.body as FormData;
       return new Response(
-        JSON.stringify({ data: [{ b64_json: TINY_PNG_BASE64 }] }),
+        JSON.stringify({
+          data: [
+            { b64_json: candidateBase64(0) },
+            { b64_json: candidateBase64(1) },
+            { b64_json: candidateBase64(2) },
+          ],
+        }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }) as typeof fetch;
@@ -204,11 +403,21 @@ describe("Life Sketch route", () => {
     assert.equal(response.headers.get("x-from-cache"), "false");
     assert.equal(response.headers.get("x-life-anchor-source"), "request-png");
     assert.equal(response.headers.get("x-prompt-id"), "life-sketch-from-anchor");
+    assert.equal(response.headers.get("x-life-topology-proof"), "local-plan-sketch");
+    assert.equal(response.headers.get("x-life-brand-reference"), "present");
+    assert.equal(response.headers.get("x-life-material-reference"), "present");
+    assert.equal(response.headers.get("x-life-sketch-candidates"), "3");
+    assert.equal(response.headers.get("x-life-sketch-qa"), "accepted");
+    assert.equal(response.headers.get("x-life-sketch-qa-model"), "gpt-4.1-mini");
+    assert.equal(response.headers.get("x-life-sketch-accepted-candidate"), "1");
     assert.equal(bytes.subarray(0, 8).toString("hex"), PNG_MAGIC.toString("hex"));
-    assert.equal(openAICalls, 1);
+    assert.equal(bytes[8], 1);
+    assert.equal(imageCalls, 1);
+    assert.equal(reviewCalls, 1);
+    assert.equal(editForm?.getAll("image[]").length, 4);
   });
 
-  it("non-string anchorPng routes to deterministic anchor fallback (does not 500)", async () => {
+  it("non-string anchorPng routes to deterministic Life Sketch fallback (does not 500)", async () => {
     // The route accepts only string anchorPng (typeof guard); other types
     // route to the no-anchor branch instead of crashing. This protects the
     // contract for older clients sending malformed payloads.
@@ -221,6 +430,6 @@ describe("Life Sketch route", () => {
 
     const response = await POST(request);
     assert.equal(response.status, 200);
-    assert.equal(response.headers.get("x-sketch-fallback"), "deterministic-anchor-svg");
+    assert.equal(response.headers.get("x-life-sketch-mode"), "deterministic-sumi-e");
   });
 });

@@ -38,4 +38,22 @@ describe("OpenAI image prompt discipline", () => {
     assert.match(prompt, /remove rather than place/i);
     assert.match(prompt, /Reject output if:/);
   });
+
+  it("keeps Life Sketch materialization anchored and free of generic AI-render cues", () => {
+    const prompt = OPENAI_IMAGE_PROMPTS["life-sketch-from-anchor"].prompt;
+
+    assert.match(prompt, /LOCKED CAMERA AND VISIBLE GEOMETRY/);
+    assert.match(prompt, /Image 2 is topology reference only/i);
+    assert.match(prompt, /do not convert to a different viewpoint/i);
+    assert.match(prompt, /Household Shelter\/service\/pipeshaft relationship/);
+    assert.match(prompt, /token centerpoints/);
+    assert.match(prompt, /token bounding boxes/);
+    assert.match(prompt, /no generic luxury Japandi room/);
+    assert.match(prompt, /plastic-AI-render sheen/);
+    assert.match(prompt, /HDR clarity/);
+    assert.match(prompt, /anime/);
+    assert.match(prompt, /manga/);
+    assert.match(prompt, /showroom CGI/);
+    assert.match(prompt, /not compliance evidence/);
+  });
 });

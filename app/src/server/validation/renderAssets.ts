@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-export type RenderAssetKind = "empty_room_hero" | "plan_sketch" | "life_anchor";
+export type RenderAssetKind = "empty_room_hero" | "plan_sketch" | "life_anchor" | "life_reference";
 
 export interface RenderAssetSpec {
   id: string;
@@ -92,7 +92,30 @@ export function expectedRenderAssets(): RenderAssetSpec[] {
     aspectMax: 1.55,
   }));
 
-  return [...heroAssets, ...planAssets, ...lifeAssets];
+  const referenceAssets: RenderAssetSpec[] = [
+    {
+      id: "brand-v3-poster-reference",
+      kind: "life_reference",
+      relativePath: "references/brand-v3-poster.png",
+      minWidth: 1024,
+      minHeight: 1024,
+      minBytes: 100_000,
+      aspectMin: 0.95,
+      aspectMax: 1.05,
+    },
+    {
+      id: "hdb-material-board-reference",
+      kind: "life_reference",
+      relativePath: "references/hdb-material-board.png",
+      minWidth: 1024,
+      minHeight: 1024,
+      minBytes: 50_000,
+      aspectMin: 0.95,
+      aspectMax: 1.05,
+    },
+  ];
+
+  return [...heroAssets, ...planAssets, ...lifeAssets, ...referenceAssets];
 }
 
 export function validateRenderAsset(spec: RenderAssetSpec, bytes: Uint8Array): RenderAssetResult {

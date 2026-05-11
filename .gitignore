@@ -32,6 +32,8 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 threshold-*.png
+grade-*.png
+harden-*.png
 
 # Local editor/project state
 .vscode/

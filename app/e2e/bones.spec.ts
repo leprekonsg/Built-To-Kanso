@@ -10,6 +10,30 @@ test.describe("Reading the Bones", () => {
     await expect(page.getByRole("link", { name: "Step back to the threshold" })).toHaveAttribute("href", "/threshold");
   });
 
+  test("surfaces a parsable diagnostic when query inputs are malformed", async ({ page }) => {
+    // Mixing the token-style underscore form into the scenario param is the
+    // most common shared-link failure mode. The diagnostic must name the bad
+    // raw value, list the valid scenario IDs, and offer Return to Threshold.
+    await page.goto("/bones?template=tampines-greenweave&compass=120&floor=11&scenario=mid_renovation");
+
+    const issues = page.getByTestId("bones-param-issues");
+    await expect(issues).toBeVisible();
+    await expect(issues).toContainText("scenario");
+    await expect(issues).toContainText("mid_renovation");
+    await expect(issues).toContainText("mid-renovation");
+    await expect(page.getByRole("link", { name: /Return to Threshold/ })).toHaveAttribute("href", "/threshold");
+  });
+
+  test("flags out-of-range floor as a recoverable URL diagnostic", async ({ page }) => {
+    await page.goto("/bones?template=tampines-greenweave&compass=120&floor=99&scenario=mid-renovation");
+
+    const issues = page.getByTestId("bones-param-issues");
+    await expect(issues).toBeVisible();
+    await expect(issues).toContainText("floor");
+    await expect(issues).toContainText("99");
+    await expect(issues).toContainText(/1-50/);
+  });
+
   test("renders template geometry, fixed elements, asking points, and paired Damp Risk", async ({ page }) => {
     await page.goto("/bones?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
 
@@ -62,17 +86,36 @@ test.describe("Reading the Bones", () => {
     await page.getByRole("tab", { name: "Designer" }).click();
 
     await expect(page.getByRole("term").filter({ hasText: "Material preset" })).toBeVisible();
+    await expect(page.getByTestId("life-sketch-proof")).toContainText("Image 1: camera locked");
+    await expect(page.getByTestId("life-sketch-proof")).toContainText("Image 2: topology only");
     await expect(page.getByText("Audit overlay")).toBeVisible();
     await expect(page.getByText("Quantity readout")).toBeVisible();
     await expect(page.getByText(/ACH estimate/i)).toBeVisible();
     await expect(page.getByText(/SHGC <= 0\.30 recommended/i).first()).toBeVisible();
   });
 
+  test("Weather Trial click visibly changes the studio condition without cloud storage", async ({ page }) => {
+    await page.goto("/bones?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
+
+    const liveStudio = page.getByTestId("live-studio");
+    const westSunTrial = page.getByTestId("weather-trial-west_sun_1720");
+
+    await expect(liveStudio).toHaveAttribute("data-weather-trial", "default");
+    await expect(page.getByTestId("weather-trial-status")).toContainText("Baseline monsoon");
+
+    await westSunTrial.click();
+
+    await expect(westSunTrial).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("weather-trial-status")).toContainText("Running: West Sun 17:20");
+    await expect(liveStudio).toHaveAttribute("data-weather-trial", "west_sun_1720");
+    await expect(liveStudio).toContainText("Weather Trial: West Sun 17:20");
+  });
+
   test("renders LiveStudio scene elements from the deterministic airflow field", async ({ page }) => {
     await page.goto("/bones?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
 
     const liveStudio = page.getByTestId("live-studio");
-    await expect(liveStudio).toContainText("Tier 4 airflow visual. Prototype visualisation.");
+    await expect(liveStudio).toContainText("Airflow visual. Prototype visualisation.");
 
     const sceneLayer = page.getByTestId("scene-elements");
     await expect(sceneLayer).toBeVisible();

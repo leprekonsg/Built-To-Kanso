@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import VoiceToggle from "@/components/VoiceToggle";
-import { TEMPLATES, type TemplateId } from "@/lib/templates";
-import { getPlanGeometry, isTemplateId } from "@/server/geometry/registry";
+import { TEMPLATES } from "@/lib/templates";
+import {
+  parseThresholdParams,
+  type ThresholdParamIssue,
+} from "@/lib/thresholdParams";
+import { getPlanGeometry } from "@/server/geometry/registry";
 import type { ConfidenceState, FixedElementGeometry, PlanGeometry } from "@/server/geometry/types";
 import { BonesInteractive } from "./_components";
 import styles from "./bones.module.css";
@@ -26,14 +30,21 @@ const SCENARIO_LABELS: Record<string, string> = {
 
 export default async function BonesPage({ searchParams }: BonesPageProps) {
   const params = (await searchParams) ?? {};
-  const templateId = parseTemplate(first(params.template));
-  const compassDeg = parseCompass(first(params.compass));
-  const floor = parseFloor(first(params.floor));
-  const scenario = first(params.scenario);
+  const parsed = parseThresholdParams({
+    template: first(params.template),
+    compass: first(params.compass),
+    floor: first(params.floor),
+    scenario: first(params.scenario),
+  });
+  const { templateId, compassDeg, floor, scenarioId, issues } = parsed;
 
-  if (!templateId || compassDeg === null || floor === null || !scenario || !SCENARIO_LABELS[scenario]) {
+  if (issues.length > 0) {
+    return <ParamErrorsState issues={issues} />;
+  }
+  if (templateId === null || compassDeg === null || floor === null || scenarioId === null) {
     return <MissingInputs />;
   }
+  const scenario = scenarioId;
 
   const plan = getPlanGeometry(templateId);
   const template = TEMPLATES.find((item) => item.id === templateId);
@@ -79,6 +90,7 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
         plan={plan}
         compassDeg={compassDeg}
         floor={floor}
+        scenario={scenario}
         sideIntro={
           <section className={styles.panel}>
             <span className={styles.eyebrow}>What stays untouched</span>
@@ -118,6 +130,57 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
           </div>
         </div>
       </BonesInteractive>
+    </main>
+  );
+}
+
+function ParamErrorsState({ issues }: { issues: ThresholdParamIssue[] }) {
+  return (
+    <main className={styles.missingPage} data-testid="bones-param-errors">
+      <header className={styles.masthead}>
+        <Link href="/threshold" className={styles.brand} aria-label="Built-To-Kanso, return to Threshold">
+          <span className={styles.brandMark}>
+            Built<span className={styles.brandHyphen}>-</span>To<span className={styles.brandHyphen}>-</span>Kanso
+          </span>
+          <span className={styles.brandSub}>Stage Two · Anteroom</span>
+        </Link>
+        <nav className={styles.crumbs} aria-label="Journey">
+          <span className={styles.crumbDim}><span className={styles.crumbNum}>01</span> Threshold</span>
+          <span className={styles.crumbDot} aria-hidden />
+          <span className={styles.crumbActive}><span className={styles.crumbNum}>02</span> Bones</span>
+          <span className={styles.crumbDot} aria-hidden />
+          <span className={styles.crumbDim}><span className={styles.crumbNum}>03</span> Weather</span>
+        </nav>
+      </header>
+
+      <section className={styles.missingHero}>
+        <span className={styles.eyebrow}>Threshold reading didn&rsquo;t parse</span>
+        <h1 className={styles.missingHeadline}>
+          The URL was read,<br />
+          <em>not understood</em>.
+        </h1>
+        <p className={styles.missingLede}>
+          {issues.length === 1
+            ? "One Threshold input didn’t match what Bones expects."
+            : `${issues.length} Threshold inputs didn’t match what Bones expects.`}{" "}
+          Either fix the URL using the rows below, or set the inputs again at the Threshold.
+        </p>
+        <dl className={styles.issueList} data-testid="bones-param-issues">
+          {issues.map((issue) => (
+            <div className={styles.issueRow} key={`${issue.field}:${issue.raw}`} data-issue-field={issue.field}>
+              <dt className={styles.issueField}>{issue.field}</dt>
+              <dd>
+                <code className={styles.issueRaw}>{issue.raw}</code>
+                <span className={styles.issueReason}>{issue.reason}</span>
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <Link href="/threshold" className={styles.missingPrimary}>
+          Return to Threshold
+          <span className={styles.missingArrow} aria-hidden>&rarr;</span>
+        </Link>
+      </section>
     </main>
   );
 }
@@ -301,24 +364,6 @@ function Metric({ label, value }: { label: string; value: number }) {
 
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
-}
-
-function parseTemplate(value: string | undefined): TemplateId | null {
-  return value && isTemplateId(value) ? value : null;
-}
-
-function parseCompass(value: string | undefined): number | null {
-  if (!value) return null;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return null;
-  return ((Math.round(parsed / 15) * 15) % 360 + 360) % 360;
-}
-
-function parseFloor(value: string | undefined): number | null {
-  if (!value) return null;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return null;
-  return Math.max(1, Math.min(50, Math.round(parsed)));
 }
 
 function countConfidence(plan: PlanGeometry): Record<ConfidenceState, number> {

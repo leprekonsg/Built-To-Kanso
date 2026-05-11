@@ -348,12 +348,14 @@ test.describe("Backend route contracts", () => {
     expect(response.ok()).toBe(true);
     await expect(response.json()).resolves.toMatchObject({
       ok: true,
-      assetCount: 11,
+      assetCount: 13,
       failedCount: 0,
       assets: expect.arrayContaining([
         expect.objectContaining({ id: "empty-room-0", kind: "empty_room_hero", ok: true }),
         expect.objectContaining({ id: "resale-exec-1990s-plan", kind: "plan_sketch", ok: true }),
         expect.objectContaining({ id: "tengah-5room-life-anchor", kind: "life_anchor", ok: true }),
+        expect.objectContaining({ id: "brand-v3-poster-reference", kind: "life_reference", ok: true }),
+        expect.objectContaining({ id: "hdb-material-board-reference", kind: "life_reference", ok: true }),
       ]),
     });
   });

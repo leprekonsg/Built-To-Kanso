@@ -63,6 +63,7 @@ describe("OpenAI image client config", () => {
       });
 
       assert.equal(result.ok, true);
+      if (result.ok) assert.equal(result.candidates.length, 1);
       assert.equal(body?.model, "gpt-image-2");
       assert.equal(body?.output_format, "png");
       assert.equal(body?.size, "1024x1024");
@@ -100,13 +101,16 @@ describe("OpenAI image client config", () => {
         prompt: "Preserve geometry.",
         image: Buffer.from("anchor"),
         referenceImages: [Buffer.from("style")],
+        n: 3,
+        size: "1536x1024",
       });
 
       assert.equal(result.ok, true);
+      if (result.ok) assert.equal(result.candidates.length, 1);
       assert.equal(form?.get("model"), "gpt-image-2");
       assert.equal(form?.get("output_format"), "png");
-      assert.equal(form?.get("size"), "1024x1024");
-      assert.equal(form?.get("n"), "1");
+      assert.equal(form?.get("size"), "1536x1024");
+      assert.equal(form?.get("n"), "3");
       assert.equal(form?.get("response_format"), null);
       assert.equal(form?.getAll("image[]").length, 2);
     } finally {

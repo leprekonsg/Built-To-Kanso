@@ -1,0 +1,65 @@
+{
+  "templateId": "resale-exec-1990s",
+  "source": "accepted_gpt_image_2_prebake",
+  "promptKind": "life-sketch-from-anchor",
+  "candidateCount": 3,
+  "acceptedCandidateIndex": 1,
+  "rejectedCandidates": [
+    {
+      "candidateIndex": 0,
+      "reason": "window_side_drift"
+    },
+    {
+      "candidateIndex": 2,
+      "reason": "camera_view_drift"
+    }
+  ],
+  "acceptedAtIso": "2026-05-11T00:45:34.708Z",
+  "reviewerModel": "gpt-4.1-mini",
+  "reviewerSummary": "Candidate 1 is accepted as it matches all room topologies, window and balcony directions, kitchen and household shelter positioning, major wall masses, and the locked camera viewpoint. Candidates 0 and 2 are rejected due to window side drift and camera view drift respectively.",
+  "cacheKey": "b5c79473719b42d4",
+  "anchorCachePath": "life-anchors/resale-exec-1990s/anchor.png",
+  "topologyProof": "plan-sketches/resale-exec-1990s/plan.png",
+  "candidateReviews": [
+    {
+      "candidateIndex": 0,
+      "status": "rejected",
+      "reasons": [
+        "window_side_drift"
+      ],
+      "checks": {
+        "roomTopology": "pass",
+        "windowBalconyDirection": "fail",
+        "kitchenHsPipeshaft": "pass",
+        "majorWallMasses": "pass",
+        "cameraView": "pass"
+      }
+    },
+    {
+      "candidateIndex": 1,
+      "status": "accepted",
+      "reasons": [],
+      "checks": {
+        "roomTopology": "pass",
+        "windowBalconyDirection": "pass",
+        "kitchenHsPipeshaft": "pass",
+        "majorWallMasses": "pass",
+        "cameraView": "pass"
+      }
+    },
+    {
+      "candidateIndex": 2,
+      "status": "rejected",
+      "reasons": [
+        "camera_view_drift"
+      ],
+      "checks": {
+        "roomTopology": "pass",
+        "windowBalconyDirection": "pass",
+        "kitchenHsPipeshaft": "pass",
+        "majorWallMasses": "pass",
+        "cameraView": "fail"
+      }
+    }
+  ]
+}

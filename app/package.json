@@ -14,6 +14,7 @@
     "validate:phase1": "tsx scripts/validate-phase1-readiness.ts",
     "prebake:hero": "tsx scripts/prebake-empty-room.ts",
     "prebake:plans": "tsx scripts/prebake-plan-sketches.ts",
+    "prebake:references": "tsx scripts/prebake-life-references.ts",
     "prebake:anchors": "tsx scripts/prebake-life-anchors.ts"
   },
   "dependencies": {

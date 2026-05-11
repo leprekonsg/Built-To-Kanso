@@ -481,6 +481,20 @@
   line-height: 1.54;
   color: var(--fg-2);
 }
+
+.trialStatus {
+  margin: var(--s-3) 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line-1);
+  background: rgba(229, 195, 122, 0.1);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-1);
+}
+
 .checkHead {
   display: flex;
   align-items: baseline;
@@ -570,6 +584,43 @@
   color: var(--fg-1);
   padding: 0 var(--s-3);
   font: inherit;
+}
+
+.lifeProof {
+  border: 1px solid var(--line-1);
+  background: var(--bg-2);
+  padding: var(--s-5);
+  margin-bottom: var(--s-4);
+}
+
+.lifeProofGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: var(--s-4);
+}
+
+.lifeProof figure {
+  margin: 0;
+  display: grid;
+  gap: var(--s-2);
+}
+
+.lifeProof img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+}
+
+.lifeProof figcaption {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  line-height: 1.35;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-3);
 }
 
 .checkPanel,
@@ -691,6 +742,61 @@
   transition: transform var(--dur-base) var(--ease-kanso);
 }
 .missingPrimary:hover .missingArrow { transform: translateX(4px); }
+
+.issueList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0 0 var(--s-7);
+  padding: var(--s-4) 0 0;
+  border-top: 1px solid var(--line-1);
+  max-width: 56ch;
+}
+.issueRow {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  gap: var(--s-4);
+  align-items: baseline;
+  padding: var(--s-4) 0;
+  border-bottom: 1px solid var(--line-1);
+}
+.issueRow > dd {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.issueField {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0;
+}
+.issueRaw {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--fg-1);
+  background: var(--bg-2, rgba(0, 0, 0, 0.04));
+  padding: 2px 8px;
+  border-radius: 4px;
+  align-self: flex-start;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.issueReason {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--fg-2);
+}
+@media (max-width: 640px) {
+  .issueRow {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}
 
 .missingDivider {
   border: 0;
@@ -854,6 +960,7 @@
   .liveGrid,
   .checkGrid,
   .detailGrid,
+  .lifeProofGrid,
   .designerControls {
     grid-template-columns: 1fr;
   }

@@ -5,10 +5,17 @@
 // failure so the route layer can surface a calm degradation message instead
 // of failing open.
 
-import { hashBytes } from "@/lib/imageHash";
+import { hashBytes, hashString } from "@/lib/imageHash";
 import { getOpenAIImagePrompt, type ImagePromptKind } from "@/server/folio/prompts";
 import { callOpenAIImage, getOpenAIImageConfig, getOpenAIImageModel } from "./client";
-import { getConfiguredSketchCache, keyFor } from "./cache";
+import { reviewLifeSketchCandidates, type LifeSketchCandidateReview } from "./lifeSketchReview";
+import {
+  getCachedMetadata,
+  getConfiguredSketchCache,
+  keyFor,
+  putCachedMetadata,
+  type SketchCacheMetadata,
+} from "./cache";
 
 // Sketches are tier "prototype_visualisation" per evidence.ts. Pinning the
 // literal (not widening to EvidenceTier) lets the success type stay narrow
@@ -21,6 +28,9 @@ export type SketchSuccess = {
   fromCache: boolean;
   tier: typeof SKETCH_TIER;
   promptId: ImagePromptKind;
+  candidateCount?: number;
+  acceptedCandidateIndex?: number;
+  qa?: LifeSketchQaReport;
 };
 
 export type SketchFailure = {
@@ -36,6 +46,29 @@ export type SketchFailure = {
 };
 
 export type SketchResult = SketchSuccess | SketchFailure;
+
+export interface LifeSketchQaCheck {
+  id: string;
+  ok: boolean;
+  evidence: string;
+}
+
+export interface LifeSketchQaReport {
+  status: "accepted" | "accepted_from_cache";
+  method: "responses_candidate_review";
+  candidateCount: number;
+  acceptedCandidateIndex: number;
+  checks: LifeSketchQaCheck[];
+  rejectedCandidates: Array<{ candidateIndex: number; reason: string }>;
+  reviewerModel?: string;
+  reviewerSummary?: string;
+  candidateReviews?: LifeSketchCandidateReview[];
+  limitation: string;
+}
+
+const LIFE_SKETCH_CANDIDATE_COUNT = 3;
+const LIFE_SKETCH_QA_LIMITATION =
+  "Responses candidate QA screens rendered pixels for topology drift. plan-geometry.json remains compliance truth; permanent prebakes still require Designer proof inspection.";
 
 // Five sealed seeds for the empty-room hero rotation. Hand-picked words —
 // not generated — so the rotation order is reproducible across machines.
@@ -61,7 +94,8 @@ async function runOrCache(
   buildRequest: () => Parameters<typeof callOpenAIImage>[0],
 ): Promise<SketchResult> {
   const model = getOpenAIImageModel();
-  const key = keyFor(promptId, { ...inputs, model });
+  const request = buildRequest();
+  const key = keyFor(promptId, { ...inputs, model, promptHash: hashString(request.prompt) });
   const cacheResult = getConfiguredSketchCache();
   if (!cacheResult.ok) {
     return { ok: false, reason: cacheResult.reason, promptId, detail: cacheResult.message };
@@ -69,7 +103,7 @@ async function runOrCache(
 
   const cached = await cacheResult.cache.get(key);
   if (cached) {
-    return { ok: true, png: cached, fromCache: true, tier: SKETCH_TIER, promptId };
+      return { ok: true, png: cached, fromCache: true, tier: SKETCH_TIER, promptId };
   }
 
   const config = getOpenAIImageConfig();
@@ -77,7 +111,7 @@ async function runOrCache(
     return { ok: false, reason: "no_cached_no_key", promptId, detail: config.message };
   }
 
-  const result = await callOpenAIImage(buildRequest());
+  const result = await callOpenAIImage(request);
   if (!result.ok) {
     return { ok: false, reason: result.reason === "missing_api_key" ? "no_cached_no_key" : result.reason, promptId, detail: result.detail };
   }
@@ -100,30 +134,219 @@ export async function generatePlanSketch(planSvgPng: Buffer): Promise<SketchResu
 // reference contributes to the cache key so swapping references invalidates.
 // Loaded by callers from app/public/references — see that directory's README.
 export interface LifeSketchReferenceBundle {
+  topologyProof?: Buffer;
   brand?: Buffer;
+  material?: Buffer;
+  /** Backward-compatible alias while local reference filenames migrate. */
   japandi?: Buffer;
+}
+
+export interface LifeSketchReviewContext {
+  manifestSummary?: string;
 }
 
 export async function generateLifeSketch(
   anchorPng: Buffer,
   references: LifeSketchReferenceBundle = {},
+  reviewContext: LifeSketchReviewContext = {},
 ): Promise<SketchResult> {
   const spec = getOpenAIImagePrompt("life-sketch-from-anchor");
-  const referenceImages = [references.brand, references.japandi].filter(
+  const materialReference = references.material ?? references.japandi;
+  const referenceImages = [references.topologyProof, references.brand, materialReference].filter(
     (buf): buf is Buffer => Buffer.isBuffer(buf),
   );
   const imageHashes = [hashBytes(anchorPng), ...referenceImages.map((buf) => hashBytes(buf))];
-  return runOrCache(
-    spec.kind,
-    { imageHashes },
-    () => ({
-      mode: "edit",
+  const model = getOpenAIImageModel();
+  const request = {
+    mode: "edit" as const,
+    promptId: spec.kind,
+    prompt: spec.prompt,
+    image: anchorPng,
+    ...(referenceImages.length > 0 ? { referenceImages } : {}),
+    n: LIFE_SKETCH_CANDIDATE_COUNT,
+    size: "1536x1024",
+  };
+  const key = keyFor(spec.kind, { imageHashes, model, promptHash: hashString(request.prompt) });
+  const cacheResult = getConfiguredSketchCache();
+  if (!cacheResult.ok) {
+    return { ok: false, reason: cacheResult.reason, promptId: spec.kind, detail: cacheResult.message };
+  }
+
+  const cached = await cacheResult.cache.get(key);
+  if (cached) {
+    const metadata = await getCachedMetadata(key);
+    if (metadata) {
+      const qa = qaFromMetadata(metadata, referenceImages.length);
+      return {
+        ok: true,
+        png: cached,
+        fromCache: true,
+        tier: SKETCH_TIER,
+        promptId: spec.kind,
+        candidateCount: qa.candidateCount,
+        acceptedCandidateIndex: qa.acceptedCandidateIndex,
+        qa,
+      };
+    }
+  }
+
+  const config = getOpenAIImageConfig();
+  if (!config.ok) {
+    return { ok: false, reason: "no_cached_no_key", promptId: spec.kind, detail: config.message };
+  }
+
+  const result = await callOpenAIImage(request);
+  if (!result.ok) {
+    return { ok: false, reason: result.reason === "missing_api_key" ? "no_cached_no_key" : result.reason, promptId: spec.kind, detail: result.detail };
+  }
+
+  const review = await reviewLifeSketchCandidates({
+    anchorPng,
+    topologyProof: references.topologyProof,
+    candidates: result.candidates,
+    manifestSummary: reviewContext.manifestSummary,
+  });
+  if (!review.ok) {
+    const reason = review.reason === "openai_timeout"
+      ? "openai_timeout"
+      : review.reason === "openai_unreachable"
+        ? "openai_unreachable"
+        : "openai_error";
+    return {
+      ok: false,
+      reason,
       promptId: spec.kind,
-      prompt: spec.prompt,
-      image: anchorPng,
-      ...(referenceImages.length > 0 ? { referenceImages } : {}),
-    }),
-  );
+      detail: `life_sketch_candidate_qa_${review.reason}: ${review.detail}`,
+    };
+  }
+
+  const candidateCount = result.candidates.length;
+  const acceptedCandidateIndex = review.acceptedCandidateIndex;
+  const qa = buildLifeSketchQaReport({
+    candidateCount,
+    acceptedCandidateIndex,
+    hasTopologyProof: Boolean(references.topologyProof),
+    hasBrandReference: Boolean(references.brand),
+    hasMaterialReference: Boolean(materialReference),
+    fromCache: false,
+    candidateReviews: review.candidateReviews,
+    reviewerModel: review.model,
+    reviewerSummary: review.summary,
+  });
+  const metadata: SketchCacheMetadata = {
+    key,
+    promptKind: spec.kind,
+    candidateCount,
+    acceptedCandidateIndex,
+    rejectedCandidates: qa.rejectedCandidates,
+    acceptedAtIso: new Date().toISOString(),
+    reviewerModel: review.model,
+    reviewerSummary: review.summary,
+    candidateReviews: review.candidateReviews,
+  };
+  await cacheResult.cache.put(key, result.candidates[acceptedCandidateIndex] ?? result.png);
+  await putCachedMetadata(metadata);
+
+  return {
+    ok: true,
+    png: result.candidates[acceptedCandidateIndex] ?? result.png,
+    fromCache: false,
+    tier: SKETCH_TIER,
+    promptId: spec.kind,
+    candidateCount,
+    acceptedCandidateIndex,
+    qa,
+  };
+}
+
+function qaFromMetadata(metadata: SketchCacheMetadata, referenceCount: number): LifeSketchQaReport {
+  return {
+    status: "accepted_from_cache",
+    method: "responses_candidate_review",
+    candidateCount: metadata.candidateCount,
+    acceptedCandidateIndex: metadata.acceptedCandidateIndex,
+    rejectedCandidates: metadata.rejectedCandidates,
+    reviewerModel: metadata.reviewerModel,
+    reviewerSummary: metadata.reviewerSummary,
+    candidateReviews: metadata.candidateReviews as LifeSketchCandidateReview[] | undefined,
+    checks: [
+      { id: "accepted_cache_entry", ok: true, evidence: metadata.acceptedAtIso },
+      { id: "reference_images", ok: referenceCount >= 3, evidence: `${referenceCount} reference image(s) in cache key.` },
+      {
+        id: "responses_candidate_review",
+        ok: Boolean(metadata.reviewerModel && metadata.candidateReviews?.length),
+        evidence: metadata.reviewerSummary ?? "Candidate review metadata missing.",
+      },
+    ],
+    limitation: LIFE_SKETCH_QA_LIMITATION,
+  };
+}
+
+function buildLifeSketchQaReport(input: {
+  candidateCount: number;
+  acceptedCandidateIndex: number;
+  hasTopologyProof: boolean;
+  hasBrandReference: boolean;
+  hasMaterialReference: boolean;
+  fromCache: boolean;
+  candidateReviews?: LifeSketchCandidateReview[];
+  reviewerModel?: string;
+  reviewerSummary?: string;
+}): LifeSketchQaReport {
+  const rejectedCandidates = input.candidateReviews
+    ? input.candidateReviews
+        .filter((candidate) => candidate.candidateIndex !== input.acceptedCandidateIndex)
+        .map((candidate) => ({
+          candidateIndex: candidate.candidateIndex,
+          reason: candidate.reasons[0] ?? "structural_qa_rejected",
+        }))
+    : Array.from({ length: input.candidateCount }, (_, candidateIndex) => candidateIndex)
+        .filter((candidateIndex) => candidateIndex !== input.acceptedCandidateIndex)
+        .map((candidateIndex) => ({
+          candidateIndex,
+          reason: "not_selected_after_responses_candidate_review",
+        }));
+
+  return {
+    status: input.fromCache ? "accepted_from_cache" : "accepted",
+    method: "responses_candidate_review",
+    candidateCount: input.candidateCount,
+    acceptedCandidateIndex: input.acceptedCandidateIndex,
+    rejectedCandidates,
+    reviewerModel: input.reviewerModel,
+    reviewerSummary: input.reviewerSummary,
+    candidateReviews: input.candidateReviews,
+    checks: [
+      {
+        id: "image_1_camera_locked",
+        ok: true,
+        evidence: "Image 1 is the deterministic camera-view greybox anchor.",
+      },
+      {
+        id: "image_2_topology_proof",
+        ok: input.hasTopologyProof,
+        evidence: input.hasTopologyProof
+          ? "Image 2 is the top-down plan proof from locked plan-geometry.json."
+          : "Topology proof missing; route should provide plan-sketches/<templateId>/plan.png before materialization.",
+      },
+      {
+        id: "style_references",
+        ok: input.hasBrandReference && input.hasMaterialReference,
+        evidence: `${input.hasBrandReference ? "brand" : "no-brand"}, ${input.hasMaterialReference ? "material" : "no-material"}`,
+      },
+      {
+        id: "candidate_batch",
+        ok: input.candidateCount >= 2 && input.candidateCount <= 3,
+        evidence: `${input.candidateCount} candidate image(s) returned; accepted candidate ${input.acceptedCandidateIndex}.`,
+      },
+      {
+        id: "responses_candidate_review",
+        ok: Boolean(input.reviewerModel && input.candidateReviews?.length),
+        evidence: input.reviewerSummary ?? "Candidate review metadata missing.",
+      },
+    ],
+    limitation: LIFE_SKETCH_QA_LIMITATION,
+  };
 }
 
 export async function generateWindSketchMicroPolish(svgRasterPng: Buffer): Promise<SketchResult> {

@@ -1,17 +1,25 @@
 // Life Sketch route. Telemetry headers (see route.test.ts):
 //   X-Evidence-Tier            always "prototype_visualisation".
-//   X-Prompt-Id                present on PNG and on no-key SVG fall-through.
-//   X-From-Cache               "true"|"false" on PNG responses only.
-//   X-Sketch-Source            "local-prebaked-anchor" on no-cloud anchor PNG.
+//   X-Prompt-Id                present on GPT materialization attempts.
+//   X-From-Cache               "prebake"|"true"|"false" on PNG responses only.
+//   X-Sketch-Source            "accepted-gpt-image-2-prebake" on the golden path.
 //   X-Sketch-Fallback          set on fallback responses. Values:
 //                                "deterministic-anchor-svg"  no-key path
 //                                "local-prebaked-anchor"     local PNG anchor path
+//                                "missing-accepted-gpt-prebake" no accepted polished PNG exists
+//                                "deterministic-sumi-e"      visual after materialization miss
 //                                "openai-error"              OpenAI returned !ok
 //                                "openai-timeout"            AbortController fired
 //                                "openai-unreachable"        network failure
 //   X-Life-Anchor-Source       cache-png | deterministic-svg | request-png.
 //   X-Life-Anchor-Cache-Path   relative path under public/life-anchors/.
-//   X-Life-Anchor-Scene        always "three-orthographic-scene-manifest".
+//   X-Life-Anchor-Scene        always "three-perspective-greybox-scene-manifest".
+//   X-Life-Sketch-Mode         accepted-gpt-image-2-prebake | deterministic-sumi-e.
+//   X-Life-Sketch-Cache-Path   accepted GPT Image 2 prebake path when present.
+//   X-Life-Topology-Proof      local-plan-sketch | missing.
+//   X-Life-Sketch-Candidates   count returned by the image edit call.
+//   X-Life-Sketch-QA           accepted | accepted_from_cache.
+//   X-Life-Sketch-QA-Model     Responses model used for candidate review.
 //
 // As of 2026-05-10 every failure mode lands on a calm 200 + local/deterministic
 // fallback. The route never returns 5xx for an OpenAI miss; the UI renders a
@@ -26,6 +34,8 @@ import {
   type LifeAnchorSceneManifest,
   type LifeAnchorSource,
 } from "@/server/anchors/lifeAnchor";
+import { renderLifeSketchSumiSvg } from "@/server/anchors/lifeAnchorRender";
+import type { TemplateId } from "@/server/geometry/types";
 import { getPlanGeometry, isTemplateId } from "@/server/geometry/registry";
 import {
   renderLifeAnchorFallbackSvg,
@@ -33,12 +43,19 @@ import {
   wantsJson,
 } from "@/server/openai/fallbackSvg";
 import { generateLifeSketch, type LifeSketchReferenceBundle } from "@/server/openai/sketches";
+import {
+  resolveAcceptedLifeSketchArtifact,
+  type AcceptedLifeSketchArtifact,
+} from "@/server/sketches/lifeSketchAsset";
+import { resolvePlanSketchArtifact } from "@/server/sketches/planSketchAsset";
 
 const REFERENCES_DIR = resolve(process.cwd(), "public", "references");
 
 type FallbackKind =
   | "deterministic-anchor-svg"
   | "local-prebaked-anchor"
+  | "missing-accepted-gpt-prebake"
+  | "deterministic-sumi-e"
   | "openai-error"
   | "openai-timeout"
   | "openai-unreachable";
@@ -52,13 +69,22 @@ async function readReferenceFile(name: string): Promise<Buffer | undefined> {
 }
 
 async function loadLifeReferenceBundle(): Promise<LifeSketchReferenceBundle> {
-  const [brand, japandi] = await Promise.all([
+  const [brand, material] = await Promise.all([
     readReferenceFile("brand-v3-poster.png"),
-    readReferenceFile("japandi-material-board.png"),
+    readReferenceFile("hdb-material-board.png").then(async (buf) => buf ?? readReferenceFile("japandi-material-board.png")),
   ]);
   return {
     ...(brand ? { brand } : {}),
-    ...(japandi ? { japandi } : {}),
+    ...(material ? { material } : {}),
+  };
+}
+
+async function loadStructuralReferenceBundle(templateId: TemplateId): Promise<LifeSketchReferenceBundle> {
+  const style = await loadLifeReferenceBundle();
+  const topology = await resolvePlanSketchArtifact(templateId);
+  return {
+    ...(topology ? { topologyProof: topology.png } : {}),
+    ...style,
   };
 }
 
@@ -83,25 +109,148 @@ function anchorHeaders(anchor: LifeAnchorDescriptor): Record<string, string> {
   };
 }
 
-function fallbackJson(
-  fallback: ReturnType<typeof sketchFallbackArtifact>,
+function referenceHeaders(references: LifeSketchReferenceBundle): Record<string, string> {
+  return {
+    "X-Life-Topology-Proof": references.topologyProof ? "local-plan-sketch" : "missing",
+    "X-Life-Brand-Reference": references.brand ? "present" : "missing",
+    "X-Life-Material-Reference": references.material || references.japandi ? "present" : "missing",
+  };
+}
+
+function resultHeaders(result: Extract<Awaited<ReturnType<typeof generateLifeSketch>>, { ok: true }>): Record<string, string> {
+  return {
+    ...(result.qa ? { "X-Life-Sketch-QA": result.qa.status } : {}),
+    ...(result.qa?.reviewerModel ? { "X-Life-Sketch-QA-Model": result.qa.reviewerModel } : {}),
+    ...(result.candidateCount ? { "X-Life-Sketch-Candidates": String(result.candidateCount) } : {}),
+    ...(result.acceptedCandidateIndex !== undefined
+      ? { "X-Life-Sketch-Accepted-Candidate": String(result.acceptedCandidateIndex) }
+      : {}),
+  };
+}
+
+function acceptedLifeSketchHeaders(artifact: AcceptedLifeSketchArtifact): Record<string, string> {
+  return {
+    "X-Prompt-Id": artifact.metadata.promptKind,
+    "X-Sketch-Source": artifact.source,
+    "X-Life-Sketch-Mode": artifact.source,
+    "X-Life-Sketch-Cache-Path": artifact.cachePath,
+    "X-Life-Sketch-Metadata-Path": artifact.metadataPath,
+    "X-Life-Sketch-QA": "accepted_from_prebake",
+    "X-Life-Sketch-Candidates": String(artifact.metadata.candidateCount),
+    "X-Life-Sketch-Accepted-Candidate": String(artifact.metadata.acceptedCandidateIndex),
+    ...(artifact.metadata.reviewerModel ? { "X-Life-Sketch-QA-Model": artifact.metadata.reviewerModel } : {}),
+  };
+}
+
+function lifeSketchReviewContext(anchor: LifeAnchorDescriptor): { manifestSummary: string } {
+  const manifest = anchor.manifest;
+  const rooms = manifest.rooms.map((room) => `${room.id}:${room.kind}`).join(",");
+  const openings = manifest.openings
+    .map((opening) => `${opening.id}:${opening.kind}@${opening.position[0].toFixed(1)},${opening.position[2].toFixed(1)}`)
+    .join(",");
+  const fixed = manifest.fixedElements
+    .map((element) => `${element.id}:${element.kind}@${element.position[0].toFixed(1)},${element.position[2].toFixed(1)}`)
+    .join(",");
+
+  return {
+    manifestSummary: [
+      `template=${manifest.templateId}`,
+      `source=${manifest.metadata.source}`,
+      `rooms=${rooms}`,
+      `openings=${openings}`,
+      `fixed=${fixed}`,
+      `camera=${manifest.camera.position.map((v) => v.toFixed(2)).join(",")}`,
+      `lookAt=${manifest.camera.lookAt.map((v) => v.toFixed(2)).join(",")}`,
+    ].join("; "),
+  };
+}
+
+function acceptedLifeSketchJson(
+  artifact: AcceptedLifeSketchArtifact,
   anchor: LifeAnchorDescriptor,
-  overrides?: { reason?: string; nextAction?: string; promptId?: string },
 ) {
   return {
-    fallback: fallback.fallback,
-    contentType: fallback.contentType,
-    reason: overrides?.reason ?? fallback.reason,
-    nextAction: overrides?.nextAction ?? fallback.nextAction,
-    tier: fallback.tier,
-    promptId: overrides?.promptId,
+    fallback: false,
+    contentType: artifact.contentType,
+    reason: "accepted_gpt_image_2_prebake",
+    nextAction: "Serving the QA-accepted ChatGPT Image Life Sketch for the supported polished demo path.",
+    tier: artifact.tier,
+    source: artifact.source,
+    cachePath: artifact.cachePath,
+    metadataPath: artifact.metadataPath,
+    candidateCount: artifact.metadata.candidateCount,
+    acceptedCandidateIndex: artifact.metadata.acceptedCandidateIndex,
+    reviewerModel: artifact.metadata.reviewerModel,
+    rejectedCandidates: artifact.metadata.rejectedCandidates,
     anchor: {
       source: anchor.source,
       cachePath: anchor.cachePath,
       scene: anchor.manifest.metadata.source,
       complianceTruth: anchor.manifest.metadata.complianceTruth,
+      topologyProof: anchor.manifest.metadata.topologyProof,
     },
   };
+}
+
+function acceptedLifeSketchPngResponse(
+  artifact: AcceptedLifeSketchArtifact,
+  anchor: LifeAnchorDescriptor,
+  extraHeaders: Record<string, string> = {},
+) {
+  return new NextResponse(new Uint8Array(artifact.png), {
+    status: 200,
+    headers: {
+      "Content-Type": artifact.contentType,
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "X-Evidence-Tier": artifact.tier,
+      "X-From-Cache": "prebake",
+      ...anchorHeaders(anchor),
+      ...acceptedLifeSketchHeaders(artifact),
+      ...extraHeaders,
+    },
+  });
+}
+
+function deterministicLifeSketchJson(
+  anchor: LifeAnchorDescriptor,
+  overrides?: { fallback?: boolean; reason?: string; nextAction?: string; promptId?: string },
+) {
+  return {
+    fallback: overrides?.fallback ?? false,
+    contentType: "image/svg+xml",
+    reason: overrides?.reason ?? "deterministic_sumi_e_life_sketch",
+    nextAction:
+      overrides?.nextAction ??
+      "Accepted GPT Image 2 prebake is missing. Using the deterministic sumi-e Life Sketch; run the Life Sketch prebake for the polished demo path.",
+    tier: anchor.manifest.metadata.tier,
+    promptId: overrides?.promptId,
+    source: "deterministic-sumi-e-life-sketch",
+    anchor: {
+      source: anchor.source,
+      cachePath: anchor.cachePath,
+      scene: anchor.manifest.metadata.source,
+      complianceTruth: anchor.manifest.metadata.complianceTruth,
+      topologyProof: anchor.manifest.metadata.topologyProof,
+    },
+  };
+}
+
+function deterministicLifeSketchSvgResponse(
+  anchor: LifeAnchorDescriptor,
+  extraHeaders: Record<string, string> = {},
+) {
+  return new NextResponse(renderLifeSketchSumiSvg(anchor.manifest), {
+    status: 200,
+    headers: {
+      "Content-Type": "image/svg+xml",
+      "Cache-Control": "public, max-age=300",
+      "X-Evidence-Tier": anchor.manifest.metadata.tier,
+      "X-Sketch-Source": "deterministic-sumi-e-life-sketch",
+      "X-Life-Sketch-Mode": "deterministic-sumi-e",
+      ...anchorHeaders(anchor),
+      ...extraHeaders,
+    },
+  });
 }
 
 function fallbackSvgResponse(
@@ -140,6 +289,7 @@ function localAnchorJson(
       cachePath: anchor.cachePath,
       scene: anchor.manifest.metadata.source,
       complianceTruth: anchor.manifest.metadata.complianceTruth,
+      topologyProof: anchor.manifest.metadata.topologyProof,
     },
   };
 }
@@ -171,6 +321,11 @@ function materializeRequested(request: Request): boolean {
   return new URL(request.url).searchParams.get("materialize") === "1";
 }
 
+function anchorOnlyRequested(request: Request): boolean {
+  const params = new URL(request.url).searchParams;
+  return params.get("anchor") === "1" || params.get("visual") === "anchor";
+}
+
 function requestAnchor(plan: Parameters<typeof buildLifeAnchorSceneManifest>[0]): LifeAnchorDescriptor {
   const manifest = buildLifeAnchorSceneManifest(plan);
   return {
@@ -193,31 +348,31 @@ function fallbackKindFor(reason: string): FallbackKind {
   if (reason === "openai_timeout") return "openai-timeout";
   if (reason === "openai_unreachable") return "openai-unreachable";
   if (reason === "openai_error") return "openai-error";
-  return "deterministic-anchor-svg";
+  return "deterministic-sumi-e";
 }
 
 function calmFallbackCopy(reason: string): { reason: string; nextAction: string } {
   if (reason === "openai_timeout") {
     return {
       reason: "openai_timeout",
-      nextAction: "OpenAI did not respond in time. The deterministic anchor is shown; retry in a moment.",
+      nextAction: "OpenAI did not respond in time. The deterministic Life Sketch is shown; retry materialization later.",
     };
   }
   if (reason === "openai_unreachable") {
     return {
       reason: "openai_unreachable",
-      nextAction: "Could not reach OpenAI. The deterministic anchor is shown; retry when the network recovers.",
+      nextAction: "Could not reach OpenAI. The deterministic Life Sketch is shown; retry when the network recovers.",
     };
   }
   if (reason === "openai_error") {
     return {
       reason: "openai_error",
-      nextAction: "OpenAI declined the request. The deterministic anchor is shown; geometry remains the source of truth.",
+      nextAction: "OpenAI declined the request. The deterministic Life Sketch is shown; geometry remains the source of truth.",
     };
   }
   return {
     reason: "png_or_openai_unavailable",
-    nextAction: "Set OPENAI_API_KEY for materialization, or request image/svg+xml to use the deterministic anchor.",
+    nextAction: "Set OPENAI_API_KEY for optional materialization, or use the deterministic sumi-e Life Sketch.",
   };
 }
 
@@ -240,20 +395,58 @@ export async function POST(request: Request) {
 
   if (!body.anchorPng || typeof body.anchorPng !== "string") {
     const anchor = await resolveLifeAnchorArtifact(plan);
-    if (wantsSvg(request)) {
+    if (anchorOnlyRequested(request) && wantsSvg(request)) {
       const deterministic = deterministicAnchor(plan);
       const fallback = sketchFallbackArtifact("life-anchor", renderLifeAnchorFallbackSvg(plan));
       return fallbackSvgResponse(fallback, deterministic);
     }
 
-    if (anchor.source === "cache-png") {
-      if (!materializeRequested(request)) {
-        if (wantsJson(request)) return NextResponse.json(localAnchorJson(anchor), { status: 200, headers: anchorHeaders(anchor) });
-        return localAnchorPngResponse(anchor);
+    if (anchorOnlyRequested(request) && anchor.source === "cache-png") {
+      if (wantsJson(request)) return NextResponse.json(localAnchorJson(anchor), { status: 200, headers: anchorHeaders(anchor) });
+      return localAnchorPngResponse(anchor);
+    }
+
+    const anchorDescriptor: LifeAnchorDescriptor = {
+      source: anchor.source,
+      cachePath: anchor.cachePath,
+      manifest: anchor.manifest,
+    };
+
+    if (!materializeRequested(request)) {
+      const accepted = await resolveAcceptedLifeSketchArtifact(body.templateId);
+      if (accepted) {
+        if (wantsJson(request)) {
+          return NextResponse.json(acceptedLifeSketchJson(accepted, anchorDescriptor), {
+            status: 200,
+            headers: { ...anchorHeaders(anchorDescriptor), ...acceptedLifeSketchHeaders(accepted) },
+          });
+        }
+        return acceptedLifeSketchPngResponse(accepted, anchorDescriptor);
       }
 
-      const references = await loadLifeReferenceBundle();
-      const result = await generateLifeSketch(anchor.png, references);
+      if (wantsJson(request)) {
+        return NextResponse.json(deterministicLifeSketchJson(anchorDescriptor, {
+          fallback: true,
+          reason: "missing_accepted_gpt_prebake",
+          nextAction: "No accepted GPT Image 2 Life Sketch prebake is present for this template. Run the prebake before treating this as a supported polished demo state.",
+        }), {
+          status: 200,
+          headers: {
+            ...anchorHeaders(anchorDescriptor),
+            "X-Sketch-Fallback": "missing-accepted-gpt-prebake",
+            "X-Sketch-Source": "deterministic-sumi-e-life-sketch",
+            "X-Life-Sketch-Mode": "deterministic-sumi-e",
+          },
+        });
+      }
+      return deterministicLifeSketchSvgResponse(anchorDescriptor, {
+        "X-Sketch-Fallback": "missing-accepted-gpt-prebake",
+      });
+    }
+
+    if (anchor.source === "cache-png") {
+      const references = await loadStructuralReferenceBundle(body.templateId);
+      const result = await generateLifeSketch(anchor.png, references, lifeSketchReviewContext(anchor));
 
       if (result.ok) {
         return new NextResponse(new Uint8Array(result.png), {
@@ -265,42 +458,49 @@ export async function POST(request: Request) {
             "X-Prompt-Id": result.promptId,
             "X-From-Cache": String(result.fromCache),
             ...anchorHeaders(anchor),
+            ...referenceHeaders(references),
+            ...resultHeaders(result),
           },
         });
       }
 
       // Any failure (no_cached_no_key, openai_error/timeout/unreachable,
-      // cache_env_error) falls through to the local PNG anchor with calm
-      // telemetry. We never surface a 5xx to the UI.
+      // cache_env_error) falls through to the deterministic sumi-e Life Sketch
+      // with calm telemetry. We never surface a 5xx to the UI.
       const kind = fallbackKindFor(result.reason);
       const copy = calmFallbackCopy(result.reason);
       if (wantsJson(request)) {
         return NextResponse.json(
-          localAnchorJson(anchor, {
+          deterministicLifeSketchJson(anchorDescriptor, {
+            fallback: true,
             reason: copy.reason,
             nextAction: copy.nextAction,
             promptId: result.promptId,
           }),
-          { status: 200, headers: anchorHeaders(anchor) },
+          { status: 200, headers: { ...anchorHeaders(anchorDescriptor), ...referenceHeaders(references) } },
         );
       }
-      return localAnchorPngResponse(anchor, {
-        "X-Sketch-Fallback": kind === "deterministic-anchor-svg" ? "local-prebaked-anchor" : kind,
+      return deterministicLifeSketchSvgResponse(anchorDescriptor, {
+        "X-Sketch-Fallback": kind,
         "X-Prompt-Id": result.promptId,
+        ...referenceHeaders(references),
       });
     }
 
-    const svg = renderLifeAnchorFallbackSvg(plan);
-    const fallback = sketchFallbackArtifact("life-anchor", svg);
-
     if (wantsJson(request)) {
       return NextResponse.json(
-        fallbackJson(fallback, anchor),
-        { status: 200, headers: anchorHeaders(anchor) },
+        deterministicLifeSketchJson(anchorDescriptor, {
+          fallback: true,
+          reason: "anchor_png_missing",
+          nextAction: "Using the deterministic sumi-e Life Sketch because no local anchor PNG is available for GPT materialization.",
+        }),
+        { status: 200, headers: anchorHeaders(anchorDescriptor) },
       );
     }
 
-    return fallbackSvgResponse(fallback, anchor);
+    return deterministicLifeSketchSvgResponse(anchorDescriptor, {
+      "X-Sketch-Fallback": "missing-accepted-gpt-prebake",
+    });
   }
 
   let anchorBuffer: Buffer;
@@ -313,28 +513,31 @@ export async function POST(request: Request) {
     );
   }
 
-  const references = await loadLifeReferenceBundle();
-  const result = await generateLifeSketch(anchorBuffer, references);
+  const references = await loadStructuralReferenceBundle(body.templateId);
   const suppliedAnchor = requestAnchor(plan);
+  const result = await generateLifeSketch(anchorBuffer, references, lifeSketchReviewContext(suppliedAnchor));
 
   if (!result.ok) {
-    const svg = renderLifeAnchorFallbackSvg(plan);
-    const fallback = sketchFallbackArtifact("life-anchor", svg);
     const kind = fallbackKindFor(result.reason);
     const copy = calmFallbackCopy(result.reason);
 
     if (wantsJson(request)) {
       return NextResponse.json(
-        fallbackJson(fallback, suppliedAnchor, {
+        deterministicLifeSketchJson(suppliedAnchor, {
+          fallback: true,
           reason: copy.reason,
           nextAction: copy.nextAction,
           promptId: result.promptId,
         }),
-        { status: 200, headers: anchorHeaders(suppliedAnchor) },
+        { status: 200, headers: { ...anchorHeaders(suppliedAnchor), ...referenceHeaders(references) } },
       );
     }
 
-    return fallbackSvgResponse(fallback, suppliedAnchor, kind, { "X-Prompt-Id": result.promptId });
+    return deterministicLifeSketchSvgResponse(suppliedAnchor, {
+      "X-Sketch-Fallback": kind,
+      "X-Prompt-Id": result.promptId,
+      ...referenceHeaders(references),
+    });
   }
 
   return new NextResponse(new Uint8Array(result.png), {
@@ -346,6 +549,8 @@ export async function POST(request: Request) {
       "X-Prompt-Id": result.promptId,
       "X-From-Cache": String(result.fromCache),
       ...anchorHeaders(suppliedAnchor),
+      ...referenceHeaders(references),
+      ...resultHeaders(result),
     },
   });
 }

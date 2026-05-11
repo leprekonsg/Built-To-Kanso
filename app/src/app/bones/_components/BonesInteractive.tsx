@@ -3,6 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import type { UrlObject } from "url";
 import { EVIDENCE_TIER_LABELS, type EvidenceTier } from "@/server/evidence";
 import type { PlanGeometry } from "@/server/geometry/types";
 import { recommendAntiCure } from "@/server/rules/antiCure";
@@ -79,6 +80,7 @@ interface BonesInteractiveProps {
   plan: PlanGeometry;
   compassDeg: number;
   floor: number;
+  scenario?: string;
   sideIntro: ReactNode;
   children: ReactNode;
 }
@@ -87,6 +89,7 @@ export default function BonesInteractive({
   plan,
   compassDeg,
   floor,
+  scenario,
   sideIntro,
   children,
 }: BonesInteractiveProps) {
@@ -106,6 +109,10 @@ export default function BonesInteractive({
   const trialTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mode = useVoiceStore((state) => state.mode);
   const placements = useMemo<TokenPlacement[]>(() => toTokenPlacements(placed), [placed]);
+  const activeTrialMeta = useMemo(
+    () => WEATHER_TRIAL_BUTTONS.find((trial) => trial.id === activeTrial) ?? null,
+    [activeTrial],
+  );
 
   // Trial auto-revert. The button click sets activeTrial; this effect schedules
   // the revert and cancels any pending revert if the user starts a new trial.
@@ -151,6 +158,10 @@ export default function BonesInteractive({
   const antiCure = useMemo(() => recommendAntiCure(plan, scout), [plan, scout]);
   const glowReading = useMemo(() => evaluateGlow({ plan, compassDeg, floor }), [plan, compassDeg, floor]);
   const quietReading = useMemo(() => evaluateQuiet({ plan, floor }), [plan, floor]);
+  const proofHref = useMemo(
+    () => recommendationProofHref(plan.templateId, compassDeg, floor, scenario),
+    [plan.templateId, compassDeg, floor, scenario],
+  );
   const calmChecks = useMemo(
     () => buildCalmChecks(glowReading, quietReading, dampSummary?.worst.band ?? "clear", mode, plan),
     [glowReading, quietReading, dampSummary, mode, plan],
@@ -223,7 +234,9 @@ export default function BonesInteractive({
             <Link href="/threshold" className={styles.secondaryLink}>
               Adjust inputs
             </Link>
-            <span>Next: see how air moves</span>
+            <Link href={proofHref} className={styles.secondaryLink}>
+              Recommendation proof
+            </Link>
           </div>
         </aside>
       </section>
@@ -251,6 +264,7 @@ export default function BonesInteractive({
             compassDeg={compassDeg}
             floor={floor}
             ambientWindMps={LIVE_STUDIO_WIND_MPS}
+            tokenPlacements={placements}
             prebakedField={null}
             weatherTrial={activeTrial}
             designerControls={mode === "designer" ? designerControls : undefined}
@@ -260,6 +274,9 @@ export default function BonesInteractive({
             <h3 id="weather-trial-title" className={styles.panelTitle}>Three stress conditions</h3>
             <p className={styles.smallCopy}>
               Tap one to feel a few seconds of weather. The studio reverts on its own.
+            </p>
+            <p className={styles.trialStatus} data-testid="weather-trial-status" aria-live="polite">
+              {activeTrialMeta ? `Running: ${activeTrialMeta.name}` : "Baseline monsoon"}
             </p>
             <ul className={styles.trialList}>
               {WEATHER_TRIAL_BUTTONS.map((trial) => {
@@ -356,6 +373,30 @@ export default function BonesInteractive({
               </label>
             ))}
           </section>
+          <section
+            className={styles.lifeProof}
+            role="region"
+            aria-label="Life Sketch proof"
+            data-testid="life-sketch-proof"
+          >
+            <span className={styles.eyebrow}>Life Sketch proof</span>
+            <div className={styles.lifeProofGrid}>
+              <figure>
+                <img
+                  src={`/life-anchors/${plan.templateId}/anchor.png`}
+                  alt={`${plan.templateId} camera-view greybox anchor`}
+                />
+                <figcaption>Image 1: camera locked</figcaption>
+              </figure>
+              <figure>
+                <img
+                  src={`/plan-sketches/${plan.templateId}/plan.png`}
+                  alt={`${plan.templateId} top-down topology proof`}
+                />
+                <figcaption>Image 2: topology only</figcaption>
+              </figure>
+            </div>
+          </section>
           <dl className={styles.detailGrid}>
             {designerDetails.map((detail) => (
               <div key={detail.label}>
@@ -373,6 +414,23 @@ export default function BonesInteractive({
 
 function toTokenPlacements(tokens: ReadonlyArray<PlacedToken>): TokenPlacement[] {
   return tokens.map(({ tokenId, point }) => ({ tokenId, point }));
+}
+
+function recommendationProofHref(
+  templateId: PlanGeometry["templateId"],
+  compassDeg: number,
+  floor: number,
+  scenario: string | undefined,
+): UrlObject {
+  return {
+    pathname: "/recommendation-proof",
+    query: {
+      template: templateId,
+      compass: String(compassDeg),
+      floor: String(floor),
+      ...(scenario ? { scenario } : {}),
+    },
+  };
 }
 
 function formatScout(scout: "breath" | "glow" | "quiet" | "damp"): string {
