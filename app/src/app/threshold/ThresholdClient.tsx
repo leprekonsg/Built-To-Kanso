@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import type { Route } from "next";
 import Link from "next/link";
 import type { UrlObject } from "url";
 import { useThresholdStore } from "@/lib/store";
@@ -39,10 +40,10 @@ export default function ThresholdClient() {
     compassTouched,
     floorTouched,
   });
-  const bonesHref: "/bones" | UrlObject =
+  const studioHref: Route | UrlObject =
     ready && templateId && scenarioId
       ? {
-          pathname: "/bones",
+          pathname: "/studio",
           query: {
             template: templateId,
             compass: compassIndex * 15,
@@ -50,7 +51,7 @@ export default function ThresholdClient() {
             scenario: scenarioId,
           },
         }
-      : "/bones";
+      : ("/studio" as Route);
 
   return (
     <div className={styles.studio}>
@@ -98,7 +99,7 @@ export default function ThresholdClient() {
         >
           <p className={styles.continueCopy}>{continueCopy}</p>
           <Link
-            href={bonesHref}
+            href={studioHref}
             aria-disabled={!ready}
             className={`${styles.continueBtn} ${ready ? styles.continueReady : ""}`}
             tabIndex={ready ? 0 : -1}
@@ -163,7 +164,7 @@ function readyCopy({
   if (!floorTouched) pending.push("the floor");
   if (!hasScenario) pending.push("the moment");
 
-  if (pending.length === 4) return "Set all four to begin Reading the Bones.";
+  if (pending.length === 4) return "Set all four to enter the Studio.";
   if (pending.length === 1) return `Confirm ${pending[0]} before continuing.`;
   if (pending.length === 2)
     return `Confirm ${pending[0]} and ${pending[1]} before continuing.`;

@@ -25,15 +25,7 @@ export default function ThresholdPage() {
           </span>
           <span className={styles.crumbDot} aria-hidden />
           <span className={styles.crumbDim}>
-            <span className={styles.crumbNum}>02</span> Bones
-          </span>
-          <span className={styles.crumbDot} aria-hidden />
-          <span className={styles.crumbDim}>
-            <span className={styles.crumbNum}>03</span> Weather
-          </span>
-          <span className={styles.crumbDot} aria-hidden />
-          <span className={styles.crumbDim}>
-            <span className={styles.crumbNum}>04</span> Tokens
+            <span className={styles.crumbNum}>02</span> Studio
           </span>
         </nav>
       </header>

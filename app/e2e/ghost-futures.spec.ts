@@ -188,8 +188,8 @@ test.describe("Ghost Futures", () => {
     });
   });
 
-  test("renders the A/B/C comparison lanes on the Bones studio", async ({ page }) => {
-    await page.goto("/bones?template=resale-exec-1990s&compass=260&floor=11&scenario=just-moved-in");
+  test("renders the A/B/C comparison lanes in the Studio", async ({ page }) => {
+    await page.goto("/studio?template=resale-exec-1990s&compass=260&floor=11&scenario=just-moved-in");
 
     await expect(page.getByText("Ghost Futures", { exact: true })).toBeVisible();
     await expect(page.getByText("A · Recommended")).toBeVisible();

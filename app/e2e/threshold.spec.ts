@@ -38,7 +38,7 @@ test.describe("Threshold onboarding", () => {
     await expect(page.getByText("Confirm the floor before continuing.")).toBeVisible();
   });
 
-  test("selects inputs, updates summary, and routes to Bones", async ({ page }) => {
+  test("selects inputs, updates summary, and routes to Studio", async ({ page }) => {
     await page.goto("/threshold");
 
     await page.getByRole("button", { name: /Tampines GreenWeave/ }).click();
@@ -59,7 +59,7 @@ test.describe("Threshold onboarding", () => {
     const continueLink = page.getByRole("link", { name: /Continue/ });
     await expect(continueLink).toHaveAttribute("aria-disabled", "false");
     await continueLink.click();
-    await expect(page).toHaveURL(/\/bones\?template=tampines-greenweave&compass=15&floor=16&scenario=just-moved-in$/);
+    await expect(page).toHaveURL(/\/studio\?template=tampines-greenweave&compass=15&floor=16&scenario=just-moved-in$/);
     await expect(page.getByRole("heading", { name: "The house is listening." })).toBeVisible();
     await expect(page.getByLabel("Threshold inputs")).toContainText("015°");
   });

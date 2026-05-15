@@ -1,6 +1,6 @@
 // Phase 1 ships exactly these three HDB Archetype templates (brief §6.1).
 // Each carries the metadata Stage 1 needs; full plan-geometry.json arrives
-// in Stage 2 (Reading the Bones).
+// in the Studio.
 
 export type TemplateId = "tampines-greenweave" | "tengah-5room" | "resale-exec-1990s";
 

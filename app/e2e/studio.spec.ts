@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("Reading the Bones", () => {
+test.describe("Studio", () => {
   test("asks for Threshold inputs when opened directly", async ({ page }) => {
-    await page.goto("/bones");
+    await page.goto("/studio");
 
     await expect(page.getByRole("heading", { name: "The house has not yet heard you." })).toBeVisible();
-    await expect(page.getByText(/Bones reads a unit/)).toBeVisible();
+    await expect(page.getByText(/The Studio reads a unit/)).toBeVisible();
     await expect(page.getByText(/Form-School feng shui/)).toBeVisible();
     await expect(page.getByRole("link", { name: "Step back to the threshold" })).toHaveAttribute("href", "/threshold");
   });
@@ -14,9 +14,9 @@ test.describe("Reading the Bones", () => {
     // Mixing the token-style underscore form into the scenario param is the
     // most common shared-link failure mode. The diagnostic must name the bad
     // raw value, list the valid scenario IDs, and offer Return to Threshold.
-    await page.goto("/bones?template=tampines-greenweave&compass=120&floor=11&scenario=mid_renovation");
+    await page.goto("/studio?template=tampines-greenweave&compass=120&floor=11&scenario=mid_renovation");
 
-    const issues = page.getByTestId("bones-param-issues");
+    const issues = page.getByTestId("studio-param-issues");
     await expect(issues).toBeVisible();
     await expect(issues).toContainText("scenario");
     await expect(issues).toContainText("mid_renovation");
@@ -25,9 +25,9 @@ test.describe("Reading the Bones", () => {
   });
 
   test("flags out-of-range floor as a recoverable URL diagnostic", async ({ page }) => {
-    await page.goto("/bones?template=tampines-greenweave&compass=120&floor=99&scenario=mid-renovation");
+    await page.goto("/studio?template=tampines-greenweave&compass=120&floor=99&scenario=mid-renovation");
 
-    const issues = page.getByTestId("bones-param-issues");
+    const issues = page.getByTestId("studio-param-issues");
     await expect(issues).toBeVisible();
     await expect(issues).toContainText("floor");
     await expect(issues).toContainText("99");
@@ -35,7 +35,7 @@ test.describe("Reading the Bones", () => {
   });
 
   test("renders template geometry, fixed elements, asking points, and paired Damp Risk", async ({ page }) => {
-    await page.goto("/bones?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
+    await page.goto("/studio?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
 
     await expect(page.getByRole("heading", { name: "The house is listening." })).toBeVisible();
     await expect(page.getByLabel("Threshold inputs")).toContainText("255°");
@@ -57,7 +57,7 @@ test.describe("Reading the Bones", () => {
   });
 
   test("Designer voice changes visible reading copy", async ({ page }) => {
-    await page.goto("/bones?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
+    await page.goto("/studio?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
 
     await expect(page.getByText("Damp Risk wants a buffer.")).toBeVisible();
     await page.getByRole("tab", { name: "Designer" }).click();
@@ -67,7 +67,7 @@ test.describe("Reading the Bones", () => {
   });
 
   test("integrates LiveStudio, Weather Trial, and Designer material details calmly", async ({ page }) => {
-    await page.goto("/bones?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
+    await page.goto("/studio?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
 
     await expect(page.getByRole("region", { name: "LiveStudio" })).toContainText("LiveStudio");
     await expect(page.getByText("Environmental material system")).toBeVisible();
@@ -95,7 +95,7 @@ test.describe("Reading the Bones", () => {
   });
 
   test("Weather Trial click visibly changes the studio condition without cloud storage", async ({ page }) => {
-    await page.goto("/bones?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
+    await page.goto("/studio?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
 
     const liveStudio = page.getByTestId("live-studio");
     const westSunTrial = page.getByTestId("weather-trial-west_sun_1720");
@@ -112,7 +112,7 @@ test.describe("Reading the Bones", () => {
   });
 
   test("renders LiveStudio scene elements from the deterministic airflow field", async ({ page }) => {
-    await page.goto("/bones?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
+    await page.goto("/studio?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
 
     const liveStudio = page.getByTestId("live-studio");
     await expect(liveStudio).toContainText("Airflow visual. Prototype visualisation.");
@@ -138,7 +138,7 @@ test.describe("Reading the Bones", () => {
   });
 
   test("Material System slider distinguishes Barely Seen from Clearly Seen", async ({ page }) => {
-    await page.goto("/bones?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
+    await page.goto("/studio?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
 
     const slider = page.getByTestId("wind-visibility-slider");
     const materials = page.getByTestId("simulation-materials");
@@ -171,7 +171,7 @@ test.describe("Reading the Bones", () => {
   });
 
   test("supports token personality variants without changing legality", async ({ page }) => {
-    await page.goto("/bones?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
+    await page.goto("/studio?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
 
     await expect(page.getByLabel("Token personality")).toHaveValue("wabi_sabi");
     await expect(page.getByText("Weathered ceramic, linen, quiet repair.")).toBeVisible();
@@ -185,7 +185,7 @@ test.describe("Reading the Bones", () => {
   });
 
   test("Designer mode exposes the full material parameter set per brief 5.2", async ({ page }) => {
-    await page.goto("/bones?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
+    await page.goto("/studio?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
     await page.getByRole("tab", { name: "Designer" }).click();
 
     const controls = page.getByTestId("designer-controls");
@@ -215,7 +215,7 @@ test.describe("Reading the Bones", () => {
   });
 
   test("Designer mode keeps controls in sessionStorage across reloads", async ({ page }) => {
-    await page.goto("/bones?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
+    await page.goto("/studio?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
     await page.getByRole("tab", { name: "Designer" }).click();
 
     await page.getByTestId("designer-control-preset").selectOption("sumi_ink");
@@ -236,7 +236,7 @@ test.describe("Reading the Bones", () => {
   });
 
   test("edits a reversible floor-plan draft and keeps Black-state elements locked", async ({ page }) => {
-    await page.goto("/bones?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
+    await page.goto("/studio?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
 
     await page.getByRole("button", { name: "Edit plan draft" }).click();
     await expect(page.getByRole("region", { name: "Reversible floor plan editor" })).toBeVisible();
@@ -258,7 +258,7 @@ test.describe("Reading the Bones", () => {
   });
 
   test("committed tokens update Damp Risk, Kanso Reserve, and House Changelog", async ({ page }) => {
-    await page.goto("/bones?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
+    await page.goto("/studio?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
 
     const reserveCard = page.locator("section").filter({ hasText: "Reserve" }).first();
     const reserveValue = reserveCard.getByText(/^\d+% empty$/);

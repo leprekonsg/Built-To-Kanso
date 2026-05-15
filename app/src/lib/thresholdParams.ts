@@ -1,4 +1,4 @@
-// Shared parser for the four Threshold inputs that gate `/bones` and
+// Shared parser for the four Threshold inputs that gate `/studio` and
 // `/recommendation-proof`. Returns a discriminated result: each input is
 // either parsed or absent, and any present-but-malformed value is collected
 // in `issues` so the page can render an actionable diagnostic instead of the

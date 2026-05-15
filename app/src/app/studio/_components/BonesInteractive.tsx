@@ -29,7 +29,7 @@ import PlanEditor from "./PlanEditor";
 import TokenStudio from "./TokenStudio";
 import type { PlacedToken } from "./PlanCanvas";
 import ResonanceBanner from "@/components/resonance/ResonanceBanner";
-import styles from "../bones.module.css";
+import styles from "../studio.module.css";
 
 const DAMP_DISCLAIMER =
   "Damp Risk is a layout-based comfort estimate. Not a humidity measurement, not a mould diagnosis, not a certified IAQ assessment.";

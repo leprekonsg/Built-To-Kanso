@@ -24,8 +24,8 @@ test.describe("Recommendation Proof", () => {
     await expect(lifePanel).toContainText(/accepted [0-2]/);
   });
 
-  test("links from Bones with the threshold readings intact", async ({ page }) => {
-    await page.goto("/bones?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
+  test("links from the Studio with the threshold readings intact", async ({ page }) => {
+    await page.goto("/studio?template=resale-exec-1990s&compass=255&floor=11&scenario=just-moved-in");
 
     const proofLink = page.getByRole("link", { name: "Recommendation proof" });
     await expect(proofLink).toHaveAttribute(

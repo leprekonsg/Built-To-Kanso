@@ -46,8 +46,8 @@ const STEPS: Step[] = [
   },
   {
     file: "06-bones-hero.png",
-    title: "06 — Reading the Bones",
-    body: `Continue takes you to Stage 2 at **/bones?template=...&compass=...&floor=...&scenario=...**. The locked plan renders as SVG with HDB and SCDF fixed elements protected. The right strip surfaces the Threshold inputs (Door, Floor, Scenario) so the reading is traceable.`,
+    title: "06 — Studio",
+    body: `Continue takes you to the Studio at **/studio?template=...&compass=...&floor=...&scenario=...**. The locked plan renders as SVG with HDB and SCDF fixed elements protected. The right strip surfaces the Threshold inputs (Door, Floor, Scenario) so the reading is traceable.`,
   },
   {
     file: "07-bones-asking-points.png",
@@ -418,7 +418,7 @@ function buildHtml(): string {
   <div class="cover-meta">
     <div>Phase<strong>1 surface</strong></div>
     <div>Generated<strong>${today}</strong></div>
-    <div>Pages<strong>Threshold · Bones · Proof · Methodology</strong></div>
+    <div>Pages<strong>Threshold · Studio · Proof · Methodology</strong></div>
   </div>
 </section>
 

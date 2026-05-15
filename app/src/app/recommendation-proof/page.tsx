@@ -48,7 +48,7 @@ export default async function RecommendationProofPage({ searchParams }: Recommen
   const plan = getPlanGeometry(templateId);
   const template = TEMPLATES.find((item) => item.id === templateId);
   const proof = buildRecommendationProof({ plan, compassDeg, floor });
-  const backHref = bonesHref({ templateId, compassDeg, floor, scenario });
+  const backHref = studioHref({ templateId, compassDeg, floor, scenario });
 
   return (
     <main className={styles.page}>
@@ -57,10 +57,10 @@ export default async function RecommendationProofPage({ searchParams }: Recommen
           <span className={styles.brandMark}>
             Built<span className={styles.brandHyphen}>-</span>To<span className={styles.brandHyphen}>-</span>Kanso
           </span>
-          <span className={styles.brandSub}>Stage Six · Recommendation Proof</span>
+          <span className={styles.brandSub}>Recommendation Proof</span>
         </Link>
         <nav className={styles.crumbs} aria-label="Journey">
-          <Link href={backHref} className={styles.crumbDim}>Bones</Link>
+          <Link href={backHref} className={styles.crumbDim}>Studio</Link>
           <span className={styles.crumbDot} aria-hidden />
           <span className={styles.crumbActive}>Proof</span>
         </nav>
@@ -177,7 +177,7 @@ function MissingInputs() {
           <span className={styles.brandMark}>
             Built<span className={styles.brandHyphen}>-</span>To<span className={styles.brandHyphen}>-</span>Kanso
           </span>
-          <span className={styles.brandSub}>Stage Six · Recommendation Proof</span>
+          <span className={styles.brandSub}>Recommendation Proof</span>
         </Link>
       </header>
       <section className={styles.missingHero}>
@@ -198,7 +198,7 @@ function ParamErrorsState({ issues }: { issues: ThresholdParamIssue[] }) {
           <span className={styles.brandMark}>
             Built<span className={styles.brandHyphen}>-</span>To<span className={styles.brandHyphen}>-</span>Kanso
           </span>
-          <span className={styles.brandSub}>Stage Six · Recommendation Proof</span>
+          <span className={styles.brandSub}>Recommendation Proof</span>
         </Link>
       </header>
       <section className={styles.missingHero}>
@@ -474,14 +474,14 @@ function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function bonesHref(input: {
+function studioHref(input: {
   templateId: TemplateId;
   compassDeg: number;
   floor: number;
   scenario?: string;
 }): UrlObject {
   return {
-    pathname: "/bones",
+    pathname: "/studio",
     query: {
       template: input.templateId,
       compass: String(input.compassDeg),

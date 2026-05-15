@@ -149,6 +149,13 @@ Item 5's three live-studio scene elements (curtain response, monstera leaf respo
 
 6 · The seven-stage user journey
 
+The seven stages below describe the **experience** the user has, not the screen architecture they navigate. Phase 1 routes that experience across two surfaces:
+
+- **`/threshold`** — Stage 1 in full.
+- **`/studio`** — Stages 2 through 6, exposed as facets of a single tabbed surface (Plan, Tokens, Wind Sketch, Render, Proof). The IA collapse honors the magic-in-90-seconds gate: testers should not navigate between five screens to feel the air move.
+
+Stage 7 (Three Voices) ships in Phase 2 alongside the folio export. Stage 2.5 (Scout Pass) runs as a hidden diagnostic spine inside `/studio`, not as its own surface. Hyphenated paths from earlier drafts (`/bones`, `/weather`, `/tokens`) survive as 308 redirects to `/studio` so external links and bookmarks keep working.
+
 The first session compresses to four steps to deliver magic in 90 seconds.
 
 Stage 1 · Threshold
