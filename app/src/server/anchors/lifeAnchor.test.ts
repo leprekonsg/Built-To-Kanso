@@ -335,6 +335,16 @@ describe("Life Sketch anchor pipeline", () => {
     assert.doesNotMatch(first, /DRAFT · PROTOTYPE VISUALISATION/);
   });
 
+  it("includes service-yard affordances in the sumi-e Life Sketch SVG for templates with a service yard", () => {
+    const plan = getPlanGeometry("tampines-greenweave");
+    const manifest = buildLifeAnchorSceneManifest(plan);
+    const svg = renderLifeSketchSumiSvg(manifest);
+    const serviceRoom = plan.rooms.find((room) => room.kind === "service");
+    assert.ok(serviceRoom, "tampines-greenweave should expose a service yard for this test to be meaningful");
+    assert.match(svg, new RegExp(`service_fixture:${serviceRoom.id}:washer_stack`));
+    assert.match(svg, new RegExp(`service_fixture:${serviceRoom.id}:floor_drain`));
+  });
+
   it("fits the perspective camera to the fixed 1536x1024 anchor viewport", () => {
     const plan = getPlanGeometry("resale-exec-1990s");
     const manifest = buildLifeAnchorSceneManifest(plan);
@@ -367,6 +377,80 @@ describe("Life Sketch anchor pipeline", () => {
 
     for (const opening of plan.openings) {
       assert.ok(scene.getObjectByName(`opening:${opening.id}`), `missing opening mesh for ${opening.id}`);
+    }
+  });
+
+  it("renders a washer stack and floor drain for every service yard", () => {
+    for (const summary of listGeometrySummaries()) {
+      const plan = getPlanGeometry(summary.templateId);
+      const serviceRooms = plan.rooms.filter((room) => room.kind === "service");
+      if (serviceRooms.length === 0) continue;
+
+      const manifest = buildLifeAnchorSceneManifest(plan);
+      const { scene } = createLifeAnchorThreeScene(plan);
+
+      for (const room of serviceRooms) {
+        const washer = manifest.serviceYardAffordances.find(
+          (item) => item.roomId === room.id && item.kind === "washer_stack",
+        );
+        const drain = manifest.serviceYardAffordances.find(
+          (item) => item.roomId === room.id && item.kind === "floor_drain",
+        );
+        assert.ok(washer, `${plan.templateId} ${room.id} missing washer_stack affordance`);
+        assert.ok(drain, `${plan.templateId} ${room.id} missing floor_drain affordance`);
+
+        // Affordances must sit inside the service yard rectangle, not floating
+        // through walls into adjacent rooms (kitchen, Household Shelter).
+        for (const fixture of [washer, drain]) {
+          if (!fixture) continue;
+          const halfX = fixture.scale[0] / 2;
+          const halfZ = fixture.scale[2] / 2;
+          assert.ok(
+            fixture.position[0] - halfX >= room.x - 1e-3,
+            `${plan.templateId} ${fixture.kind} extends west of yard`,
+          );
+          assert.ok(
+            fixture.position[0] + halfX <= room.x + room.width + 1e-3,
+            `${plan.templateId} ${fixture.kind} extends east of yard`,
+          );
+          assert.ok(
+            fixture.position[2] - halfZ >= room.y - 1e-3,
+            `${plan.templateId} ${fixture.kind} extends north of yard`,
+          );
+          assert.ok(
+            fixture.position[2] + halfZ <= room.y + room.height + 1e-3,
+            `${plan.templateId} ${fixture.kind} extends south of yard`,
+          );
+        }
+
+        assert.ok(
+          scene.getObjectByName(`service_fixture:${room.id}:washer_stack`),
+          `${plan.templateId} missing washer_stack mesh for ${room.id}`,
+        );
+        assert.ok(
+          scene.getObjectByName(`service_fixture:${room.id}:floor_drain`),
+          `${plan.templateId} missing floor_drain mesh for ${room.id}`,
+        );
+      }
+    }
+  });
+
+  it("keeps service-yard affordances out of compliance fixedElements", () => {
+    for (const summary of listGeometrySummaries()) {
+      const plan = getPlanGeometry(summary.templateId);
+      const manifest = buildLifeAnchorSceneManifest(plan);
+
+      assert.equal(
+        manifest.fixedElements.length,
+        plan.fixedElements.length,
+        `${plan.templateId} service affordances leaked into fixedElements`,
+      );
+      for (const element of manifest.fixedElements) {
+        assert.ok(
+          element.kind !== ("washer_stack" as unknown) && element.kind !== ("floor_drain" as unknown),
+          `${plan.templateId} compliance fixedElement promoted a visual affordance`,
+        );
+      }
     }
   });
 

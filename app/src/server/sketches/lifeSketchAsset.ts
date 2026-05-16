@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { hashBytes } from "@/lib/imageHash";
 import type { TemplateId } from "@/server/geometry/types";
+import { LIFE_SKETCH_QA_GATE_VERSION } from "@/server/openai/lifeSketchReview";
 
 const LIFE_SKETCH_TIER = "prototype_visualisation" as const;
 // v5 (2026-05-11): deterministic bathroom-count gate added to the QA review.
@@ -35,6 +36,10 @@ export interface AcceptedLifeSketchMetadata {
   reviewerModel?: string;
   reviewerSummary?: string;
   cacheKey?: string;
+  evidenceTier?: typeof LIFE_SKETCH_TIER;
+  sourceTruth?: "plan-geometry.json";
+  qaGateVersion?: string;
+  generationModel?: string;
   anchorCachePath?: string;
   topologyProof?: string;
   inputFingerprintVersion?: typeof LIFE_SKETCH_INPUT_FINGERPRINT_VERSION;
@@ -85,6 +90,7 @@ async function acceptedInputFingerprintIsCurrent(
   metadata: AcceptedLifeSketchMetadata,
 ): Promise<boolean> {
   if (metadata.inputFingerprintVersion !== LIFE_SKETCH_INPUT_FINGERPRINT_VERSION) return false;
+  if (metadata.qaGateVersion !== LIFE_SKETCH_QA_GATE_VERSION) return false;
   const [anchorHash, topologyProofHash] = await Promise.all([
     readRelativeHash(cacheRoot, metadata.anchorCachePath),
     readRelativeHash(cacheRoot, metadata.topologyProof),

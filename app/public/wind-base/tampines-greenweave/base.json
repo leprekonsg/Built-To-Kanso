@@ -1,0 +1,15 @@
+{
+  "templateId": "tampines-greenweave",
+  "source": "wind_sketch_stage_b_prebake",
+  "promptKind": "wind-sketch-base",
+  "evidenceTier": "prototype_visualisation",
+  "sourceTruth": "plan-geometry.json",
+  "qaGateVersion": "stage-b-no-streamlines-v1",
+  "scope": "phase1_demo_flagship",
+  "generationModel": "gpt-image-2",
+  "acceptedAtIso": "2026-05-11T13:19:37.284Z",
+  "topologyProof": "plan-sketches/tampines-greenweave/plan.png",
+  "dependencyHashes": {
+    "topologyProofHash": "a4aee968fd153d2e"
+  }
+}

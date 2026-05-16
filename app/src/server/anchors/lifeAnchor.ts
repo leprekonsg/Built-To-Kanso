@@ -67,6 +67,7 @@ export interface LifeAnchorSceneManifest {
   wallVolumes: LifeAnchorWallVolume[];
   openings: LifeAnchorOpening[];
   fixedElements: LifeAnchorFixedElement[];
+  serviceYardAffordances: LifeAnchorServiceFixture[];
 }
 
 export interface LifeAnchorRoom {
@@ -104,6 +105,20 @@ export interface LifeAnchorFixedElement {
   position: [number, number, number];
   scale: [number, number, number];
   bufferEligible?: boolean;
+}
+
+// Visual-only service-yard affordances: a washer/dryer stack and a floor drain
+// derived deterministically from rooms with kind === "service". These are NOT
+// part of the compliance schema — they do not appear in plan.fixedElements and
+// have no airflow, kanso-reserve, or token-rule consequences. Their only role
+// is to make a Singapore HDB service yard read as a service yard in both the
+// camera-view greybox (Image 1) and the deterministic sumi-e fallback (Image 2),
+// so GPT Image 2 materializes a washer and drain rather than a blank alcove.
+export interface LifeAnchorServiceFixture {
+  roomId: string;
+  kind: "washer_stack" | "floor_drain";
+  position: [number, number, number];
+  scale: [number, number, number];
 }
 
 export type LifeAnchorArtifact =
@@ -269,6 +284,71 @@ function createPipeshaftMarkerMaterial(): THREE.MeshPhysicalMaterial {
     clearcoat: 0.18,
     clearcoatRoughness: 0.48,
   });
+}
+
+function createServiceFixtureMaterial(kind: LifeAnchorServiceFixture["kind"]): THREE.MeshPhysicalMaterial {
+  if (kind === "washer_stack") {
+    return new THREE.MeshPhysicalMaterial({
+      color: 0xeae3d4,
+      metalness: 0.08,
+      roughness: 0.42,
+      clearcoat: 0.18,
+      clearcoatRoughness: 0.42,
+    });
+  }
+  return new THREE.MeshPhysicalMaterial({
+    color: 0x6b6259,
+    metalness: 0.16,
+    roughness: 0.6,
+  });
+}
+
+// Service-yard affordances are derived from rooms (kind === "service") rather
+// than from plan.fixedElements: the compliance schema does not model washers or
+// drains, and we do not want them to leak into kanso-reserve, token, or wind
+// rules. The placement rule is deterministic per templateId so every render is
+// stable: washer stack parked at the back-left corner of the yard, floor drain
+// near the louvre side of the room center.
+const SERVICE_FIXTURE_INSET_M = 0.05;
+const WASHER_STACK_WIDTH_M = 0.62;
+const WASHER_STACK_DEPTH_M = 0.62;
+const WASHER_STACK_HEIGHT_M = 1.72;
+const FLOOR_DRAIN_SIDE_M = 0.22;
+const FLOOR_DRAIN_HEIGHT_M = 0.04;
+
+function buildServiceYardAffordances(plan: PlanGeometry): LifeAnchorServiceFixture[] {
+  const fixtures: LifeAnchorServiceFixture[] = [];
+  for (const room of plan.rooms) {
+    if (room.kind !== "service") continue;
+
+    const washerX = room.x + WASHER_STACK_WIDTH_M / 2 + SERVICE_FIXTURE_INSET_M;
+    const washerZ = room.y + WASHER_STACK_DEPTH_M / 2 + SERVICE_FIXTURE_INSET_M;
+    fixtures.push({
+      roomId: room.id,
+      kind: "washer_stack",
+      position: [washerX, WASHER_STACK_HEIGHT_M / 2, washerZ],
+      scale: [WASHER_STACK_WIDTH_M, WASHER_STACK_HEIGHT_M, WASHER_STACK_DEPTH_M],
+    });
+
+    const drainX = room.x + room.width / 2;
+    const drainZ = room.y + room.height * 0.62;
+    fixtures.push({
+      roomId: room.id,
+      kind: "floor_drain",
+      position: [drainX, FLOOR_DRAIN_HEIGHT_M / 2, drainZ],
+      scale: [FLOOR_DRAIN_SIDE_M, FLOOR_DRAIN_HEIGHT_M, FLOOR_DRAIN_SIDE_M],
+    });
+  }
+  return fixtures;
+}
+
+function createServiceFixtureMesh(fixture: LifeAnchorServiceFixture): THREE.Mesh {
+  const geometry = new THREE.BoxGeometry(fixture.scale[0], fixture.scale[1], fixture.scale[2]);
+  const material = createServiceFixtureMaterial(fixture.kind);
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.name = `service_fixture:${fixture.roomId}:${fixture.kind}`;
+  mesh.position.set(fixture.position[0], fixture.position[1], fixture.position[2]);
+  return mesh;
 }
 
 function centerRect(rect: { x: number; y: number; width: number; height: number }, y = 0): [number, number, number] {
@@ -559,6 +639,10 @@ export function createLifeAnchorThreeScene(plan: PlanGeometry): LifeAnchorPngRen
   shaft.position.set(plan.pipeshaft.openingPoint.x, 0.72, plan.pipeshaft.openingPoint.y);
   scene.add(shaft);
 
+  for (const fixture of buildServiceYardAffordances(plan)) {
+    scene.add(createServiceFixtureMesh(fixture));
+  }
+
   const camera = buildCamera(plan);
   return { scene, camera, manifest: buildLifeAnchorSceneManifest(plan, undefined, camera) };
 }
@@ -616,6 +700,7 @@ export function buildLifeAnchorSceneManifest(
         bufferEligible: element.bufferEligible,
       };
     }),
+    serviceYardAffordances: buildServiceYardAffordances(plan),
   };
 }
 

@@ -1,0 +1,15 @@
+{
+  "templateId": "tampines-greenweave",
+  "source": "resonance_hour_prebake",
+  "promptKind": "resonance-hour-background",
+  "evidenceTier": "prototype_visualisation",
+  "sourceTruth": "plan-geometry.json",
+  "qaGateVersion": "resonance-hour-wind-cues-v1",
+  "scope": "phase1_demo_flagship",
+  "generationModel": "gpt-image-2",
+  "acceptedAtIso": "2026-05-16T04:45:15.737Z",
+  "sourceLifeSketch": "life-sketches/tampines-greenweave/accepted.png",
+  "dependencyHashes": {
+    "acceptedLifeSketchHash": "a48b4ce86e672be1"
+  }
+}

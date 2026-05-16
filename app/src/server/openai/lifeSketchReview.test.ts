@@ -8,8 +8,11 @@ function png(id: number): Buffer {
   return Buffer.concat([PNG_MAGIC, Buffer.from([id])]);
 }
 
-function acceptedReviewPayload(overrides: { acceptedObserved?: number } = {}): Record<string, unknown> {
+function acceptedReviewPayload(
+  overrides: { acceptedObserved?: number; acceptedServiceYard?: "pass" | "fail" | "uncertain" } = {},
+): Record<string, unknown> {
   const acceptedObserved = overrides.acceptedObserved ?? 2;
+  const acceptedServiceYard = overrides.acceptedServiceYard ?? "pass";
   return {
     acceptedCandidateIndex: 1,
     summary: "candidate_1_preserves_locked_topology",
@@ -26,6 +29,7 @@ function acceptedReviewPayload(overrides: { acceptedObserved?: number } = {}): R
           majorWallMasses: "pass",
           cameraView: "fail",
           bathroomCount: "pass",
+          serviceYard: "pass",
         },
       },
       {
@@ -40,6 +44,7 @@ function acceptedReviewPayload(overrides: { acceptedObserved?: number } = {}): R
           majorWallMasses: "pass",
           cameraView: "pass",
           bathroomCount: acceptedObserved === 2 ? "pass" : "fail",
+          serviceYard: acceptedServiceYard,
         },
       },
     ],
@@ -130,6 +135,92 @@ describe("Life Sketch candidate review", () => {
       promptInputs.some((item) => item.text.includes("Locked bathroom count: 2")),
       "review prompt should surface the locked bathroom count to the reviewer",
     );
+  });
+
+  it("surfaces service-yard discipline in the reviewer prompt", async () => {
+    let body: Record<string, unknown> | undefined;
+    globalThis.fetch = (async (_url, init) => {
+      body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(
+        JSON.stringify({ output_text: JSON.stringify(acceptedReviewPayload()) }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    const result = await reviewLifeSketchCandidates({
+      anchorPng: png(0),
+      topologyProof: png(9),
+      candidates: [png(1), png(2)],
+      manifestSummary: "template=tampines-greenweave; bathroomCount=2",
+      lockedBathroomCount: 2,
+    });
+
+    assert.equal(result.ok, true);
+    const promptInputs = ((body?.input as Array<{ content: Array<{ type: string; text?: string }> }>)[0]
+      .content.filter((item) => item.type === "input_text") ?? []) as Array<{ text: string }>;
+    const promptText = promptInputs.map((item) => item.text).join("\n");
+    assert.match(promptText, /Service-yard discipline/);
+    assert.match(promptText, /washing machine or stacked washer\/dryer/);
+    assert.match(promptText, /visible floor drain/);
+    assert.match(promptText, /exterior louvre/);
+    assert.match(promptText, /never a sealed closet/);
+    assert.match(promptText, /service_yard_blank/);
+  });
+
+  it("overrides accept and reports service_yard_check_failed when the accepted candidate's serviceYard check is fail", async () => {
+    // VLM sometimes returns "accepted" with a failing nested check — the schema
+    // permits it. The deterministic override must catch it so the prebake
+    // re-runs rather than caching a yard rendered as a closet or bathroom.
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          output_text: JSON.stringify(acceptedReviewPayload({ acceptedServiceYard: "fail" })),
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )) as typeof fetch;
+
+    const result = await reviewLifeSketchCandidates({
+      anchorPng: png(0),
+      topologyProof: png(9),
+      candidates: [png(1), png(2)],
+      manifestSummary: "template=tampines-greenweave; bathroomCount=2",
+      lockedBathroomCount: 2,
+    });
+
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.equal(result.reason, "service_yard_check_failed");
+    const accepted = result.candidateReviews?.find((item) => item.candidateIndex === 1);
+    assert.ok(accepted);
+    assert.equal(accepted?.status, "rejected");
+    assert.equal(accepted?.checks.serviceYard, "fail");
+    assert.ok(accepted?.reasons.includes("service_yard_check_failed"));
+  });
+
+  it("overrides accept when the accepted candidate's serviceYard check is uncertain", async () => {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          output_text: JSON.stringify(acceptedReviewPayload({ acceptedServiceYard: "uncertain" })),
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )) as typeof fetch;
+
+    const result = await reviewLifeSketchCandidates({
+      anchorPng: png(0),
+      topologyProof: png(9),
+      candidates: [png(1), png(2)],
+      manifestSummary: "template=tampines-greenweave; bathroomCount=2",
+      lockedBathroomCount: 2,
+    });
+
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.equal(result.reason, "service_yard_check_failed");
+    const accepted = result.candidateReviews?.find((item) => item.candidateIndex === 1);
+    assert.ok(accepted);
+    assert.equal(accepted?.checks.serviceYard, "uncertain");
+    assert.ok(accepted?.reasons.includes("service_yard_check_failed"));
   });
 
   it("overrides accept and reports bathroom_count_drift when reviewer's observed count disagrees with the locked plan", async () => {

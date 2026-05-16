@@ -12,7 +12,12 @@ const DEFAULT_REVIEW_MODEL = "gpt-4.1-mini";
 //                 kitchenHsPipeshaft, majorWallMasses, cameraView.
 //   v2 (2026-05-11): deterministic bathroom-count gate added on top of the
 //                    VLM verdict; reviewer must publish observedBathroomCount.
-export const LIFE_SKETCH_QA_GATE_VERSION = "v2-deterministic-bathroom-count";
+//   v3 (2026-05-16): service-yard affordance check added. Reviewer must
+//                    confirm a visible washer/dryer + drain + exterior louvre
+//                    or window in every locked service yard, and reject any
+//                    candidate that renders the yard as a sealed closet,
+//                    blank alcove, bathroom, or second bedroom.
+export const LIFE_SKETCH_QA_GATE_VERSION = "v3-service-yard-affordance";
 
 export type LifeSketchReviewCheck = "pass" | "fail" | "uncertain";
 
@@ -33,6 +38,7 @@ export interface LifeSketchCandidateReview {
     majorWallMasses: LifeSketchReviewCheck;
     cameraView: LifeSketchReviewCheck;
     bathroomCount: LifeSketchReviewCheck;
+    serviceYard: LifeSketchReviewCheck;
   };
 }
 
@@ -52,6 +58,7 @@ export type LifeSketchReviewResult =
         | "candidate_batch_too_small"
         | "all_candidates_rejected"
         | "bathroom_count_drift"
+        | "service_yard_check_failed"
         | "openai_error"
         | "openai_unreachable"
         | "openai_timeout";
@@ -201,6 +208,7 @@ function reviewSchema() {
                 "majorWallMasses",
                 "cameraView",
                 "bathroomCount",
+                "serviceYard",
               ],
               properties: {
                 roomTopology: check,
@@ -209,6 +217,7 @@ function reviewSchema() {
                 majorWallMasses: check,
                 cameraView: check,
                 bathroomCount: check,
+                serviceYard: check,
               },
             },
           },
@@ -233,8 +242,14 @@ function reviewPrompt(input: ReviewInput): string {
     lockedBath !== undefined
       ? `  4. The locked plan has exactly ${lockedBath} bathroom(s). If observedBathroomCount is anything other than ${lockedBath}, set checks.bathroomCount = "fail", add reason "bathroom_count_drift" or "household_shelter_as_bathroom", and set status = "rejected".`
       : "  4. If observedBathroomCount disagrees with the locked manifest, set checks.bathroomCount = \"fail\" and reject the candidate.",
-    "Accept the first candidate that passes every structural check, including bathroomCount. If none pass, set acceptedCandidateIndex to -1 and reject all candidates.",
-    "Use concise machine-readable reasons such as room_topology_drift, window_side_drift, hs_pipeshaft_relation_drift, major_wall_mass_drift, camera_view_drift, extra_room, missing_room, bathroom_count_drift, missing_bedroom_corridor_door, household_shelter_as_bathroom, service_yard_as_bathroom, visible_text, or generic_render_saas_staging.",
+    "Service-yard discipline — for every room the locked references mark as a service yard:",
+    "  a. Confirm a visible washing machine or stacked washer/dryer appliance is rendered inside the yard.",
+    "  b. Confirm a visible floor drain on the yard floor.",
+    "  c. Confirm an exterior louvre or louvered window opening (slatted, opens to outside air) is rendered on the yard wall.",
+    "  d. The yard must read as a utility space open to outside air — never a sealed closet, blank alcove, second bathroom, second shower, storage cell, or extra bedroom. Reject if it does.",
+    "  e. If every requirement above is met, set checks.serviceYard = \"pass\". Otherwise set checks.serviceYard = \"fail\", add the most specific reason from {service_yard_blank, service_yard_enclosed, service_yard_as_bathroom, service_yard_as_bedroom, service_yard_missing_washer, service_yard_missing_drain, service_yard_missing_louvre}, and set status = \"rejected\".",
+    "Accept the first candidate that passes every structural check, including bathroomCount and serviceYard. If none pass, set acceptedCandidateIndex to -1 and reject all candidates.",
+    "Use concise machine-readable reasons such as room_topology_drift, window_side_drift, hs_pipeshaft_relation_drift, major_wall_mass_drift, camera_view_drift, extra_room, missing_room, bathroom_count_drift, missing_bedroom_corridor_door, household_shelter_as_bathroom, service_yard_as_bathroom, service_yard_blank, service_yard_enclosed, service_yard_missing_washer, service_yard_missing_drain, service_yard_missing_louvre, visible_text, or generic_render_saas_staging.",
     input.manifestSummary ? `Locked manifest summary: ${input.manifestSummary}` : "Locked manifest summary: unavailable.",
     lockedBath !== undefined ? `Locked bathroom count: ${lockedBath}.` : "Locked bathroom count: unavailable.",
   ].join("\n");
@@ -317,6 +332,31 @@ function validateReview(
       ok: false,
       reason: "bathroom_count_drift",
       detail: `Accepted candidate observed ${acceptedReview.observedBathroomCount} bathrooms; locked plan has ${lockedBathroomCount}.`,
+      candidateReviews: overridden,
+      summary: review.summary,
+    };
+  }
+
+  // Deterministic post-check for the service-yard affordance gate. The VLM
+  // sometimes reports a non-passing check inside `checks.serviceYard` while
+  // still labelling the candidate "accepted" — a typed-mismatch the JSON schema
+  // alone cannot block. Anything except "pass" must reject so uncertainty does
+  // not cache a yard rendered as a closet or bathroom.
+  if (acceptedReview.checks.serviceYard !== "pass") {
+    const overridden: LifeSketchCandidateReview[] = reviews.map((item) =>
+      item.candidateIndex === accepted
+        ? {
+            ...item,
+            status: "rejected" as const,
+            reasons: Array.from(new Set([...item.reasons, "service_yard_check_failed"])),
+          }
+        : { ...item, status: "rejected" as const },
+    );
+    return {
+      ok: false,
+      reason: "service_yard_check_failed",
+      detail:
+        "Accepted candidate failed the service-yard affordance check (washer, drain, exterior louvre, not a bathroom).",
       candidateReviews: overridden,
       summary: review.summary,
     };

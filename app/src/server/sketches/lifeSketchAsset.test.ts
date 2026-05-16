@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { hashBytes } from "@/lib/imageHash";
+import { LIFE_SKETCH_QA_GATE_VERSION } from "@/server/openai/lifeSketchReview";
 import {
   LIFE_SKETCH_INPUT_FINGERPRINT_VERSION,
   getAcceptedLifeSketchCachePath,
@@ -42,6 +43,7 @@ describe("accepted Life Sketch asset", () => {
       rejectedCandidates: [{ candidateIndex: 0, reason: "window_side_drift" }],
       acceptedAtIso: "2026-05-11T00:45:34.708Z",
       reviewerModel: "gpt-4.1-mini",
+      qaGateVersion: LIFE_SKETCH_QA_GATE_VERSION,
       anchorCachePath: "life-anchors/resale-exec-1990s/anchor.png",
       topologyProof: "plan-sketches/resale-exec-1990s/plan.png",
       inputFingerprintVersion: LIFE_SKETCH_INPUT_FINGERPRINT_VERSION,
@@ -94,9 +96,41 @@ describe("accepted Life Sketch asset", () => {
       acceptedAtIso: "2026-05-11T00:45:34.708Z",
       anchorCachePath: "life-anchors/resale-exec-1990s/anchor.png",
       topologyProof: "plan-sketches/resale-exec-1990s/plan.png",
+      qaGateVersion: LIFE_SKETCH_QA_GATE_VERSION,
       inputFingerprintVersion: LIFE_SKETCH_INPUT_FINGERPRINT_VERSION,
       anchorHash: hashBytes(Buffer.concat([PNG_MAGIC, Buffer.from([3])])),
       topologyProofHash: "old-proof-hash",
+    }));
+
+    assert.equal(await resolveAcceptedLifeSketchArtifact("resale-exec-1990s", root), null);
+  });
+
+  it("ignores accepted prebakes from an old QA gate", async () => {
+    const cachePath = getAcceptedLifeSketchCachePath("resale-exec-1990s", root);
+    const anchorPath = join(root, "life-anchors", "resale-exec-1990s", "anchor.png");
+    const topologyPath = join(root, "plan-sketches", "resale-exec-1990s", "plan.png");
+    const anchor = Buffer.concat([PNG_MAGIC, Buffer.from([5])]);
+    const topology = Buffer.concat([PNG_MAGIC, Buffer.from([6])]);
+    await mkdir(cachePath.directory, { recursive: true });
+    await mkdir(join(root, "life-anchors", "resale-exec-1990s"), { recursive: true });
+    await mkdir(join(root, "plan-sketches", "resale-exec-1990s"), { recursive: true });
+    await writeFile(anchorPath, anchor);
+    await writeFile(topologyPath, topology);
+    await writeFile(cachePath.absolutePath, PNG_MAGIC);
+    await writeFile(cachePath.metadataAbsolutePath, JSON.stringify({
+      templateId: "resale-exec-1990s",
+      source: "accepted_gpt_image_2_prebake",
+      promptKind: "life-sketch-from-anchor",
+      candidateCount: 3,
+      acceptedCandidateIndex: 1,
+      rejectedCandidates: [],
+      acceptedAtIso: "2026-05-11T00:45:34.708Z",
+      qaGateVersion: "v2-deterministic-bathroom-count",
+      anchorCachePath: "life-anchors/resale-exec-1990s/anchor.png",
+      topologyProof: "plan-sketches/resale-exec-1990s/plan.png",
+      inputFingerprintVersion: LIFE_SKETCH_INPUT_FINGERPRINT_VERSION,
+      anchorHash: hashBytes(anchor),
+      topologyProofHash: hashBytes(topology),
     }));
 
     assert.equal(await resolveAcceptedLifeSketchArtifact("resale-exec-1990s", root), null);

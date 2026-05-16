@@ -27,6 +27,8 @@ const COLORS = {
   door: "#D8A24A",
   window: "#7C856D",
   louver: "#A79F93",
+  washer: "#EAE3D4",
+  drain: "#6B6259",
   shadow: "rgba(17, 17, 17, 0.08)",
 } as const;
 
@@ -176,6 +178,23 @@ function projectManifestFaces(manifest: LifeAnchorSceneManifest): Face[] {
     );
   }
 
+  for (const fixture of manifest.serviceYardAffordances) {
+    const fill = fixture.kind === "washer_stack" ? COLORS.washer : COLORS.drain;
+    faces.push(
+      ...cuboidFaces({
+        id: `service_fixture:${fixture.roomId}:${fixture.kind}`,
+        position: fixture.position,
+        scale: fixture.scale,
+        fill,
+        stroke: fill,
+        opacity: fixture.kind === "washer_stack" ? 0.82 : 0.68,
+        camera,
+        manifest,
+        includeBottom: false,
+      }),
+    );
+  }
+
   faces.sort((a, b) => averageDistance(b) - averageDistance(a));
   return faces;
 }
@@ -273,6 +292,8 @@ function lighten(fill: string): string {
   if (fill === COLORS.door) return "#E5B666";
   if (fill === COLORS.window) return "#929B83";
   if (fill === COLORS.louver) return "#B5AEA4";
+  if (fill === COLORS.washer) return "#F3EFE3";
+  if (fill === COLORS.drain) return "#7A7167";
   return fill;
 }
 
@@ -284,6 +305,8 @@ function sumiFill(face: Face): string {
   if (face.id.startsWith("opening:") && face.fill === COLORS.door) return "#D8A24A";
   if (face.id.startsWith("opening:") && face.fill === COLORS.window) return "#7C856D";
   if (face.id.startsWith("opening:")) return "#A79F93";
+  if (face.id.startsWith("service_fixture:") && face.fill === COLORS.washer) return "#E4DCC9";
+  if (face.id.startsWith("service_fixture:")) return "#5F574E";
   return face.fill;
 }
 
@@ -292,6 +315,7 @@ function sumiStroke(face: Face): string {
   if (face.id.startsWith("room:")) return "rgba(17, 17, 17, 0.34)";
   if (face.id.startsWith("fixed:") && face.fill === COLORS.pipeshaft) return "#8A4F39";
   if (face.id.startsWith("fixed:")) return "#111111";
+  if (face.id.startsWith("service_fixture:")) return "#111111";
   return face.fill;
 }
 
@@ -301,6 +325,8 @@ function sumiOpacity(face: Face): string {
   if (face.id.startsWith("fixed:") && face.fill === COLORS.pipeshaft) return "0.74";
   if (face.id.startsWith("fixed:")) return "0.42";
   if (face.id.startsWith("opening:")) return "0.68";
+  if (face.id.startsWith("service_fixture:") && face.fill === COLORS.washer) return "0.82";
+  if (face.id.startsWith("service_fixture:")) return "0.7";
   return String(face.opacity);
 }
 
@@ -308,6 +334,7 @@ function sumiStrokeOpacity(face: Face): string {
   if (face.id.startsWith("wall:")) return "0.42";
   if (face.id.startsWith("fixed:")) return "0.36";
   if (face.id.startsWith("opening:")) return "0.52";
+  if (face.id.startsWith("service_fixture:")) return "0.42";
   return "0.22";
 }
 
@@ -315,6 +342,7 @@ function sumiStrokeWidth(face: Face): string {
   if (face.id.startsWith("wall:")) return "1.55";
   if (face.id.startsWith("fixed:")) return "1.2";
   if (face.id.startsWith("opening:")) return "1.35";
+  if (face.id.startsWith("service_fixture:")) return "1.1";
   return "0.8";
 }
 

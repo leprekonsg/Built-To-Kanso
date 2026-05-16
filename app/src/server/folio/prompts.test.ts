@@ -50,6 +50,12 @@ describe("OpenAI image prompt discipline", () => {
     assert.match(prompt, /render only the bathrooms shown/i);
     assert.match(prompt, /main bedroom must not be accessible only through a bathroom/i);
     assert.match(prompt, /no bathroom fixtures in Household Shelter/i);
+    assert.match(prompt, /Service yard discipline/);
+    assert.match(prompt, /stacked washer\/dryer/);
+    assert.match(prompt, /floor drain/);
+    assert.match(prompt, /louvre/);
+    assert.match(prompt, /never as a sealed closet/);
+    assert.match(prompt, /service yard reads as a sealed closet, blank alcove, bathroom, or second bedroom/);
     assert.match(prompt, /token centerpoints/);
     assert.match(prompt, /token bounding boxes/);
     assert.match(prompt, /no generic luxury Japandi room/);

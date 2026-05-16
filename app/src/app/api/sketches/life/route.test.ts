@@ -13,6 +13,7 @@ import {
   LIFE_SKETCH_INPUT_FINGERPRINT_VERSION,
   getAcceptedLifeSketchCachePath,
 } from "@/server/sketches/lifeSketchAsset";
+import { LIFE_SKETCH_QA_GATE_VERSION } from "@/server/openai/lifeSketchReview";
 import { POST } from "./route";
 
 // 1x1 PNG — magic-number-valid bytes used as both a fake anchor and a fake
@@ -43,6 +44,7 @@ function reviewPayload(acceptedCandidateIndex = 1, acceptedObserved = 2): Record
           majorWallMasses: "pass",
           cameraView: "pass",
           bathroomCount: "pass",
+          serviceYard: "pass",
         },
       },
       {
@@ -57,6 +59,7 @@ function reviewPayload(acceptedCandidateIndex = 1, acceptedObserved = 2): Record
           majorWallMasses: "pass",
           cameraView: "pass",
           bathroomCount: acceptedObserved === 2 ? "pass" : "fail",
+          serviceYard: "pass",
         },
       },
       {
@@ -71,6 +74,7 @@ function reviewPayload(acceptedCandidateIndex = 1, acceptedObserved = 2): Record
           majorWallMasses: "pass",
           cameraView: "pass",
           bathroomCount: "pass",
+          serviceYard: "pass",
         },
       },
     ],
@@ -140,6 +144,7 @@ async function seedAcceptedLifeSketch(root: string, templateId: TemplateId) {
     acceptedAtIso: "2026-05-11T00:45:34.708Z",
     reviewerModel: "gpt-4.1-mini",
     reviewerSummary: "candidate_1_preserves_locked_topology",
+    qaGateVersion: LIFE_SKETCH_QA_GATE_VERSION,
     anchorCachePath: `life-anchors/${templateId}/anchor.png`,
     topologyProof: `plan-sketches/${templateId}/plan.png`,
     inputFingerprintVersion: LIFE_SKETCH_INPUT_FINGERPRINT_VERSION,
