@@ -19,9 +19,12 @@
  * pin the un-polished Life Sketch as the resonance still.
  */
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
+import { hashBytes } from "../src/lib/imageHash";
+import { getOpenAIImageModel } from "../src/server/openai/client";
+import { getAcceptedLifeSketchCachePath } from "../src/server/sketches/lifeSketchAsset";
 import type { TemplateId } from "../src/server/geometry/types";
 
 const ALL_TEMPLATES: readonly TemplateId[] = [
@@ -49,6 +52,10 @@ function baseUrl(): string {
 
 function cachePath(templateId: TemplateId): string {
   return resolve(process.cwd(), "public", "resonance-hour", templateId, "accepted.png");
+}
+
+function metadataPath(templateId: TemplateId): string {
+  return resolve(process.cwd(), "public", "resonance-hour", templateId, "accepted.json");
 }
 
 interface PrebakeOutcome {
@@ -83,8 +90,26 @@ async function bakeOne(templateId: TemplateId): Promise<PrebakeOutcome> {
 
   const bytes = Buffer.from(await res.arrayBuffer());
   const path = cachePath(templateId);
+  const sourceLifeSketch = getAcceptedLifeSketchCachePath(templateId);
+  const acceptedLifeSketchBytes = await readFile(sourceLifeSketch.absolutePath);
+  const metadata = {
+    templateId,
+    source: "resonance_hour_prebake" as const,
+    promptKind: "resonance-hour-background" as const,
+    evidenceTier: "prototype_visualisation" as const,
+    sourceTruth: "plan-geometry.json" as const,
+    qaGateVersion: "resonance-hour-wind-cues-v1" as const,
+    scope: "phase1_demo_flagship" as const,
+    generationModel: getOpenAIImageModel(),
+    acceptedAtIso: new Date().toISOString(),
+    sourceLifeSketch: sourceLifeSketch.relativePath,
+    dependencyHashes: {
+      acceptedLifeSketchHash: hashBytes(acceptedLifeSketchBytes),
+    },
+  };
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, bytes);
+  await writeFile(metadataPath(templateId), JSON.stringify(metadata, null, 2), "utf8");
   console.log(`  ${templateId}: png ${Math.round(bytes.byteLength / 1024)} KB, ${elapsed}s -> resonance-hour/${templateId}/accepted.png`);
   return { templateId, pngBytes: bytes.byteLength, cachePath: path };
 }

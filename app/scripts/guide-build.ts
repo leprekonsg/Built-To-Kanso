@@ -17,7 +17,7 @@ const STEPS: Step[] = [
   {
     file: "01-threshold-landing.png",
     title: "01 — Step over the Threshold",
-    body: `Built-To-Kanso opens at **/threshold**. This is Stage 1 of four. The studio asks for the unit, the door direction, the floor, and the moment you are in — nothing more. The right rail lists the method honestly: Form-School feng shui, calibrated for Singapore at 1.35 N.
+    body: `Built-To-Kanso opens at **/threshold**. This is Stage 1 of two surfaces: **/threshold** (the inputs) and **/studio** (the read). The studio asks for the unit, the door direction, the floor, and the moment you are in — nothing more. The right rail lists the method honestly: Form-School feng shui, calibrated for Singapore at 1.35 N.
 
 - **Unit**: one of three Phase 1 HDB archetypes.
 - **Door**: 24-direction snap, every 15 degrees.
@@ -45,17 +45,17 @@ const STEPS: Step[] = [
     body: `Pick the scenario that matches the moment, not the demographic. The four options are Just moved in, Mid-renovation, Considering changes, and Long-term resident. When all four inputs are set, the continue copy resolves to *"All four set. The house is listening."* and the Continue button comes forward.`,
   },
   {
-    file: "06-bones-hero.png",
+    file: "06-studio-hero.png",
     title: "06 — Studio",
     body: `Continue takes you to the Studio at **/studio?template=...&compass=...&floor=...&scenario=...**. The locked plan renders as SVG with HDB and SCDF fixed elements protected. The right strip surfaces the Threshold inputs (Door, Floor, Scenario) so the reading is traceable.`,
   },
   {
-    file: "07-bones-asking-points.png",
+    file: "07-studio-asking-points.png",
     title: "07 — What the home is asking",
     body: `Below the plan, **Asking Points** name a few places worth checking. Damp Risk shows as a band (**Clear**, **Watch**, **High**), never as a raw alarm number. Anti-cure surfaces one corner the home is asking you to leave unbuilt for ninety days.`,
   },
   {
-    file: "08-bones-livestudio.png",
+    file: "08-studio-livestudio.png",
     title: "08 — LiveStudio airflow visual",
     body: `LiveStudio renders a deterministic airflow visualization keyed to the plan, the door angle, and the floor tier. The caption stays calm: *"Airflow visual. Prototype visualisation."* The tier (WebGPU live vs prebaked) is intentionally never surfaced to the resident.`,
   },
@@ -174,6 +174,8 @@ function renderToc(): string {
 }
 
 const css = `
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
 :root {
   --ink-black: #111111;
   --bone-white: #F5F1E8;
@@ -190,7 +192,6 @@ const css = `
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
 }
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
@@ -413,7 +414,7 @@ function buildHtml(): string {
   <div class="cover-mast">Built-To-Kanso · Tropical Edition · 1.35 N</div>
   <div>
     <h1 class="cover-title">A walkthrough of <em>the home that listens</em>.</h1>
-    <p class="cover-sub">From the Threshold to the Recommendation Proof, in fourteen frames.</p>
+    <p class="cover-sub">From the Threshold to the Recommendation Proof, in sixteen frames.</p>
   </div>
   <div class="cover-meta">
     <div>Phase<strong>1 surface</strong></div>

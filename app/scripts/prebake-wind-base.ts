@@ -15,9 +15,12 @@
  * cached base.
  */
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
+import { hashBytes } from "../src/lib/imageHash";
+import { getOpenAIImageModel } from "../src/server/openai/client";
+import { getPlanSketchCachePath } from "../src/server/sketches/planSketchAsset";
 import type { TemplateId } from "../src/server/geometry/types";
 
 const ALL_TEMPLATES: readonly TemplateId[] = [
@@ -47,6 +50,10 @@ function cachePath(templateId: TemplateId): string {
   return resolve(process.cwd(), "public", "wind-base", templateId, "base.png");
 }
 
+function metadataPath(templateId: TemplateId): string {
+  return resolve(process.cwd(), "public", "wind-base", templateId, "base.json");
+}
+
 async function bakeOne(templateId: TemplateId): Promise<number> {
   const url = `${baseUrl()}/api/sketches/wind-base`;
   const t0 = Date.now();
@@ -72,8 +79,26 @@ async function bakeOne(templateId: TemplateId): Promise<number> {
 
   const bytes = Buffer.from(await res.arrayBuffer());
   const path = cachePath(templateId);
+  const proofPath = getPlanSketchCachePath(templateId);
+  const topologyProofBytes = await readFile(proofPath.absolutePath);
+  const metadata = {
+    templateId,
+    source: "wind_sketch_stage_b_prebake" as const,
+    promptKind: "wind-sketch-base" as const,
+    evidenceTier: "prototype_visualisation" as const,
+    sourceTruth: "plan-geometry.json" as const,
+    qaGateVersion: "stage-b-no-streamlines-v1" as const,
+    scope: "phase1_demo_flagship" as const,
+    generationModel: getOpenAIImageModel(),
+    acceptedAtIso: new Date().toISOString(),
+    topologyProof: proofPath.relativePath,
+    dependencyHashes: {
+      topologyProofHash: hashBytes(topologyProofBytes),
+    },
+  };
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, bytes);
+  await writeFile(metadataPath(templateId), JSON.stringify(metadata, null, 2), "utf8");
   console.log(`  ${templateId}: png ${Math.round(bytes.byteLength / 1024)} KB, ${elapsed}s -> wind-base/${templateId}/base.png`);
   return bytes.byteLength;
 }

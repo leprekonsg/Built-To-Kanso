@@ -260,6 +260,8 @@ function buildPhase1ImplementationItems(renderAssets: RenderAssetValidationRepor
   const hasHeroAssets = assetKindOk(renderAssets, "empty_room_hero", 5);
   const hasPlanAssets = assetKindOk(renderAssets, "plan_sketch", 3);
   const hasLifeAssets = assetKindOk(renderAssets, "life_anchor", 3);
+  const hasAcceptedLifeSketchAssets = assetKindOk(renderAssets, "accepted_life_sketch", 3);
+  const hasWindBaseFlagship = assetKindOk(renderAssets, "wind_base", 1);
   const hasTier4Coverage =
     capability.webGpuImplemented &&
     capability.prebakedFallbackAvailable &&
@@ -401,15 +403,15 @@ function buildPhase1ImplementationItems(renderAssets: RenderAssetValidationRepor
     ),
     checkedItem(
       "life_sketch",
-      hasLifeAssets,
-      "Life Sketch route supports image-edit materialization and three local/prebaked anchors pass validation.",
-      "Three valid committed Life Sketch anchor PNGs are required for the demo fallback.",
+      hasLifeAssets && hasAcceptedLifeSketchAssets,
+      "Life Sketch route supports image-edit materialization; three anchors and three accepted Life Sketch prebakes pass validation.",
+      "Three valid committed Life Sketch anchors and accepted prebakes are required for the demo fallback.",
     ),
     checkedItem(
       "wind_sketch_composition",
-      field.streamlines.length >= 3 && field.tier === "prototype_visualisation",
-      "Wind Sketch keeps deterministic streamlines in SVG and marks draft outputs.",
-      "Wind Sketch composition must expose deterministic prototype streamlines.",
+      field.streamlines.length >= 3 && field.tier === "prototype_visualisation" && hasWindBaseFlagship,
+      "Wind Sketch keeps deterministic streamlines in SVG and has the demo flagship Stage B background.",
+      "Wind Sketch composition must expose deterministic prototype streamlines and the demo flagship Stage B background.",
     ),
     checkedItem(
       "quiet_material",

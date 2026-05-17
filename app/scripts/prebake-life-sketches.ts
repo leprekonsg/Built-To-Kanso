@@ -17,6 +17,8 @@ import process from "node:process";
 import { hashBytes } from "../src/lib/imageHash";
 import { getLifeAnchorCachePath } from "../src/server/anchors/lifeAnchor";
 import type { TemplateId } from "../src/server/geometry/types";
+import { LIFE_SKETCH_QA_GATE_VERSION } from "../src/server/openai/lifeSketchReview";
+import { getOpenAIImageModel } from "../src/server/openai/client";
 import { getPlanSketchCachePath } from "../src/server/sketches/planSketchAsset";
 import {
   LIFE_SKETCH_INPUT_FINGERPRINT_VERSION,
@@ -114,6 +116,10 @@ async function bakeOne(templateId: TemplateId): Promise<PrebakeOutcome> {
     acceptedCandidateIndex,
     rejectedCandidates: [],
     acceptedAtIso: new Date().toISOString(),
+    evidenceTier: "prototype_visualisation",
+    sourceTruth: "plan-geometry.json",
+    qaGateVersion: LIFE_SKETCH_QA_GATE_VERSION,
+    generationModel: getOpenAIImageModel(),
     ...(reviewerModel ? { reviewerModel } : {}),
     ...(anchorCachePath ? { anchorCachePath } : {}),
     topologyProof,

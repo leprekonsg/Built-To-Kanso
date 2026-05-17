@@ -19,6 +19,7 @@ describe("render asset validation", () => {
       {
         id: "bad",
         kind: "plan_sketch",
+        scope: "phase1_all_templates",
         relativePath: "plan-sketches/bad/plan.png",
         minWidth: 1000,
         minHeight: 800,
@@ -35,8 +36,12 @@ describe("render asset validation", () => {
     const report = await validateExpectedRenderAssets();
 
     assert.equal(report.ok, true, report.assets.flatMap((asset) => asset.issues).join("\n"));
-    assert.equal(report.assetCount, 13);
+    assert.equal(report.assetCount, 18);
     assert.equal(report.assetCount, expectedRenderAssets().length);
+    assert.ok(report.assets.some((asset) => asset.relativePath === "life-sketches/tampines-greenweave/accepted.png"));
+    assert.ok(report.assets.some((asset) => asset.relativePath === "wind-base/tampines-greenweave/base.png"));
+    assert.ok(report.assets.some((asset) => asset.relativePath === "resonance-hour/tampines-greenweave/accepted.png"));
+    assert.ok(report.byTemplate.some((template) => template.templateId === "tampines-greenweave" && template.assetCount === 5));
     assert.ok(report.assets.some((asset) => asset.relativePath === "references/brand-v3-poster.png"));
     assert.ok(report.assets.some((asset) => asset.relativePath === "references/hdb-material-board.png"));
   });

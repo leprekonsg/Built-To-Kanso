@@ -5,11 +5,15 @@
   "candidateCount": 3,
   "acceptedCandidateIndex": 2,
   "rejectedCandidates": [],
-  "acceptedAtIso": "2026-05-11T13:19:37.317Z",
+  "acceptedAtIso": "2026-05-17T13:08:56.871Z",
+  "evidenceTier": "prototype_visualisation",
+  "sourceTruth": "plan-geometry.json",
+  "qaGateVersion": "v3-service-yard-affordance",
+  "generationModel": "gpt-image-2",
   "reviewerModel": "gpt-4.1-mini",
   "anchorCachePath": "life-anchors/tengah-5room/anchor.png",
   "topologyProof": "plan-sketches/tengah-5room/plan.png",
   "inputFingerprintVersion": "topology-proof-v5-deterministic-bathroom-count",
-  "anchorHash": "fab4776a48093173",
+  "anchorHash": "f68f5953385dcd5c",
   "topologyProofHash": "9651f54b23faf251"
 }

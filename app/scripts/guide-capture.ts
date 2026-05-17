@@ -125,16 +125,16 @@ async function main(): Promise<void> {
     await page.getByRole("heading", { name: "The house is listening." }).waitFor();
     // Let the plan SVG and inputs strip settle.
     await page.waitForTimeout(800);
-    await shot(page, "06-bones-hero");
+    await shot(page, "06-studio-hero");
 
     // 07 — Asking points (Damp Risk, Anti-cure). Up to three items plus the
     // Damp Reading card can exceed 800px; expand viewport so nothing is clipped.
     await scrollTop(page.getByText("What the home is asking", { exact: true }));
-    await shotSection(page, "07-bones-asking-points");
+    await shotSection(page, "07-studio-asking-points");
 
     // 08 — LiveStudio (airflow visual region).
     await scrollTop(page.getByRole("region", { name: "LiveStudio" }));
-    await shot(page, "08-bones-livestudio");
+    await shot(page, "08-studio-livestudio");
 
     // 09 — Weather Trial click swaps studio conditions deterministically.
     const trial = page.getByTestId("weather-trial-west_sun_1720");
