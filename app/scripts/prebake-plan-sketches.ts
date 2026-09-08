@@ -2,14 +2,14 @@
  * Prebake deterministic Plan Sketch PNG assets for the no-cloud demo path.
  *
  * Writes:
- *   public/plan-sketches/<templateId>/plan.png
+ *   public/plan-sketches/<templateId>/plan.{png,json}
  */
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { getPlanGeometry, listGeometrySummaries } from "../src/server/geometry/registry";
 import { renderTopologyProofSvg } from "../src/server/openai/fallbackSvg";
 import { rasterizeSvgToPng } from "../src/server/openai/svgRaster";
-import { getPlanSketchCachePath } from "../src/server/sketches/planSketchAsset";
+import { buildPlanSketchCacheMetadata, getPlanSketchCachePath } from "../src/server/sketches/planSketchAsset";
 
 async function main() {
   let pngCount = 0;
@@ -25,6 +25,7 @@ async function main() {
     }
     await mkdir(cache.directory, { recursive: true });
     await writeFile(cache.absolutePath, raster.png);
+    await writeFile(cache.metadataAbsolutePath, JSON.stringify(buildPlanSketchCacheMetadata(plan.templateId, svg, raster.png), null, 2) + "\n", "utf8");
     pngCount += 1;
     console.log(`${plan.templateId}: image/png -> ${cache.absolutePath}`);
   }

@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import * as THREE from "three";
+import { hashBytes, hashString } from "@/lib/imageHash";
+import { isPngImage } from "@/lib/png";
 import type {
   FixedElementGeometry,
   OpeningGeometry,
@@ -29,6 +31,7 @@ const HDB_CEILING_HEIGHT_M = 2.6;
 const FLOOR_SLAB_HEIGHT_M = 0.04;
 const WALL_THICKNESS_M = 0.08;
 const OPENING_DEPTH_M = 0.1;
+const ANCHOR_RENDERER_VERSION = "orthographic-apertures-v2";
 
 export type LifeAnchorSource = "cache-png" | "deterministic-svg" | "request-png";
 
@@ -36,6 +39,7 @@ export interface LifeAnchorCachePath {
   templateId: TemplateId;
   relativePath: string;
   absolutePath: string;
+  metadataAbsolutePath: string;
   directory: string;
 }
 
@@ -45,10 +49,13 @@ export interface LifeAnchorSceneManifest {
   relativeCachePath: string;
   viewport: typeof VIEWPORT;
   camera: {
-    kind: "perspective";
+    kind: "orthographic";
     position: [number, number, number];
     lookAt: [number, number, number];
-    fov: number;
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
     aspect: number;
     near: number;
     far: number;
@@ -56,11 +63,12 @@ export interface LifeAnchorSceneManifest {
   };
   metadata: {
     tier: typeof ANCHOR_TIER;
-    source: "three-perspective-greybox-scene-manifest";
+    source: "three-orthographic-greybox-scene-manifest";
     complianceTruth: false;
     geometrySource: PlanGeometry["source"];
     hdbCeilingHeightM: typeof HDB_CEILING_HEIGHT_M;
     topologyProof: string;
+    geometryIssues: string[];
     note: string;
   };
   rooms: LifeAnchorRoom[];
@@ -75,6 +83,7 @@ export interface LifeAnchorRoom {
   label: string;
   kind: RoomGeometry["kind"];
   confidence: RoomGeometry["confidence"];
+  renderable: boolean;
   position: [number, number, number];
   scale: [number, number, number];
 }
@@ -89,6 +98,7 @@ export interface LifeAnchorOpening {
   scale: [number, number, number];
   rotationY: number;
   operable: boolean;
+  renderable: boolean;
 }
 
 export interface LifeAnchorWallVolume {
@@ -148,23 +158,18 @@ export interface ResolveLifeAnchorOptions {
   env?: SketchCacheEnv;
 }
 
-// Per-template in-memory cache of resolved bytes. Keeps the route hot path
-// from re-reading the committed local PNG once per request. Anchors are
-// deterministic per templateId so this is safe.
-const ANCHOR_BYTE_CACHE = new Map<TemplateId, { contentType: "image/png"; bytes: Buffer }>();
-
 export function lifeAnchorSketchCacheKey(templateId: TemplateId): string {
   return `life-anchor:${templateId}`;
 }
 
-// Exposed for tests; resets the in-memory anchor byte cache.
 export function clearLifeAnchorByteCache(): void {
-  ANCHOR_BYTE_CACHE.clear();
+  // Compatibility with callers that previously reset the process byte cache.
+  // Read the small on-disk artifacts each time so rebakes and cache roots agree.
 }
 
 export interface LifeAnchorPngRenderInput {
   scene: THREE.Scene;
-  camera: THREE.PerspectiveCamera;
+  camera: THREE.OrthographicCamera;
   manifest: LifeAnchorSceneManifest;
 }
 
@@ -183,6 +188,7 @@ export function getLifeAnchorCachePath(templateId: TemplateId, cacheRoot: string
     templateId,
     relativePath: relativePath.replaceAll("\\", "/"),
     absolutePath,
+    metadataAbsolutePath: join(cacheRoot, "life-anchors", templateId, "anchor.json"),
     directory: dirname(absolutePath),
   };
 }
@@ -307,8 +313,8 @@ function createServiceFixtureMaterial(kind: LifeAnchorServiceFixture["kind"]): T
 // than from plan.fixedElements: the compliance schema does not model washers or
 // drains, and we do not want them to leak into kanso-reserve, token, or wind
 // rules. The placement rule is deterministic per templateId so every render is
-// stable: washer stack parked at the back-left corner of the yard, floor drain
-// near the louvre side of the room center.
+// stable: washer stack in the first unobstructed corner, floor drain near the
+// louvre side of the room center. Never cover a protected pipeshaft opening.
 const SERVICE_FIXTURE_INSET_M = 0.05;
 const WASHER_STACK_WIDTH_M = 0.62;
 const WASHER_STACK_DEPTH_M = 0.62;
@@ -321,14 +327,31 @@ function buildServiceYardAffordances(plan: PlanGeometry): LifeAnchorServiceFixtu
   for (const room of plan.rooms) {
     if (room.kind !== "service") continue;
 
-    const washerX = room.x + WASHER_STACK_WIDTH_M / 2 + SERVICE_FIXTURE_INSET_M;
-    const washerZ = room.y + WASHER_STACK_DEPTH_M / 2 + SERVICE_FIXTURE_INSET_M;
-    fixtures.push({
-      roomId: room.id,
-      kind: "washer_stack",
-      position: [washerX, WASHER_STACK_HEIGHT_M / 2, washerZ],
-      scale: [WASHER_STACK_WIDTH_M, WASHER_STACK_HEIGHT_M, WASHER_STACK_DEPTH_M],
+    const washerHalfX = WASHER_STACK_WIDTH_M / 2;
+    const washerHalfZ = WASHER_STACK_DEPTH_M / 2;
+    const cornerXs = [room.x + washerHalfX + SERVICE_FIXTURE_INSET_M, room.x + room.width - washerHalfX - SERVICE_FIXTURE_INSET_M];
+    const cornerZs = [room.y + washerHalfZ + SERVICE_FIXTURE_INSET_M, room.y + room.height - washerHalfZ - SERVICE_FIXTURE_INSET_M];
+    const washerPosition = cornerZs.flatMap((z) => cornerXs.map((x) => ({ x, z }))).find(({ x, z }) => {
+      if (x - washerHalfX < room.x || x + washerHalfX > room.x + room.width ||
+          z - washerHalfZ < room.y || z + washerHalfZ > room.y + room.height) return false;
+      const fixedCollision = plan.fixedElements.some((element) => element.kind !== "wet_zone" &&
+        x + washerHalfX > element.x && x - washerHalfX < element.x + element.width &&
+        z + washerHalfZ > element.y && z - washerHalfZ < element.y + element.height);
+      const openingCollision = plan.openings.some((opening) => opening.roomIds.includes(room.id) &&
+        x + washerHalfX + SERVICE_FIXTURE_INSET_M > Math.min(opening.start.x, opening.end.x) &&
+        x - washerHalfX - SERVICE_FIXTURE_INSET_M < Math.max(opening.start.x, opening.end.x) &&
+        z + washerHalfZ + SERVICE_FIXTURE_INSET_M > Math.min(opening.start.y, opening.end.y) &&
+        z - washerHalfZ - SERVICE_FIXTURE_INSET_M < Math.max(opening.start.y, opening.end.y));
+      return !fixedCollision && !openingCollision;
     });
+    if (washerPosition) {
+      fixtures.push({
+        roomId: room.id,
+        kind: "washer_stack",
+        position: [washerPosition.x, WASHER_STACK_HEIGHT_M / 2, washerPosition.z],
+        scale: [WASHER_STACK_WIDTH_M, WASHER_STACK_HEIGHT_M, WASHER_STACK_DEPTH_M],
+      });
+    }
 
     const drainX = room.x + room.width / 2;
     const drainZ = room.y + room.height * 0.62;
@@ -368,72 +391,56 @@ function centerOf(rect: { x: number; y: number; width: number; height: number })
   return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
 }
 
-function openingLength(opening: OpeningGeometry): number {
-  return Math.hypot(opening.end.x - opening.start.x, opening.end.y - opening.start.y);
-}
-
-function openingMidpoint(opening: OpeningGeometry) {
-  return {
-    x: (opening.start.x + opening.end.x) / 2,
-    y: (opening.start.y + opening.end.y) / 2,
-  };
-}
-
-function selectPrimaryViewOpening(plan: PlanGeometry): OpeningGeometry {
-  const livingWindow = plan.openings
-    .filter((opening) => opening.kind !== "door" && opening.roomIds.some((id) => plan.rooms.find((room) => room.id === id)?.kind === "living"))
-    .sort((a, b) => openingLength(b) - openingLength(a))[0];
-  if (livingWindow) return livingWindow;
-  return plan.openings
-    .filter((opening) => opening.kind !== "door")
-    .sort((a, b) => openingLength(b) - openingLength(a))[0] ?? plan.openings[0];
-}
-
 function selectCameraRig(plan: PlanGeometry): CameraRig {
-  const living = plan.rooms.find((room) => room.kind === "living") ?? plan.rooms[0];
-  const livingCenter = centerOf(living);
   const planCenter = centerOf(plan.bounds);
-  const primaryOpening = selectPrimaryViewOpening(plan);
-  const opening = openingMidpoint(primaryOpening);
-  const direction = new THREE.Vector2(opening.x - livingCenter.x, opening.y - livingCenter.y);
-  if (direction.lengthSq() < 0.01) direction.set(0, -1);
-  direction.normalize();
-
-  const cameraDistance = Math.max(plan.bounds.width, plan.bounds.height) * 1.0;
-  const cameraPlanX = planCenter.x - direction.x * cameraDistance;
-  const cameraPlanY = planCenter.y - direction.y * cameraDistance;
-  const targetX = planCenter.x + direction.x * Math.min(1.1, openingLength(primaryOpening) * 0.3);
-  const targetY = planCenter.y + direction.y * Math.min(1.1, openingLength(primaryOpening) * 0.3);
-
+  const distance = Math.max(plan.bounds.width, plan.bounds.height) * 1.5;
   return {
-    position: [cameraPlanX, 7.2, cameraPlanY],
-    lookAt: [targetX, 0.9, targetY],
+    position: [planCenter.x + distance, 0.9 + distance, planCenter.y + distance],
+    lookAt: [planCenter.x, 0.9, planCenter.y],
   };
 }
 
-function buildCamera(plan: PlanGeometry): THREE.PerspectiveCamera {
+function buildCamera(plan: PlanGeometry): THREE.OrthographicCamera {
   const rig = selectCameraRig(plan);
-  const camera = new THREE.PerspectiveCamera(46, VIEWPORT.width / VIEWPORT.height, 0.1, 100);
+  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
   camera.position.set(...rig.position);
   camera.up.set(0, 1, 0);
   camera.lookAt(...rig.lookAt);
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
+  // Orthographic axonometric projection preserves relative room sizes. Fit
+  // the complete wall-height envelope with an 8% border in each dimension.
+  const viewBounds = new THREE.Box3();
+  for (const x of [plan.bounds.x - WALL_THICKNESS_M, plan.bounds.x + plan.bounds.width + WALL_THICKNESS_M]) {
+    for (const z of [plan.bounds.y - WALL_THICKNESS_M, plan.bounds.y + plan.bounds.height + WALL_THICKNESS_M]) {
+      for (const y of [-FLOOR_SLAB_HEIGHT_M, HDB_CEILING_HEIGHT_M]) {
+        viewBounds.expandByPoint(new THREE.Vector3(x, y, z).applyMatrix4(camera.matrixWorldInverse));
+      }
+    }
+  }
+  const center = viewBounds.getCenter(new THREE.Vector3());
+  const size = viewBounds.getSize(new THREE.Vector3());
+  const aspect = VIEWPORT.width / VIEWPORT.height;
+  const halfHeight = Math.max(size.y / 2, size.x / (2 * aspect)) / 0.92;
+  const halfWidth = halfHeight * aspect;
+  camera.left = center.x - halfWidth;
+  camera.right = center.x + halfWidth;
+  camera.top = center.y + halfHeight;
+  camera.bottom = center.y - halfHeight;
+  camera.far = Math.max(camera.far, -viewBounds.min.z + 1);
   camera.updateProjectionMatrix();
   camera.updateMatrixWorld(true);
   return camera;
 }
 
 function createOpeningMesh(opening: OpeningGeometry): THREE.Mesh {
-  const dx = opening.end.x - opening.start.x;
-  const dz = opening.end.y - opening.start.y;
-  const length = Math.max(0.08, Math.hypot(dx, dz));
-  const height = opening.kind === "door" ? 2.05 : opening.kind === "window" ? 1.1 : 1.35;
-  const sill = opening.kind === "door" ? 0.03 : opening.kind === "window" ? 0.88 : 0.7;
-  const geometry = new THREE.BoxGeometry(length, height, OPENING_DEPTH_M);
+  const spec = openingManifest(opening);
+  const geometry = new THREE.BoxGeometry(...spec.scale);
   const material = createOpeningMaterial(opening);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = `opening:${opening.id}`;
-  mesh.position.set((opening.start.x + opening.end.x) / 2, sill + height / 2, (opening.start.y + opening.end.y) / 2);
-  mesh.rotation.y = -Math.atan2(dz, dx);
+  mesh.position.set(...spec.position);
+  mesh.rotation.y = spec.rotationY;
   return mesh;
 }
 
@@ -512,6 +519,21 @@ function canClipRoomWall(owner: RoomGeometry, room: RoomGeometry): boolean {
   return room.kind === "living" || room.kind === "entry" || room.kind === "kitchen" || room.kind === "service";
 }
 
+function enclosingShelter(plan: PlanGeometry, room: RoomGeometry): FixedElementGeometry | undefined {
+  if (room.kind === "shelter") return undefined;
+  return plan.fixedElements.find((element) => element.kind === "household_shelter" &&
+    room.x >= element.x - WALL_CLIP_EPS && room.y >= element.y - WALL_CLIP_EPS &&
+    room.x + room.width <= element.x + element.width + WALL_CLIP_EPS &&
+    room.y + room.height <= element.y + element.height + WALL_CLIP_EPS);
+}
+
+function openingInsideShelter(plan: PlanGeometry, opening: OpeningGeometry): boolean {
+  return plan.fixedElements.some((element) => element.kind === "household_shelter" &&
+    [opening.start, opening.end].every((point) => point.x > element.x + WALL_CLIP_EPS &&
+      point.x < element.x + element.width - WALL_CLIP_EPS && point.y > element.y + WALL_CLIP_EPS &&
+      point.y < element.y + element.height - WALL_CLIP_EPS));
+}
+
 function buildWallVolumes(plan: PlanGeometry): LifeAnchorWallVolume[] {
   const walls: LifeAnchorWallVolume[] = [];
   const y = HDB_CEILING_HEIGHT_M / 2;
@@ -524,12 +546,16 @@ function buildWallVolumes(plan: PlanGeometry): LifeAnchorWallVolume[] {
     const others = plan.rooms.filter((r) => {
       if (r.id === room.id) return false;
       if (!canClipRoomWall(r, room)) return false;
+      // The protected shelter takes precedence over an overlapping room
+      // extent. Never derive an internal partition from an ambiguous entry.
+      if (r.kind === "shelter" && room.kind !== "shelter") return true;
+      if (room.kind === "shelter" && r.kind !== "shelter") return false;
       const otherArea = r.width * r.height;
       if (otherArea < roomArea) return true;
       if (otherArea === roomArea) return r.id < room.id;
       return false;
     });
-    if (!emitsDedicatedWalls(room)) continue;
+    if (!emitsDedicatedWalls(room) || enclosingShelter(plan, room)) continue;
 
     const east = room.x + room.width;
     const south = room.y + room.height;
@@ -567,7 +593,50 @@ function buildWallVolumes(plan: PlanGeometry): LifeAnchorWallVolume[] {
     }
   }
 
-  return walls;
+  return walls.flatMap((wall) => cutWallOpenings(wall, plan.openings));
+}
+
+function cutWallOpenings(wall: LifeAnchorWallVolume, openings: OpeningGeometry[]): LifeAnchorWallVolume[] {
+  const horizontal = wall.edge === "north" || wall.edge === "south";
+  const alongAxis = horizontal ? 0 : 2;
+  const perpAxis = horizontal ? 2 : 0;
+  let pieces = [wall];
+  for (const opening of openings) {
+    const spec = openingManifest(opening);
+    if (Math.abs(spec.start[perpAxis] - wall.position[perpAxis]) > WALL_CLIP_EPS ||
+        Math.abs(spec.end[perpAxis] - wall.position[perpAxis]) > WALL_CLIP_EPS) continue;
+    const cutLo = Math.min(spec.start[alongAxis], spec.end[alongAxis]);
+    const cutHi = Math.max(spec.start[alongAxis], spec.end[alongAxis]);
+    const cutBottom = spec.position[1] - spec.scale[1] / 2;
+    const cutTop = spec.position[1] + spec.scale[1] / 2;
+    pieces = pieces.flatMap((piece) => {
+      const lo = piece.position[alongAxis] - piece.scale[alongAxis] / 2;
+      const hi = piece.position[alongAxis] + piece.scale[alongAxis] / 2;
+      const bottom = piece.position[1] - piece.scale[1] / 2;
+      const top = piece.position[1] + piece.scale[1] / 2;
+      const overlapLo = Math.max(lo, cutLo);
+      const overlapHi = Math.min(hi, cutHi);
+      const overlapBottom = Math.max(bottom, cutBottom);
+      const overlapTop = Math.min(top, cutTop);
+      if (overlapHi - overlapLo <= WALL_CLIP_EPS || overlapTop - overlapBottom <= WALL_CLIP_EPS) return [piece];
+      return [
+        [lo, overlapLo, bottom, top],
+        [overlapHi, hi, bottom, top],
+        [overlapLo, overlapHi, bottom, overlapBottom],
+        [overlapLo, overlapHi, overlapTop, top],
+      ].filter(([start, end, low, high]) => end - start > WALL_CLIP_EPS && high - low > WALL_CLIP_EPS)
+        .map(([start, end, low, high]) => {
+          const position: [number, number, number] = [...piece.position];
+          const scale: [number, number, number] = [...piece.scale];
+          position[alongAxis] = (start + end) / 2;
+          position[1] = (low + high) / 2;
+          scale[alongAxis] = end - start;
+          scale[1] = high - low;
+          return { ...piece, position, scale };
+        });
+    });
+  }
+  return pieces;
 }
 
 function fixedElementHeight(element: FixedElementGeometry): number {
@@ -592,6 +661,7 @@ function openingManifest(opening: OpeningGeometry): LifeAnchorOpening {
     scale: [length, height, OPENING_DEPTH_M],
     rotationY: -Math.atan2(dz, dx),
     operable: opening.operable,
+    renderable: true,
   };
 }
 
@@ -605,6 +675,7 @@ export function createLifeAnchorThreeScene(plan: PlanGeometry): LifeAnchorPngRen
   scene.add(sun);
 
   for (const room of plan.rooms) {
+    if (enclosingShelter(plan, room)) continue;
     const geometry = new THREE.BoxGeometry(room.width, FLOOR_SLAB_HEIGHT_M, room.height);
     const material = createFloorMaterial(room);
     const mesh = new THREE.Mesh(geometry, material);
@@ -628,6 +699,7 @@ export function createLifeAnchorThreeScene(plan: PlanGeometry): LifeAnchorPngRen
   }
 
   for (const opening of plan.openings) {
+    if (openingInsideShelter(plan, opening)) continue;
     scene.add(createOpeningMesh(opening));
   }
 
@@ -650,10 +722,11 @@ export function createLifeAnchorThreeScene(plan: PlanGeometry): LifeAnchorPngRen
 export function buildLifeAnchorSceneManifest(
   plan: PlanGeometry,
   cacheRoot?: string,
-  camera: THREE.PerspectiveCamera = buildCamera(plan),
+  camera: THREE.OrthographicCamera = buildCamera(plan),
 ): LifeAnchorSceneManifest {
   const cache = getLifeAnchorCachePath(plan.templateId, cacheRoot);
   const rig = selectCameraRig(plan);
+  const lookAt = camera.position.clone().addScaledVector(camera.getWorldDirection(new THREE.Vector3()), camera.position.distanceTo(new THREE.Vector3(...rig.lookAt)));
 
   return {
     templateId: plan.templateId,
@@ -661,22 +734,29 @@ export function buildLifeAnchorSceneManifest(
     relativeCachePath: cache.relativePath,
     viewport: VIEWPORT,
     camera: {
-      kind: "perspective",
+      kind: "orthographic",
       position: [camera.position.x, camera.position.y, camera.position.z],
-      lookAt: rig.lookAt,
-      fov: camera.fov,
-      aspect: camera.aspect,
+      lookAt: [lookAt.x, lookAt.y, lookAt.z],
+      left: camera.left,
+      right: camera.right,
+      top: camera.top,
+      bottom: camera.bottom,
+      aspect: VIEWPORT.width / VIEWPORT.height,
       near: camera.near,
       far: camera.far,
       up: [camera.up.x, camera.up.y, camera.up.z],
     },
     metadata: {
       tier: ANCHOR_TIER,
-      source: "three-perspective-greybox-scene-manifest",
+      source: "three-orthographic-greybox-scene-manifest",
       complianceTruth: false,
       geometrySource: plan.source,
       hdbCeilingHeightM: HDB_CEILING_HEIGHT_M,
       topologyProof: `plan-sketches/${plan.templateId}/plan.png`,
+      geometryIssues: plan.rooms.flatMap((room) => {
+        const shelter = enclosingShelter(plan, room);
+        return shelter ? [`${room.id} lies inside protected ${shelter.id}; verify the curated entry and shelter locations before image generation.`] : [];
+      }),
       note: "Camera-view greybox reference only. Compliance geometry and token legality remain owned by plan-geometry.json and deterministic rules.",
     },
     rooms: plan.rooms.map((room) => ({
@@ -684,11 +764,12 @@ export function buildLifeAnchorSceneManifest(
       label: room.label,
       kind: room.kind,
       confidence: room.confidence,
+      renderable: !enclosingShelter(plan, room),
       position: centerRect(room, -FLOOR_SLAB_HEIGHT_M / 2),
       scale: rectScale(room),
     })),
     wallVolumes: buildWallVolumes(plan),
-    openings: plan.openings.map(openingManifest),
+    openings: plan.openings.map((opening) => ({ ...openingManifest(opening), renderable: !openingInsideShelter(plan, opening) })),
     fixedElements: plan.fixedElements.map((element) => {
       const height = fixedElementHeight(element);
       return {
@@ -733,8 +814,25 @@ function disposeThreeScene(scene: THREE.Scene): void {
   scene.clear();
 }
 
-function isPng(bytes: Buffer): boolean {
-  return bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+export interface LifeAnchorCacheMetadata {
+  templateId: TemplateId;
+  rendererVersion: string;
+  manifestHash: string;
+  pngHash: string;
+}
+
+export function lifeAnchorManifestHash(manifest: LifeAnchorSceneManifest): string {
+  const scene = { ...manifest, cachePath: undefined, relativeCachePath: undefined };
+  return hashString(JSON.stringify({ rendererVersion: ANCHOR_RENDERER_VERSION, scene }));
+}
+
+export function buildLifeAnchorCacheMetadata(manifest: LifeAnchorSceneManifest, png: Buffer): LifeAnchorCacheMetadata {
+  return {
+    templateId: manifest.templateId,
+    rendererVersion: ANCHOR_RENDERER_VERSION,
+    manifestHash: lifeAnchorManifestHash(manifest),
+    pngHash: hashBytes(png),
+  };
 }
 
 export async function resolveLifeAnchorArtifact(
@@ -744,24 +842,16 @@ export async function resolveLifeAnchorArtifact(
   const cache = getLifeAnchorCachePath(plan.templateId, options.cacheRoot);
   const manifest = buildLifeAnchorSceneManifest(plan, options.cacheRoot);
 
-  // Fast path: in-memory cache populated by a prior on-disk read in this
-  // process. Anchors are deterministic per templateId so this is safe.
-  const memo = ANCHOR_BYTE_CACHE.get(plan.templateId);
-  if (memo) {
-    return {
-      source: "cache-png",
-      contentType: "image/png",
-      cachePath: cache.relativePath,
-      absoluteCachePath: cache.absolutePath,
-      manifest,
-      png: memo.bytes,
-    };
-  }
-
   try {
-    const png = await readFile(/*turbopackIgnore: true*/ cache.absolutePath);
-    if (isPng(png)) {
-      ANCHOR_BYTE_CACHE.set(plan.templateId, { contentType: "image/png", bytes: png });
+    const [png, rawMetadata] = await Promise.all([
+      readFile(/*turbopackIgnore: true*/ cache.absolutePath),
+      readFile(/*turbopackIgnore: true*/ cache.metadataAbsolutePath, "utf8"),
+    ]);
+    const metadata = JSON.parse(rawMetadata) as LifeAnchorCacheMetadata | null;
+    const expected = buildLifeAnchorCacheMetadata(manifest, png);
+    if (isPngImage(png) && metadata?.templateId === expected.templateId &&
+        metadata.rendererVersion === expected.rendererVersion && metadata.manifestHash === expected.manifestHash &&
+        metadata.pngHash === expected.pngHash) {
       return {
         source: "cache-png",
         contentType: "image/png",

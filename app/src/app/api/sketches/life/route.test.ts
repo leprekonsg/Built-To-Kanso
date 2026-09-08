@@ -6,25 +6,29 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import {
   clearLifeAnchorByteCache,
   getLifeAnchorCachePath,
+  buildLifeAnchorCacheMetadata,
+  buildLifeAnchorSceneManifest,
 } from "@/server/anchors/lifeAnchor";
+import { getPlanGeometry } from "@/server/geometry/registry";
+import { renderTopologyProofSvg } from "@/server/openai/fallbackSvg";
+import { rasterizeSvgToPng } from "@/server/openai/svgRaster";
+import { buildPlanSketchCacheMetadata, getPlanSketchCachePath } from "@/server/sketches/planSketchAsset";
 import { hashBytes } from "@/lib/imageHash";
 import type { TemplateId } from "@/server/geometry/types";
 import {
-  LIFE_SKETCH_INPUT_FINGERPRINT_VERSION,
   getAcceptedLifeSketchCachePath,
+  lifeSketchInputFingerprint,
+  loadLifeSketchStyleReferences,
 } from "@/server/sketches/lifeSketchAsset";
-import { LIFE_SKETCH_QA_GATE_VERSION } from "@/server/openai/lifeSketchReview";
 import { POST } from "./route";
 
-// 1x1 PNG — magic-number-valid bytes used as both a fake anchor and a fake
-// OpenAI response. We never decode it; only the prefix is asserted on the
-// wire. The route's anchor cache check (isPng) only inspects the prefix.
+// Real 1x1 PNG fixtures keep the transport and persisted-image checks active.
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const TINY_PNG_BASE64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==";
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABpfZFQAAAAABJRU5ErkJggg==";
 
-function candidateBase64(index: number): string {
-  return Buffer.concat([PNG_MAGIC, Buffer.from([index])]).toString("base64");
+function candidateBase64(_index: number): string {
+  return TINY_PNG_BASE64;
 }
 
 function reviewPayload(acceptedCandidateIndex = 1, acceptedObserved = 2): Record<string, unknown> {
@@ -45,6 +49,7 @@ function reviewPayload(acceptedCandidateIndex = 1, acceptedObserved = 2): Record
           cameraView: "pass",
           bathroomCount: "pass",
           serviceYard: "pass",
+          householdShelterInterior: "pass",
         },
       },
       {
@@ -60,6 +65,7 @@ function reviewPayload(acceptedCandidateIndex = 1, acceptedObserved = 2): Record
           cameraView: "pass",
           bathroomCount: acceptedObserved === 2 ? "pass" : "fail",
           serviceYard: "pass",
+          householdShelterInterior: "pass",
         },
       },
       {
@@ -75,6 +81,7 @@ function reviewPayload(acceptedCandidateIndex = 1, acceptedObserved = 2): Record
           cameraView: "pass",
           bathroomCount: "pass",
           serviceYard: "pass",
+          householdShelterInterior: "pass",
         },
       },
     ],
@@ -85,6 +92,7 @@ interface EnvSnapshot {
   OPENAI_API_KEY: string | undefined;
   LIFE_ANCHOR_CACHE_ROOT: string | undefined;
   LIFE_SKETCH_CACHE_ROOT: string | undefined;
+  PLAN_SKETCH_CACHE_ROOT: string | undefined;
   SKETCH_CACHE_DIR: string | undefined;
   SKETCH_CACHE_PROVIDER: string | undefined;
 }
@@ -94,6 +102,7 @@ function snapshotEnv(): EnvSnapshot {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     LIFE_ANCHOR_CACHE_ROOT: process.env.LIFE_ANCHOR_CACHE_ROOT,
     LIFE_SKETCH_CACHE_ROOT: process.env.LIFE_SKETCH_CACHE_ROOT,
+    PLAN_SKETCH_CACHE_ROOT: process.env.PLAN_SKETCH_CACHE_ROOT,
     SKETCH_CACHE_DIR: process.env.SKETCH_CACHE_DIR,
     SKETCH_CACHE_PROVIDER: process.env.SKETCH_CACHE_PROVIDER,
   };
@@ -121,16 +130,28 @@ function postLife(body: PostBody, accept?: string, url = "https://example.com/ap
   });
 }
 
+async function writeAnchorMetadata(templateId: TemplateId, png: Buffer, root?: string): Promise<void> {
+  const cache = getLifeAnchorCachePath(templateId, root);
+  await writeFile(cache.metadataAbsolutePath, JSON.stringify(buildLifeAnchorCacheMetadata(buildLifeAnchorSceneManifest(getPlanGeometry(templateId), root), png)));
+}
+
 async function seedAcceptedLifeSketch(root: string, templateId: TemplateId) {
+  process.env.PLAN_SKETCH_CACHE_ROOT = root;
   const cachePath = getAcceptedLifeSketchCachePath(templateId, root);
   const anchorPath = join(root, "life-anchors", templateId, "anchor.png");
   const topologyPath = join(root, "plan-sketches", templateId, "plan.png");
+  const topology = await rasterizeSvgToPng(renderTopologyProofSvg(getPlanGeometry(templateId)));
+  assert.ok(topology.ok);
   await mkdir(cachePath.directory, { recursive: true });
   await mkdir(join(root, "life-anchors", templateId), { recursive: true });
   await mkdir(join(root, "plan-sketches", templateId), { recursive: true });
-  await writeFile(anchorPath, Buffer.concat([PNG_MAGIC, Buffer.from([1])]));
-  await writeFile(topologyPath, Buffer.concat([PNG_MAGIC, Buffer.from([2])]));
-  await writeFile(cachePath.absolutePath, PNG_MAGIC);
+  await writeFile(anchorPath, Buffer.from(TINY_PNG_BASE64, "base64"));
+  await writeAnchorMetadata(templateId, Buffer.from(TINY_PNG_BASE64, "base64"), root);
+  await writeFile(topologyPath, topology.png);
+  await writeFile(getPlanSketchCachePath(templateId, root).metadataAbsolutePath, JSON.stringify(
+    buildPlanSketchCacheMetadata(templateId, renderTopologyProofSvg(getPlanGeometry(templateId)), topology.png),
+  ));
+  await writeFile(cachePath.absolutePath, Buffer.from(TINY_PNG_BASE64, "base64"));
   await writeFile(cachePath.metadataAbsolutePath, JSON.stringify({
     templateId,
     source: "accepted_gpt_image_2_prebake",
@@ -144,12 +165,17 @@ async function seedAcceptedLifeSketch(root: string, templateId: TemplateId) {
     acceptedAtIso: "2026-05-11T00:45:34.708Z",
     reviewerModel: "gpt-4.1-mini",
     reviewerSummary: "candidate_1_preserves_locked_topology",
-    qaGateVersion: LIFE_SKETCH_QA_GATE_VERSION,
+    candidateReviews: reviewPayload(1).candidateReviews,
+    generationModel: "gpt-image-2",
+    sourceTruth: "plan-geometry.json",
+    evidenceTier: "prototype_visualisation",
     anchorCachePath: `life-anchors/${templateId}/anchor.png`,
     topologyProof: `plan-sketches/${templateId}/plan.png`,
-    inputFingerprintVersion: LIFE_SKETCH_INPUT_FINGERPRINT_VERSION,
-    anchorHash: hashBytes(Buffer.concat([PNG_MAGIC, Buffer.from([1])])),
-    topologyProofHash: hashBytes(Buffer.concat([PNG_MAGIC, Buffer.from([2])])),
+    ...lifeSketchInputFingerprint(templateId, Buffer.from(TINY_PNG_BASE64, "base64"), {
+      ...await loadLifeSketchStyleReferences(),
+      topologyProof: topology.png,
+    }),
+    pngHash: hashBytes(Buffer.from(TINY_PNG_BASE64, "base64")),
   }));
   return cachePath;
 }
@@ -170,6 +196,17 @@ describe("Life Sketch route", () => {
     process.env.LIFE_SKETCH_CACHE_ROOT = tempCacheDir;
     process.env.SKETCH_CACHE_PROVIDER = "file";
     process.env.SKETCH_CACHE_DIR = tempCacheDir;
+    process.env.PLAN_SKETCH_CACHE_ROOT = tempCacheDir;
+    for (const templateId of ["tengah-5room", "resale-exec-1990s"] as const) {
+      const topology = await rasterizeSvgToPng(renderTopologyProofSvg(getPlanGeometry(templateId)));
+      assert.ok(topology.ok);
+      const directory = join(tempCacheDir, "plan-sketches", templateId);
+      await mkdir(directory, { recursive: true });
+      await writeFile(join(directory, "plan.png"), topology.png);
+      await writeFile(getPlanSketchCachePath(templateId, tempCacheDir).metadataAbsolutePath, JSON.stringify(
+        buildPlanSketchCacheMetadata(templateId, renderTopologyProofSvg(getPlanGeometry(templateId)), topology.png),
+      ));
+    }
     clearLifeAnchorByteCache();
   });
 
@@ -194,7 +231,8 @@ describe("Life Sketch route", () => {
     // Seed the per-template anchor PNG at the default cache location.
     const cachePath = getLifeAnchorCachePath("tengah-5room");
     await mkdir(cachePath.directory, { recursive: true });
-    await writeFile(cachePath.absolutePath, PNG_MAGIC);
+    await writeFile(cachePath.absolutePath, Buffer.from(TINY_PNG_BASE64, "base64"));
+    await writeAnchorMetadata(cachePath.templateId, Buffer.from(TINY_PNG_BASE64, "base64"));
     writtenAnchors.push(cachePath.absolutePath);
 
     let imageCalls = 0;
@@ -239,7 +277,7 @@ describe("Life Sketch route", () => {
     assert.equal(response.headers.get("x-evidence-tier"), "prototype_visualisation");
     assert.equal(response.headers.get("x-prompt-id"), "life-sketch-from-anchor");
     assert.equal(response.headers.get("x-life-anchor-source"), "cache-png");
-    assert.equal(response.headers.get("x-life-anchor-scene"), "three-perspective-greybox-scene-manifest");
+    assert.equal(response.headers.get("x-life-anchor-scene"), "three-orthographic-greybox-scene-manifest");
     assert.equal(response.headers.get("x-life-topology-proof"), "local-plan-sketch");
     assert.equal(response.headers.get("x-life-brand-reference"), "present");
     assert.equal(response.headers.get("x-life-material-reference"), "present");
@@ -252,7 +290,7 @@ describe("Life Sketch route", () => {
       "life-anchors/tengah-5room/anchor.png",
     );
     assert.equal(bytes.subarray(0, 8).toString("hex"), PNG_MAGIC.toString("hex"));
-    assert.equal(bytes[8], 1);
+    assert.deepEqual(bytes, Buffer.from(candidateBase64(1), "base64"));
     assert.equal(imageCalls, 1);
     assert.equal(reviewCalls, 1);
     assert.equal(editForm?.getAll("image[]").length, 4);
@@ -283,7 +321,7 @@ describe("Life Sketch route", () => {
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("content-type"), "image/svg+xml");
     assert.equal(response.headers.get("x-life-anchor-source"), "deterministic-svg");
-    assert.equal(response.headers.get("x-life-anchor-scene"), "three-perspective-greybox-scene-manifest");
+    assert.equal(response.headers.get("x-life-anchor-scene"), "three-orthographic-greybox-scene-manifest");
     assert.equal(response.headers.get("x-sketch-fallback"), "deterministic-anchor-svg");
     assert.equal(response.headers.get("x-evidence-tier"), "prototype_visualisation");
     assert.match(body, /camera-view greybox anchor/);
@@ -295,7 +333,8 @@ describe("Life Sketch route", () => {
 
     const anchorPath = getLifeAnchorCachePath("resale-exec-1990s");
     await mkdir(anchorPath.directory, { recursive: true });
-    await writeFile(anchorPath.absolutePath, PNG_MAGIC);
+    await writeFile(anchorPath.absolutePath, Buffer.from(TINY_PNG_BASE64, "base64"));
+    await writeAnchorMetadata(anchorPath.templateId, Buffer.from(TINY_PNG_BASE64, "base64"));
     writtenAnchors.push(anchorPath.absolutePath);
     const acceptedPath = await seedAcceptedLifeSketch(tempCacheDir, "resale-exec-1990s");
 
@@ -315,16 +354,17 @@ describe("Life Sketch route", () => {
     assert.equal(response.headers.get("x-life-sketch-cache-path"), acceptedPath.relativePath);
     assert.equal(response.headers.get("x-life-sketch-metadata-path"), acceptedPath.metadataRelativePath);
     assert.equal(response.headers.get("x-life-anchor-source"), "cache-png");
-    assert.equal(response.headers.get("x-life-anchor-scene"), "three-perspective-greybox-scene-manifest");
+    assert.equal(response.headers.get("x-life-anchor-scene"), "three-orthographic-greybox-scene-manifest");
     assert.equal(bytes.subarray(0, 8).toString("hex"), PNG_MAGIC.toString("hex"));
   });
 
-  it("default path flags deterministic sumi-e when accepted GPT prebake is missing", async () => {
+  it("default path surfaces a protected-space source conflict without generation", async () => {
     delete process.env.OPENAI_API_KEY;
 
     const cachePath = getLifeAnchorCachePath("tampines-greenweave");
     await mkdir(cachePath.directory, { recursive: true });
-    await writeFile(cachePath.absolutePath, PNG_MAGIC);
+    await writeFile(cachePath.absolutePath, Buffer.from(TINY_PNG_BASE64, "base64"));
+    await writeAnchorMetadata(cachePath.templateId, Buffer.from(TINY_PNG_BASE64, "base64"));
     writtenAnchors.push(cachePath.absolutePath);
 
     const response = await POST(postLife({ templateId: "tampines-greenweave" }, "image/svg+xml"));
@@ -334,9 +374,9 @@ describe("Life Sketch route", () => {
     assert.equal(response.headers.get("content-type"), "image/svg+xml");
     assert.equal(response.headers.get("x-sketch-source"), "deterministic-sumi-e-life-sketch");
     assert.equal(response.headers.get("x-life-sketch-mode"), "deterministic-sumi-e");
-    assert.equal(response.headers.get("x-sketch-fallback"), "missing-accepted-gpt-prebake");
-    assert.equal(response.headers.get("x-life-anchor-source"), "cache-png");
-    assert.equal(response.headers.get("x-life-anchor-scene"), "three-perspective-greybox-scene-manifest");
+    assert.equal(response.headers.get("x-sketch-fallback"), "geometry_source_conflict");
+    assert.equal(response.headers.get("x-life-anchor-source"), "deterministic-svg");
+    assert.equal(response.headers.get("x-life-anchor-scene"), "three-orthographic-greybox-scene-manifest");
     assert.equal(response.headers.get("x-prompt-id"), null);
     assert.match(body, /data-life-sketch-source="deterministic-sumi-e"/);
     assert.match(body, /locked-anchor-materialized-surfaces/);
@@ -347,7 +387,8 @@ describe("Life Sketch route", () => {
 
     const cachePath = getLifeAnchorCachePath("tampines-greenweave");
     await mkdir(cachePath.directory, { recursive: true });
-    await writeFile(cachePath.absolutePath, PNG_MAGIC);
+    await writeFile(cachePath.absolutePath, Buffer.from(TINY_PNG_BASE64, "base64"));
+    await writeAnchorMetadata(cachePath.templateId, Buffer.from(TINY_PNG_BASE64, "base64"));
     writtenAnchors.push(cachePath.absolutePath);
 
     const response = await POST(
@@ -360,7 +401,7 @@ describe("Life Sketch route", () => {
     assert.equal(response.headers.get("x-sketch-fallback"), "local-prebaked-anchor");
     assert.equal(response.headers.get("x-sketch-source"), "local-prebaked-anchor");
     assert.equal(response.headers.get("x-life-anchor-source"), "cache-png");
-    assert.equal(response.headers.get("x-life-anchor-scene"), "three-perspective-greybox-scene-manifest");
+    assert.equal(response.headers.get("x-life-anchor-scene"), "three-orthographic-greybox-scene-manifest");
     assert.equal(response.headers.get("x-prompt-id"), null);
     assert.equal(bytes.subarray(0, 8).toString("hex"), PNG_MAGIC.toString("hex"));
   });
@@ -383,7 +424,7 @@ describe("Life Sketch route", () => {
     assert.equal(body.tier, "prototype_visualisation");
     assert.match(body.nextAction, /OPENAI_API_KEY/);
     assert.equal(body.anchor.source, "request-png");
-    assert.equal(body.anchor.scene, "three-perspective-greybox-scene-manifest");
+    assert.equal(body.anchor.scene, "three-orthographic-greybox-scene-manifest");
     assert.equal(response.headers.get("x-life-topology-proof"), "local-plan-sketch");
     assert.equal(response.headers.get("x-life-brand-reference"), "present");
     assert.equal(response.headers.get("x-life-material-reference"), "present");
@@ -437,7 +478,7 @@ describe("Life Sketch route", () => {
     assert.equal(response.headers.get("x-life-sketch-qa-model"), "gpt-4.1-mini");
     assert.equal(response.headers.get("x-life-sketch-accepted-candidate"), "1");
     assert.equal(bytes.subarray(0, 8).toString("hex"), PNG_MAGIC.toString("hex"));
-    assert.equal(bytes[8], 1);
+    assert.deepEqual(bytes, Buffer.from(candidateBase64(1), "base64"));
     assert.equal(imageCalls, 1);
     assert.equal(reviewCalls, 1);
     assert.equal(editForm?.getAll("image[]").length, 4);

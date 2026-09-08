@@ -12,6 +12,9 @@
 // overridable via OPENAI_TIMEOUT_MS.
 
 import type { ImagePromptKind } from "@/server/folio/prompts";
+import { fetchOpenAIWithTimeout } from "./transport";
+import { isPngImage } from "@/lib/png";
+export { isPngImage } from "@/lib/png";
 
 const GENERATIONS_URL = "https://api.openai.com/v1/images/generations";
 const EDITS_URL = "https://api.openai.com/v1/images/edits";
@@ -76,12 +79,12 @@ interface OpenAIDataResponse {
   error?: { message?: string };
 }
 
-async function parseOpenAIResponse(res: Response): Promise<OpenAIDataResponse> {
-  const text = await res.text();
+function parseOpenAIResponse(text: string): OpenAIDataResponse {
   if (!text) return {};
 
   try {
-    return JSON.parse(text) as OpenAIDataResponse;
+    const parsed: unknown = JSON.parse(text);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as OpenAIDataResponse : {};
   } catch {
     return {
       error: {
@@ -138,7 +141,7 @@ export function getOpenAIImageConfig(env: OpenAIImageEnv = process.env): OpenAII
 }
 
 export function sanitizeOpenAIErrorDetail(detail: string | undefined, env: OpenAIImageEnv = process.env): string | undefined {
-  if (!detail) return undefined;
+  if (typeof detail !== "string" || !detail) return undefined;
   let safe = detail;
   for (const secret of [env.OPENAI_API_KEY, env.OPENAI_ORG_ID]) {
     if (secret) safe = safe.replaceAll(secret, "[redacted]");
@@ -152,11 +155,18 @@ function authHeaders(config: Extract<OpenAIImageConfig, { ok: true }>): Record<s
   return headers;
 }
 
+
 function decodeImages(payload: OpenAIDataResponse): Buffer[] {
-  return payload.data
-    ?.map((item) => item.b64_json)
-    .filter((b64): b64 is string => Boolean(b64))
-    .map((b64) => Buffer.from(b64, "base64")) ?? [];
+  if (!Array.isArray(payload.data) || payload.data.length === 0) return [];
+  const candidates: Buffer[] = [];
+  for (const item of payload.data) {
+    const b64 = item?.b64_json;
+    if (typeof b64 !== "string" || !b64 || b64.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(b64)) return [];
+    const png = Buffer.from(b64, "base64");
+    if (!isPngImage(png)) return [];
+    candidates.push(png);
+  }
+  return candidates;
 }
 
 function clampImageCount(raw: number | undefined): number {
@@ -165,39 +175,13 @@ function clampImageCount(raw: number | undefined): number {
   return Math.max(1, Math.min(10, Math.trunc(raw)));
 }
 
-interface FetchTimeoutOutcome {
-  response?: Response;
-  timedOut: boolean;
-  error?: unknown;
-}
-
-async function fetchWithTimeout(
-  url: string,
-  init: RequestInit,
-  timeoutMs: number,
-): Promise<FetchTimeoutOutcome> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, { ...init, signal: controller.signal });
-    return { response, timedOut: false };
-  } catch (err) {
-    const aborted =
-      controller.signal.aborted ||
-      (err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError"));
-    return { timedOut: aborted, error: err };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 export async function callOpenAIImage(req: ImageRequest): Promise<ImageResult> {
   const config = getOpenAIImageConfig();
   if (!config.ok) {
     return { ok: false, reason: "missing_api_key", promptId: req.promptId, detail: config.message };
   }
 
-  const model = req.model ?? config.model;
+  const model = req.model ? normalizeOpenAIImageModel(req.model) : config.model;
   const timeoutMs = req.timeoutMs && req.timeoutMs > 0 ? req.timeoutMs : config.timeoutMs;
 
   if (req.mode === "generate") {
@@ -209,7 +193,7 @@ export async function callOpenAIImage(req: ImageRequest): Promise<ImageResult> {
       n: clampImageCount(req.n),
     };
 
-    const outcome = await fetchWithTimeout(
+    const outcome = await fetchOpenAIWithTimeout(
       GENERATIONS_URL,
       {
         method: "POST",
@@ -235,13 +219,13 @@ export async function callOpenAIImage(req: ImageRequest): Promise<ImageResult> {
         detail: sanitizeOpenAIErrorDetail(outcome.error instanceof Error ? outcome.error.message : undefined),
       };
     }
-    const json = await parseOpenAIResponse(outcome.response);
+    const json = parseOpenAIResponse(outcome.text ?? "");
     if (!outcome.response.ok) {
       return { ok: false, reason: "openai_error", promptId: req.promptId, detail: sanitizeOpenAIErrorDetail(json.error?.message) };
     }
     const candidates = decodeImages(json);
     if (!candidates[0]) {
-      return { ok: false, reason: "openai_error", promptId: req.promptId, detail: "empty response" };
+      return { ok: false, reason: "openai_error", promptId: req.promptId, detail: "OpenAI returned no complete PNG images." };
     }
     return { ok: true, promptId: req.promptId, png: candidates[0], candidates };
   }
@@ -274,7 +258,7 @@ export async function callOpenAIImage(req: ImageRequest): Promise<ImageResult> {
     );
   }
 
-  const outcome = await fetchWithTimeout(
+  const outcome = await fetchOpenAIWithTimeout(
     EDITS_URL,
     {
       method: "POST",
@@ -300,13 +284,13 @@ export async function callOpenAIImage(req: ImageRequest): Promise<ImageResult> {
       detail: sanitizeOpenAIErrorDetail(outcome.error instanceof Error ? outcome.error.message : undefined),
     };
   }
-  const json = await parseOpenAIResponse(outcome.response);
+  const json = parseOpenAIResponse(outcome.text ?? "");
   if (!outcome.response.ok) {
     return { ok: false, reason: "openai_error", promptId: req.promptId, detail: sanitizeOpenAIErrorDetail(json.error?.message) };
   }
   const candidates = decodeImages(json);
   if (!candidates[0]) {
-    return { ok: false, reason: "openai_error", promptId: req.promptId, detail: "empty response" };
+    return { ok: false, reason: "openai_error", promptId: req.promptId, detail: "OpenAI returned no complete PNG images." };
   }
   return { ok: true, promptId: req.promptId, png: candidates[0], candidates };
 }

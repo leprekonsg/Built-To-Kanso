@@ -1,14 +1,17 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { hashBytes } from "@/lib/imageHash";
+import { hashBytes, hashString } from "@/lib/imageHash";
+import { buildLifeAnchorSceneManifest, getLifeAnchorCachePath, lifeAnchorManifestHash } from "@/server/anchors/lifeAnchor";
+import { getOpenAIImagePrompt } from "@/server/folio/prompts";
+import { getPlanGeometry } from "@/server/geometry/registry";
 import type { TemplateId } from "@/server/geometry/types";
-import { LIFE_SKETCH_QA_GATE_VERSION } from "@/server/openai/lifeSketchReview";
+import { LIFE_SKETCH_QA_GATE_VERSION, validateLifeSketchReview, type LifeSketchCandidateReview } from "@/server/openai/lifeSketchReview";
+import { isPngImage } from "@/lib/png";
+import type { LifeSketchReferenceBundle } from "@/server/openai/sketches";
+import { getPlanSketchCachePath, resolveCurrentPlanSketchArtifact } from "./planSketchAsset";
 
 const LIFE_SKETCH_TIER = "prototype_visualisation" as const;
-// v5 (2026-05-11): deterministic bathroom-count gate added to the QA review.
-// Prebakes baked under v4 may have a hallucinated extra bathroom because the
-// VLM accepted candidates without counting fixtures — bump invalidates them.
-const LIFE_SKETCH_INPUT_FINGERPRINT_VERSION = "topology-proof-v5-deterministic-bathroom-count" as const;
+const LIFE_SKETCH_INPUT_FINGERPRINT_VERSION = "v6-complete-input-provenance" as const;
 
 function defaultLifeSketchRoot(): string {
   return process.env.LIFE_SKETCH_CACHE_ROOT
@@ -45,6 +48,12 @@ export interface AcceptedLifeSketchMetadata {
   inputFingerprintVersion?: typeof LIFE_SKETCH_INPUT_FINGERPRINT_VERSION;
   anchorHash?: string;
   topologyProofHash?: string;
+  manifestHash?: string;
+  promptHash?: string;
+  brandHash?: string;
+  materialHash?: string;
+  pngHash?: string;
+  candidateReviews?: LifeSketchCandidateReview[];
 }
 
 export interface AcceptedLifeSketchArtifact {
@@ -76,31 +85,60 @@ export function getAcceptedLifeSketchCachePath(
   };
 }
 
-async function readRelativeHash(cacheRoot: string, relativePath: string | undefined): Promise<string | undefined> {
-  if (!relativePath || relativePath === "local-plan-sketch") return undefined;
+async function readOptionalFile(absolutePath: string): Promise<Buffer | undefined> {
   try {
-    return hashBytes(await readFile(/*turbopackIgnore: true*/ join(cacheRoot, relativePath)));
+    return await readFile(/*turbopackIgnore: true*/ absolutePath);
   } catch {
     return undefined;
   }
 }
 
+export async function loadLifeSketchStyleReferences(
+  cacheRoot = resolve(/*turbopackIgnore: true*/ process.cwd(), "public"),
+): Promise<LifeSketchReferenceBundle> {
+  const [brand, material] = await Promise.all([
+    readOptionalFile(join(cacheRoot, "references", "brand-v3-poster.png")),
+    readOptionalFile(join(cacheRoot, "references", "hdb-material-board.png"))
+      .then(async (bytes) => bytes ?? readOptionalFile(join(cacheRoot, "references", "japandi-material-board.png"))),
+  ]);
+  return { ...(brand ? { brand } : {}), ...(material ? { material } : {}) };
+}
+
+export function lifeSketchInputFingerprint(
+  templateId: TemplateId,
+  anchor: Buffer,
+  references: LifeSketchReferenceBundle,
+) {
+  const material = references.material ?? references.japandi;
+  return {
+    inputFingerprintVersion: LIFE_SKETCH_INPUT_FINGERPRINT_VERSION,
+    qaGateVersion: LIFE_SKETCH_QA_GATE_VERSION,
+    anchorHash: hashBytes(anchor),
+    topologyProofHash: references.topologyProof ? hashBytes(references.topologyProof) : "missing",
+    manifestHash: lifeAnchorManifestHash(buildLifeAnchorSceneManifest(getPlanGeometry(templateId))),
+    promptHash: hashString(getOpenAIImagePrompt("life-sketch-from-anchor").prompt),
+    brandHash: references.brand ? hashBytes(references.brand) : "missing",
+    materialHash: material ? hashBytes(material) : "missing",
+  };
+}
+
 async function acceptedInputFingerprintIsCurrent(
-  cacheRoot: string,
+  cacheRoot: string | undefined,
   metadata: AcceptedLifeSketchMetadata,
 ): Promise<boolean> {
   if (metadata.inputFingerprintVersion !== LIFE_SKETCH_INPUT_FINGERPRINT_VERSION) return false;
   if (metadata.qaGateVersion !== LIFE_SKETCH_QA_GATE_VERSION) return false;
-  const [anchorHash, topologyProofHash] = await Promise.all([
-    readRelativeHash(cacheRoot, metadata.anchorCachePath),
-    readRelativeHash(cacheRoot, metadata.topologyProof),
+  const anchorPath = getLifeAnchorCachePath(metadata.templateId, cacheRoot);
+  const topologyPath = getPlanSketchCachePath(metadata.templateId, cacheRoot);
+  if (metadata.anchorCachePath !== anchorPath.relativePath || metadata.topologyProof !== topologyPath.relativePath) return false;
+  const [anchor, topologyProof, style] = await Promise.all([
+    readOptionalFile(anchorPath.absolutePath),
+    resolveCurrentPlanSketchArtifact(metadata.templateId, cacheRoot).then((artifact) => artifact?.png),
+    loadLifeSketchStyleReferences(cacheRoot),
   ]);
-  return Boolean(
-    metadata.anchorHash &&
-      metadata.topologyProofHash &&
-      anchorHash === metadata.anchorHash &&
-      topologyProofHash === metadata.topologyProofHash,
-  );
+  if (!anchor || !topologyProof) return false;
+  const current = lifeSketchInputFingerprint(metadata.templateId, anchor, { ...style, topologyProof });
+  return Object.entries(current).every(([key, value]) => metadata[key as keyof AcceptedLifeSketchMetadata] === value);
 }
 
 export async function resolveAcceptedLifeSketchArtifact(
@@ -114,19 +152,8 @@ export async function resolveAcceptedLifeSketchArtifact(
       readFile(/*turbopackIgnore: true*/ cache.absolutePath),
       readFile(/*turbopackIgnore: true*/ cache.metadataAbsolutePath, "utf8"),
     ]);
-    if (!isPng(png)) return null;
-
-    const metadata = JSON.parse(rawMetadata) as AcceptedLifeSketchMetadata;
-    if (
-      metadata.templateId !== templateId ||
-      metadata.source !== "accepted_gpt_image_2_prebake" ||
-      metadata.promptKind !== "life-sketch-from-anchor" ||
-      metadata.candidateCount < 2 ||
-      metadata.acceptedCandidateIndex < 0
-    ) {
-      return null;
-    }
-    if (!(await acceptedInputFingerprintIsCurrent(root, metadata))) return null;
+    const metadata = await validateAcceptedLifeSketchMetadata(templateId, png, JSON.parse(rawMetadata), cacheRoot);
+    if (!metadata) return null;
 
     return {
       source: "accepted-gpt-image-2-prebake",
@@ -143,16 +170,45 @@ export async function resolveAcceptedLifeSketchArtifact(
   }
 }
 
-export { LIFE_SKETCH_INPUT_FINGERPRINT_VERSION };
-
-function isPng(bytes: Buffer): boolean {
-  return bytes.length >= 8 &&
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47 &&
-    bytes[4] === 0x0d &&
-    bytes[5] === 0x0a &&
-    bytes[6] === 0x1a &&
-    bytes[7] === 0x0a;
+export async function validateAcceptedLifeSketchMetadata(
+  templateId: TemplateId,
+  png: Buffer,
+  value: unknown,
+  cacheRoot?: string,
+): Promise<AcceptedLifeSketchMetadata | null> {
+  if (!isPngImage(png) || !value || typeof value !== "object") return null;
+  const plan = getPlanGeometry(templateId);
+  if (buildLifeAnchorSceneManifest(plan).metadata.geometryIssues.length > 0) return null;
+  const metadata = value as AcceptedLifeSketchMetadata;
+  if (
+    metadata.templateId !== templateId ||
+    metadata.source !== "accepted_gpt_image_2_prebake" ||
+    metadata.promptKind !== "life-sketch-from-anchor" ||
+    !Number.isInteger(metadata.candidateCount) || metadata.candidateCount < 2 || metadata.candidateCount > 3 ||
+    !Number.isInteger(metadata.acceptedCandidateIndex) || metadata.acceptedCandidateIndex < 0 ||
+    metadata.acceptedCandidateIndex >= metadata.candidateCount ||
+    !Array.isArray(metadata.rejectedCandidates) ||
+    metadata.evidenceTier !== LIFE_SKETCH_TIER ||
+    metadata.sourceTruth !== "plan-geometry.json" ||
+    typeof metadata.generationModel !== "string" || !metadata.generationModel ||
+    typeof metadata.reviewerModel !== "string" || !metadata.reviewerModel ||
+    typeof metadata.acceptedAtIso !== "string" || !Number.isFinite(Date.parse(metadata.acceptedAtIso)) ||
+    metadata.pngHash !== hashBytes(png)
+  ) return null;
+  const review = validateLifeSketchReview({
+    acceptedCandidateIndex: metadata.acceptedCandidateIndex,
+    candidateReviews: metadata.candidateReviews,
+    summary: metadata.reviewerSummary,
+  }, metadata.candidateCount, plan.rooms.filter((room) => room.kind === "bathroom").length);
+  if (!review.ok) return null;
+  const rejectedIndices = new Set<number>();
+  for (const rejected of metadata.rejectedCandidates) {
+    if (!rejected || !Number.isInteger(rejected.candidateIndex) || rejected.candidateIndex < 0 ||
+        rejected.candidateIndex >= metadata.candidateCount || rejected.candidateIndex === metadata.acceptedCandidateIndex ||
+        rejectedIndices.has(rejected.candidateIndex) || typeof rejected.reason !== "string" || !rejected.reason) return null;
+    rejectedIndices.add(rejected.candidateIndex);
+  }
+  return await acceptedInputFingerprintIsCurrent(cacheRoot, metadata) ? metadata : null;
 }
+
+export { LIFE_SKETCH_INPUT_FINGERPRINT_VERSION };

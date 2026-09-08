@@ -7,9 +7,11 @@
 
 import { hashBytes, hashString } from "@/lib/imageHash";
 import { getOpenAIImagePrompt, type ImagePromptKind } from "@/server/folio/prompts";
-import { callOpenAIImage, getOpenAIImageConfig, getOpenAIImageModel } from "./client";
+import { callOpenAIImage, getOpenAIImageConfig, getOpenAIImageModel, isPngImage } from "./client";
 import {
   LIFE_SKETCH_QA_GATE_VERSION,
+  getLifeSketchReviewModel,
+  validateLifeSketchReview,
   reviewLifeSketchCandidates,
   type LifeSketchCandidateReview,
 } from "./lifeSketchReview";
@@ -26,12 +28,24 @@ import {
 // so consumers don't need to re-narrow.
 const SKETCH_TIER = "prototype_visualisation" as const;
 
+const PENDING_SKETCHES = new Map<string, Promise<SketchResult>>();
+
+function shareGeneration(key: string, generate: () => Promise<SketchResult>): Promise<SketchResult> {
+  const scope = `${process.env.SKETCH_CACHE_PROVIDER ?? "memory"}:${process.env.SKETCH_CACHE_DIR ?? ""}:${key}`;
+  const pending = PENDING_SKETCHES.get(scope);
+  if (pending) return pending;
+  const task = generate().finally(() => PENDING_SKETCHES.delete(scope));
+  PENDING_SKETCHES.set(scope, task);
+  return task;
+}
+
 export type SketchSuccess = {
   ok: true;
   png: Buffer;
   fromCache: boolean;
   tier: typeof SKETCH_TIER;
   promptId: ImagePromptKind;
+  generationModel?: string;
   candidateCount?: number;
   acceptedCandidateIndex?: number;
   qa?: LifeSketchQaReport;
@@ -98,30 +112,36 @@ async function runOrCache(
   buildRequest: () => Parameters<typeof callOpenAIImage>[0],
 ): Promise<SketchResult> {
   const model = getOpenAIImageModel();
-  const request = buildRequest();
-  const key = keyFor(promptId, { ...inputs, model, promptHash: hashString(request.prompt) });
+  const request = { ...buildRequest(), model };
+  const key = keyFor(promptId, { ...inputs, model, promptHash: hashString(JSON.stringify({ prompt: request.prompt, mode: request.mode, size: request.size ?? "1024x1024" })) });
   const cacheResult = getConfiguredSketchCache();
   if (!cacheResult.ok) {
     return { ok: false, reason: cacheResult.reason, promptId, detail: cacheResult.message };
   }
 
-  const cached = await cacheResult.cache.get(key);
-  if (cached) {
-      return { ok: true, png: cached, fromCache: true, tier: SKETCH_TIER, promptId };
-  }
+  return shareGeneration(key, async () => {
+    const cached = await cacheResult.cache.get(key);
+    if (cached && isPngImage(cached)) {
+      return { ok: true, png: cached, fromCache: true, tier: SKETCH_TIER, promptId, generationModel: model };
+    }
 
-  const config = getOpenAIImageConfig();
-  if (!config.ok) {
-    return { ok: false, reason: "no_cached_no_key", promptId, detail: config.message };
-  }
+    const config = getOpenAIImageConfig();
+    if (!config.ok) {
+      return { ok: false, reason: "no_cached_no_key", promptId, detail: config.message };
+    }
 
-  const result = await callOpenAIImage(request);
-  if (!result.ok) {
-    return { ok: false, reason: result.reason === "missing_api_key" ? "no_cached_no_key" : result.reason, promptId, detail: result.detail };
-  }
+    const result = await callOpenAIImage(request);
+    if (!result.ok) {
+      return { ok: false, reason: result.reason === "missing_api_key" ? "no_cached_no_key" : result.reason, promptId, detail: result.detail };
+    }
 
-  await cacheResult.cache.put(key, result.png);
-  return { ok: true, png: result.png, fromCache: false, tier: SKETCH_TIER, promptId };
+    try {
+      await cacheResult.cache.put(key, result.png);
+    } catch {
+      console.warn("Sketch generated, but its cache could not be written. Check SKETCH_CACHE_DIR permissions and disk space.");
+    }
+    return { ok: true, png: result.png, fromCache: false, tier: SKETCH_TIER, promptId, generationModel: model };
+  });
 }
 
 export async function generatePlanSketch(planSvgPng: Buffer): Promise<SketchResult> {
@@ -158,118 +178,152 @@ export async function generateLifeSketch(
   reviewContext: LifeSketchReviewContext = {},
 ): Promise<SketchResult> {
   const spec = getOpenAIImagePrompt("life-sketch-from-anchor");
+  // Reject unusable review inputs before spending on generation or consulting
+  // a cache entry approved under different structural facts.
+  if (!references.topologyProof?.length) {
+    return { ok: false, reason: "openai_error", promptId: spec.kind, detail: "Life Sketch requires a top-down topology proof before image generation." };
+  }
+  if (!Number.isInteger(reviewContext.lockedBathroomCount) || (reviewContext.lockedBathroomCount as number) < 0) {
+    return { ok: false, reason: "openai_error", promptId: spec.kind, detail: "Life Sketch requires a non-negative integer lockedBathroomCount from plan-geometry.json before image generation." };
+  }
   const materialReference = references.material ?? references.japandi;
   const referenceImages = [references.topologyProof, references.brand, materialReference].filter(
     (buf): buf is Buffer => Buffer.isBuffer(buf),
   );
+  if (!isPngImage(anchorPng) || referenceImages.some((png) => !isPngImage(png))) {
+    return { ok: false, reason: "openai_error", promptId: spec.kind, detail: "Life Sketch requires complete PNG anchor and reference images. Rebuild or replace the damaged input before materialization." };
+  }
   const imageHashes = [hashBytes(anchorPng), ...referenceImages.map((buf) => hashBytes(buf))];
   const model = getOpenAIImageModel();
   const request = {
     mode: "edit" as const,
     promptId: spec.kind,
-    prompt: spec.prompt,
+    prompt: [spec.prompt, "Locked room identities and coordinates (meters in the anchor X/Z floor plane; do not print these as labels):", reviewContext.manifestSummary ?? "", `Exactly ${reviewContext.lockedBathroomCount} bathrooms. Match each kitchen, service yard and shelter to its own reference footprint before placing fixtures. A washer in a shelter does not satisfy the service yard requirement.`].join("\n"),
     image: anchorPng,
     ...(referenceImages.length > 0 ? { referenceImages } : {}),
     n: LIFE_SKETCH_CANDIDATE_COUNT,
     size: "1536x1024",
+    model,
   };
   const key = keyFor(spec.kind, {
     imageHashes,
     model,
     promptHash: hashString(request.prompt),
     qaGateVersion: LIFE_SKETCH_QA_GATE_VERSION,
+    seed: hashString(JSON.stringify({
+      manifestSummary: reviewContext.manifestSummary ?? "",
+      lockedBathroomCount: reviewContext.lockedBathroomCount,
+      reviewerModel: getLifeSketchReviewModel(),
+      referenceRoles: [Boolean(references.topologyProof), Boolean(references.brand), Boolean(materialReference)],
+    })),
   });
   const cacheResult = getConfiguredSketchCache();
   if (!cacheResult.ok) {
     return { ok: false, reason: cacheResult.reason, promptId: spec.kind, detail: cacheResult.message };
   }
 
-  const cached = await cacheResult.cache.get(key);
-  if (cached) {
-    const metadata = await getCachedMetadata(key);
-    if (metadata) {
-      const qa = qaFromMetadata(metadata, referenceImages.length);
+  return shareGeneration(key, async () => {
+    const cached = await cacheResult.cache.get(key);
+    if (cached && isPngImage(cached)) {
+      const metadata = await getCachedMetadata(key);
+      if (metadata?.pngHash === hashBytes(cached) && metadata.promptKind === spec.kind &&
+          Number.isInteger(metadata.candidateCount) && metadata.candidateCount >= 2 && metadata.candidateCount <= 3 &&
+          validateLifeSketchReview({
+            acceptedCandidateIndex: metadata.acceptedCandidateIndex,
+            summary: metadata.reviewerSummary,
+            candidateReviews: metadata.candidateReviews,
+          }, metadata.candidateCount, reviewContext.lockedBathroomCount).ok) {
+        const qa = qaFromMetadata(metadata, referenceImages.length);
+        return {
+          ok: true,
+          png: cached,
+          fromCache: true,
+          tier: SKETCH_TIER,
+          promptId: spec.kind,
+          generationModel: model,
+          candidateCount: qa.candidateCount,
+          acceptedCandidateIndex: qa.acceptedCandidateIndex,
+          qa,
+        };
+      }
+    }
+
+    const config = getOpenAIImageConfig();
+    if (!config.ok) {
+      return { ok: false, reason: "no_cached_no_key", promptId: spec.kind, detail: config.message };
+    }
+
+    const result = await callOpenAIImage(request);
+    if (!result.ok) {
+      return { ok: false, reason: result.reason === "missing_api_key" ? "no_cached_no_key" : result.reason, promptId: spec.kind, detail: result.detail };
+    }
+
+    const review = await reviewLifeSketchCandidates({
+      anchorPng,
+      topologyProof: references.topologyProof,
+      candidates: result.candidates,
+      manifestSummary: reviewContext.manifestSummary,
+      lockedBathroomCount: reviewContext.lockedBathroomCount,
+    });
+    if (!review.ok) {
+      console.warn("Life Sketch candidate review rejected the batch:", review.reason, review.detail);
+      const reason = review.reason === "openai_timeout"
+        ? "openai_timeout"
+        : review.reason === "openai_unreachable"
+          ? "openai_unreachable"
+          : "openai_error";
       return {
-        ok: true,
-        png: cached,
-        fromCache: true,
-        tier: SKETCH_TIER,
+        ok: false,
+        reason,
         promptId: spec.kind,
-        candidateCount: qa.candidateCount,
-        acceptedCandidateIndex: qa.acceptedCandidateIndex,
-        qa,
+        detail: `life_sketch_candidate_qa_${review.reason}: ${review.detail}`,
       };
     }
-  }
 
-  const config = getOpenAIImageConfig();
-  if (!config.ok) {
-    return { ok: false, reason: "no_cached_no_key", promptId: spec.kind, detail: config.message };
-  }
-
-  const result = await callOpenAIImage(request);
-  if (!result.ok) {
-    return { ok: false, reason: result.reason === "missing_api_key" ? "no_cached_no_key" : result.reason, promptId: spec.kind, detail: result.detail };
-  }
-
-  const review = await reviewLifeSketchCandidates({
-    anchorPng,
-    topologyProof: references.topologyProof,
-    candidates: result.candidates,
-    manifestSummary: reviewContext.manifestSummary,
-    lockedBathroomCount: reviewContext.lockedBathroomCount,
-  });
-  if (!review.ok) {
-    const reason = review.reason === "openai_timeout"
-      ? "openai_timeout"
-      : review.reason === "openai_unreachable"
-        ? "openai_unreachable"
-        : "openai_error";
-    return {
-      ok: false,
-      reason,
-      promptId: spec.kind,
-      detail: `life_sketch_candidate_qa_${review.reason}: ${review.detail}`,
+    const candidateCount = result.candidates.length;
+    const acceptedCandidateIndex = review.acceptedCandidateIndex;
+    const qa = buildLifeSketchQaReport({
+      candidateCount,
+      acceptedCandidateIndex,
+      hasTopologyProof: Boolean(references.topologyProof),
+      hasBrandReference: Boolean(references.brand),
+      hasMaterialReference: Boolean(materialReference),
+      fromCache: false,
+      candidateReviews: review.candidateReviews,
+      reviewerModel: review.model,
+      reviewerSummary: review.summary,
+    });
+    const metadata: SketchCacheMetadata = {
+      key,
+      pngHash: hashBytes(result.candidates[acceptedCandidateIndex]),
+      promptKind: spec.kind,
+      candidateCount,
+      acceptedCandidateIndex,
+      rejectedCandidates: qa.rejectedCandidates,
+      acceptedAtIso: new Date().toISOString(),
+      reviewerModel: review.model,
+      reviewerSummary: review.summary,
+      candidateReviews: review.candidateReviews,
     };
-  }
+    try {
+      await cacheResult.cache.put(key, result.candidates[acceptedCandidateIndex]);
+      await putCachedMetadata(metadata);
+    } catch {
+      console.warn("Life Sketch passed review, but its cache could not be written. Check SKETCH_CACHE_DIR permissions and disk space.");
+    }
 
-  const candidateCount = result.candidates.length;
-  const acceptedCandidateIndex = review.acceptedCandidateIndex;
-  const qa = buildLifeSketchQaReport({
-    candidateCount,
-    acceptedCandidateIndex,
-    hasTopologyProof: Boolean(references.topologyProof),
-    hasBrandReference: Boolean(references.brand),
-    hasMaterialReference: Boolean(materialReference),
-    fromCache: false,
-    candidateReviews: review.candidateReviews,
-    reviewerModel: review.model,
-    reviewerSummary: review.summary,
+    return {
+      ok: true,
+      png: result.candidates[acceptedCandidateIndex] ?? result.png,
+      fromCache: false,
+      tier: SKETCH_TIER,
+      promptId: spec.kind,
+      candidateCount,
+      generationModel: model,
+      acceptedCandidateIndex,
+      qa,
+    };
   });
-  const metadata: SketchCacheMetadata = {
-    key,
-    promptKind: spec.kind,
-    candidateCount,
-    acceptedCandidateIndex,
-    rejectedCandidates: qa.rejectedCandidates,
-    acceptedAtIso: new Date().toISOString(),
-    reviewerModel: review.model,
-    reviewerSummary: review.summary,
-    candidateReviews: review.candidateReviews,
-  };
-  await cacheResult.cache.put(key, result.candidates[acceptedCandidateIndex] ?? result.png);
-  await putCachedMetadata(metadata);
-
-  return {
-    ok: true,
-    png: result.candidates[acceptedCandidateIndex] ?? result.png,
-    fromCache: false,
-    tier: SKETCH_TIER,
-    promptId: spec.kind,
-    candidateCount,
-    acceptedCandidateIndex,
-    qa,
-  };
 }
 
 function qaFromMetadata(metadata: SketchCacheMetadata, referenceCount: number): LifeSketchQaReport {
@@ -362,16 +416,6 @@ function buildLifeSketchQaReport(input: {
   };
 }
 
-export async function generateWindSketchMicroPolish(svgRasterPng: Buffer): Promise<SketchResult> {
-  const spec = getOpenAIImagePrompt("wind-sketch-micro-polish");
-  const imageHash = hashBytes(svgRasterPng);
-  return runOrCache(
-    spec.kind,
-    { imageHashes: [imageHash] },
-    () => ({ mode: "edit", promptId: spec.kind, prompt: spec.prompt, image: svgRasterPng }),
-  );
-}
-
 // Stage B of the brief's Wind Sketch pipeline. Produces a styled sumi-e top-
 // down background from a locked-plan rasterization. Stage C will composite
 // the deterministic LBM streamlines on top of this PNG, so this image must
@@ -382,7 +426,7 @@ export async function generateWindSketchBase(lockedPlanRasterPng: Buffer): Promi
   return runOrCache(
     spec.kind,
     { imageHashes: [imageHash] },
-    () => ({ mode: "edit", promptId: spec.kind, prompt: spec.prompt, image: lockedPlanRasterPng }),
+    () => ({ mode: "edit", promptId: spec.kind, prompt: spec.prompt, image: lockedPlanRasterPng, size: "1536x1024" }),
   );
 }
 
@@ -398,7 +442,7 @@ export async function generateResonanceHour(lifeSketchPng: Buffer): Promise<Sket
   return runOrCache(
     spec.kind,
     { imageHashes: [imageHash] },
-    () => ({ mode: "edit", promptId: spec.kind, prompt: spec.prompt, image: lifeSketchPng }),
+    () => ({ mode: "edit", promptId: spec.kind, prompt: spec.prompt, image: lifeSketchPng, size: "1536x1024" }),
   );
 }
 

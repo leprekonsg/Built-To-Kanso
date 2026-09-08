@@ -4,7 +4,7 @@ import type { LifeAnchorSceneManifest } from "./lifeAnchor";
 interface ScreenPoint {
   x: number;
   y: number;
-  distance: number;
+  depth: number;
 }
 
 interface Face {
@@ -12,6 +12,7 @@ interface Face {
   fill: string;
   stroke: string;
   opacity: number;
+  top: boolean;
   points: ScreenPoint[];
 }
 
@@ -39,7 +40,7 @@ export function renderLifeAnchorSceneSvg(manifest: LifeAnchorSceneManifest): str
     .filter((face) => face.points.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y)))
     .map((face) => {
       const points = face.points.map((point) => `${round(point.x)},${round(point.y)}`).join(" ");
-      return `<polygon data-anchor-face="${escapeAttr(face.id)}" points="${points}" fill="${face.fill}" fill-opacity="${face.opacity}" stroke="${face.stroke}" stroke-opacity="0.52" stroke-width="1.1"/>`;
+      return `<polygon data-anchor-face="${escapeAttr(face.id)}" points="${points}" fill="${face.top ? lighten(face.fill) : face.fill}" fill-opacity="${face.opacity}" stroke="${face.stroke}" stroke-opacity="0.52" stroke-width="1.1"/>`;
     })
     .join("");
 
@@ -47,7 +48,7 @@ export function renderLifeAnchorSceneSvg(manifest: LifeAnchorSceneManifest): str
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" data-anchor-source="${escapeAttr(manifest.metadata.source)}" data-render-watermark="draft">`,
     `<title>Life Sketch camera-view greybox anchor for ${escapeAttr(manifest.templateId)}</title>`,
-    "<desc>Deterministic perspective anchor generated from locked plan geometry. No generated geometry is compliance truth.</desc>",
+    "<desc>Deterministic orthographic axonometric anchor generated from locked plan geometry. No generated geometry is compliance truth.</desc>",
     `<rect width="100%" height="100%" fill="${COLORS.background}"/>`,
     `<ellipse cx="${round(width * 0.5)}" cy="${round(height * 0.86)}" rx="${round(width * 0.33)}" ry="${round(height * 0.12)}" fill="${COLORS.shadow}"/>`,
     polygons,
@@ -105,6 +106,7 @@ function projectManifestFaces(manifest: LifeAnchorSceneManifest): Face[] {
   const faces: Face[] = [];
 
   for (const room of manifest.rooms) {
+    if (!room.renderable) continue;
     faces.push(
       ...cuboidFaces({
         id: `room:${room.id}`,
@@ -120,10 +122,10 @@ function projectManifestFaces(manifest: LifeAnchorSceneManifest): Face[] {
     );
   }
 
-  for (const wall of manifest.wallVolumes) {
+  for (const [wallIndex, wall] of manifest.wallVolumes.entries()) {
     faces.push(
       ...cuboidFaces({
-        id: `wall:${wall.roomId}:${wall.edge}`,
+        id: `wall:${wall.roomId}:${wall.edge}:${wallIndex}`,
         position: wall.position,
         scale: wall.scale,
         fill: COLORS.wall,
@@ -161,6 +163,7 @@ function projectManifestFaces(manifest: LifeAnchorSceneManifest): Face[] {
   }
 
   for (const opening of manifest.openings) {
+    if (!opening.renderable) continue;
     const fill = opening.kind === "door" ? COLORS.door : opening.kind === "window" ? COLORS.window : COLORS.louver;
     faces.push(
       ...cuboidFaces({
@@ -195,14 +198,16 @@ function projectManifestFaces(manifest: LifeAnchorSceneManifest): Face[] {
     );
   }
 
-  faces.sort((a, b) => averageDistance(b) - averageDistance(a));
+  faces.sort((a, b) => averageDepth(b) - averageDepth(a));
   return faces;
 }
 
-function cameraFromManifest(manifest: LifeAnchorSceneManifest): THREE.PerspectiveCamera {
-  const camera = new THREE.PerspectiveCamera(
-    manifest.camera.fov,
-    manifest.camera.aspect,
+function cameraFromManifest(manifest: LifeAnchorSceneManifest): THREE.OrthographicCamera {
+  const camera = new THREE.OrthographicCamera(
+    manifest.camera.left,
+    manifest.camera.right,
+    manifest.camera.top,
+    manifest.camera.bottom,
     manifest.camera.near,
     manifest.camera.far,
   );
@@ -221,7 +226,7 @@ function cuboidFaces(input: {
   fill: string;
   stroke: string;
   opacity: number;
-  camera: THREE.PerspectiveCamera;
+  camera: THREE.OrthographicCamera;
   manifest: LifeAnchorSceneManifest;
   rotationY?: number;
   includeBottom: boolean;
@@ -241,13 +246,8 @@ function cuboidFaces(input: {
     [-hx, hy, hz],
   ] as const;
   const rotation = input.rotationY ?? 0;
-  const sin = Math.sin(rotation);
-  const cos = Math.cos(rotation);
-  const world = local.map(([x, y, z]) => {
-    const rx = x * cos - z * sin;
-    const rz = x * sin + z * cos;
-    return new THREE.Vector3(input.position[0] + rx, input.position[1] + y, input.position[2] + rz);
-  });
+  const transform = new THREE.Matrix4().makeRotationY(rotation).setPosition(...input.position);
+  const world = local.map(([x, y, z]) => new THREE.Vector3(x, y, z).applyMatrix4(transform));
   const faces = [
     [0, 1, 2, 3],
     [4, 7, 6, 5],
@@ -257,32 +257,57 @@ function cuboidFaces(input: {
     [3, 7, 4, 0],
   ];
 
-  return faces
-    .filter((_, index) => input.includeBottom || index !== 0)
-    .map((indices, index) => ({
+  return faces.flatMap((indices, index) => {
+    if (!input.includeBottom && index === 0) return [];
+    const points = clipToCameraDepth(indices.map((idx) => world[idx].clone().applyMatrix4(input.camera.matrixWorldInverse)), input.camera);
+    if (points.length < 3) return [];
+    return [{
       id: `${input.id}:${index}`,
-      fill: index === 1 ? lighten(input.fill) : input.fill,
+      fill: input.fill,
+      top: index === 1,
       stroke: input.stroke,
       opacity: input.opacity,
-      points: indices.map((idx) => project(world[idx], input.camera, input.manifest)),
-    }));
+      points: points.map((point) => project(point, input.camera, input.manifest)),
+    }];
+  });
+}
+
+// Clip in camera coordinates so surfaces behind the camera or beyond the far
+// plane cannot be painted over the visible home by the SVG fallback.
+function clipToCameraDepth(points: THREE.Vector3[], camera: THREE.OrthographicCamera): THREE.Vector3[] {
+  let clipped = points;
+  for (const [plane, sign] of [[-camera.near, -1], [-camera.far, 1]]) {
+    const output: THREE.Vector3[] = [];
+    for (let i = 0; i < clipped.length; i += 1) {
+      const current = clipped[i];
+      const previous = clipped[(i + clipped.length - 1) % clipped.length];
+      const currentInside = (current.z - plane) * sign >= 0;
+      const previousInside = (previous.z - plane) * sign >= 0;
+      if (currentInside !== previousInside) {
+        output.push(previous.clone().lerp(current, (plane - previous.z) / (current.z - previous.z)));
+      }
+      if (currentInside) output.push(current);
+    }
+    clipped = output;
+  }
+  return clipped;
 }
 
 function project(
   point: THREE.Vector3,
-  camera: THREE.PerspectiveCamera,
+  camera: THREE.OrthographicCamera,
   manifest: LifeAnchorSceneManifest,
 ): ScreenPoint {
-  const projected = point.clone().project(camera);
+  const projected = point.clone().applyMatrix4(camera.projectionMatrix);
   return {
     x: ((projected.x + 1) / 2) * manifest.viewport.width,
     y: ((1 - projected.y) / 2) * manifest.viewport.height,
-    distance: point.distanceTo(camera.position),
+    depth: -point.z,
   };
 }
 
-function averageDistance(face: Face): number {
-  return face.points.reduce((sum, point) => sum + point.distance, 0) / face.points.length;
+function averageDepth(face: Face): number {
+  return face.points.reduce((sum, point) => sum + point.depth, 0) / face.points.length;
 }
 
 function lighten(fill: string): string {

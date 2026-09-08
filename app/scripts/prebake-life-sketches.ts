@@ -11,19 +11,13 @@
  * The script is idempotent: re-running overwrites the cached PNG and metadata.
  */
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
 import process from "node:process";
-import { hashBytes } from "../src/lib/imageHash";
-import { getLifeAnchorCachePath } from "../src/server/anchors/lifeAnchor";
 import type { TemplateId } from "../src/server/geometry/types";
-import { LIFE_SKETCH_QA_GATE_VERSION } from "../src/server/openai/lifeSketchReview";
-import { getOpenAIImageModel } from "../src/server/openai/client";
-import { getPlanSketchCachePath } from "../src/server/sketches/planSketchAsset";
 import {
-  LIFE_SKETCH_INPUT_FINGERPRINT_VERSION,
   getAcceptedLifeSketchCachePath,
+  validateAcceptedLifeSketchMetadata,
 } from "../src/server/sketches/lifeSketchAsset";
+import { writeSketchArtifact } from "../src/server/sketches/writeSketchArtifact";
 
 const ALL_TEMPLATES: readonly TemplateId[] = [
   "tampines-greenweave",
@@ -34,16 +28,13 @@ const ALL_TEMPLATES: readonly TemplateId[] = [
 function pickTemplates(): TemplateId[] {
   const raw = process.env.LIFE_SKETCH_TEMPLATES;
   if (!raw) return [...ALL_TEMPLATES];
-  const ids = raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s): s is TemplateId => (ALL_TEMPLATES as readonly string[]).includes(s));
-  if (ids.length === 0) {
+  const ids = [...new Set(raw.split(",").map((s) => s.trim()))];
+  if (ids.some((id) => !(ALL_TEMPLATES as readonly string[]).includes(id))) {
     throw new Error(
       `LIFE_SKETCH_TEMPLATES does not match any known template. Valid ids: ${ALL_TEMPLATES.join(", ")}`,
     );
   }
-  return ids;
+  return ids as TemplateId[];
 }
 
 function baseUrl(): string {
@@ -78,60 +69,31 @@ async function bakeOne(templateId: TemplateId): Promise<PrebakeOutcome> {
   const contentType = res.headers.get("Content-Type") ?? "";
   if (!contentType.startsWith("image/png")) {
     const fallback = res.headers.get("X-Sketch-Fallback") ?? "unknown";
+    if (fallback === "geometry_source_conflict") {
+      throw new Error(`${templateId}: geometry_source_conflict. Resolve the curated plan's protected-space overlap before materialization.`);
+    }
     throw new Error(
       `materialize returned ${contentType} (fallback: ${fallback}) for ${templateId}. ` +
-        "The dev server may be missing OPENAI_API_KEY or the anchor PNG. Check .env.local.",
+        decodeURIComponent(res.headers.get("X-Sketch-Failure-Detail") ?? "Inspect the server generation/review log. A rejected candidate batch must not be saved as accepted."),
     );
   }
 
-  const candidateCount = Number(res.headers.get("X-Life-Sketch-Candidates") ?? "0");
-  const acceptedIndexHeader = res.headers.get("X-Life-Sketch-Accepted-Candidate");
-  const acceptedCandidateIndex = acceptedIndexHeader === null ? 0 : Number(acceptedIndexHeader);
-  const reviewerModel = res.headers.get("X-Life-Sketch-QA-Model") ?? undefined;
-  const anchorCachePath = res.headers.get("X-Life-Anchor-Cache-Path") ?? undefined;
-  const topologyProof = `plan-sketches/${templateId}/plan.png`;
-  const promptId = res.headers.get("X-Prompt-Id") ?? "life-sketch-from-anchor";
-
-  if (candidateCount < 2 || acceptedCandidateIndex < 0) {
-    throw new Error(
-      `metadata sanity check failed for ${templateId}: candidates=${candidateCount}, accepted=${acceptedCandidateIndex}`,
-    );
+  const qa = res.headers.get("X-Life-Sketch-QA");
+  const encodedMetadata = res.headers.get("X-Life-Sketch-Metadata");
+  if (res.headers.has("X-Sketch-Fallback") || !encodedMetadata || !["accepted", "accepted_from_cache"].includes(qa ?? "")) {
+    throw new Error(`Life Sketch for ${templateId} did not include accepted server provenance. Update/restart the server and retry.`);
   }
-
   const png = Buffer.from(await res.arrayBuffer());
   const cache = getAcceptedLifeSketchCachePath(templateId);
-  const anchorPath = getLifeAnchorCachePath(templateId);
-  const proofPath = getPlanSketchCachePath(templateId);
-  const [anchorBytes, topologyProofBytes] = await Promise.all([
-    readFile(anchorPath.absolutePath),
-    readFile(proofPath.absolutePath),
-  ]);
-  await mkdir(dirname(cache.absolutePath), { recursive: true });
+  const metadata = await validateAcceptedLifeSketchMetadata(
+    templateId, png, JSON.parse(Buffer.from(encodedMetadata, "base64").toString("utf8")),
+  );
+  if (!metadata) {
+    throw new Error(`Server image provenance does not match current inputs for ${templateId}. Use the same checkout/cache roots as the server, then retry.`);
+  }
+  await writeSketchArtifact(cache.absolutePath, cache.metadataAbsolutePath, png, metadata);
 
-  const metadata = {
-    templateId,
-    source: "accepted_gpt_image_2_prebake" as const,
-    promptKind: promptId,
-    candidateCount,
-    acceptedCandidateIndex,
-    rejectedCandidates: [],
-    acceptedAtIso: new Date().toISOString(),
-    evidenceTier: "prototype_visualisation",
-    sourceTruth: "plan-geometry.json",
-    qaGateVersion: LIFE_SKETCH_QA_GATE_VERSION,
-    generationModel: getOpenAIImageModel(),
-    ...(reviewerModel ? { reviewerModel } : {}),
-    ...(anchorCachePath ? { anchorCachePath } : {}),
-    topologyProof,
-    inputFingerprintVersion: LIFE_SKETCH_INPUT_FINGERPRINT_VERSION,
-    anchorHash: hashBytes(anchorBytes),
-    topologyProofHash: hashBytes(topologyProofBytes),
-  };
-
-  await writeFile(cache.absolutePath, png);
-  await writeFile(cache.metadataAbsolutePath, JSON.stringify(metadata, null, 2), "utf8");
-
-  console.log(`  ${templateId}: png ${(png.byteLength / 1024).toFixed(0)} KB, ${candidateCount} candidates, accepted #${acceptedCandidateIndex}, ${elapsed}s`);
+  console.log(`  ${templateId}: png ${(png.byteLength / 1024).toFixed(0)} KB, ${metadata.candidateCount} candidates, accepted #${metadata.acceptedCandidateIndex}, ${elapsed}s`);
   console.log(`    -> ${cache.relativePath}`);
 
   return {
@@ -148,13 +110,20 @@ async function main(): Promise<void> {
   console.log(`Templates: ${templates.join(", ")}`);
 
   const results: PrebakeOutcome[] = [];
+  const failures: string[] = [];
   for (const templateId of templates) {
-    const outcome = await bakeOne(templateId);
-    results.push(outcome);
+    try {
+      results.push(await bakeOne(templateId));
+    } catch (error) {
+      const failure = `${templateId}: ${error instanceof Error ? error.message : String(error)}`;
+      failures.push(failure);
+      console.error(failure);
+    }
   }
 
   const totalKb = results.reduce((s, r) => s + r.png, 0) / 1024;
   console.log(`done: ${results.length} templates, ${totalKb.toFixed(0)} KB total.`);
+  if (failures.length > 0) throw new Error(`${failures.length} template(s) failed; successful templates were saved. See failures above.`);
 }
 
 main().catch((err: unknown) => {
@@ -164,11 +133,6 @@ main().catch((err: unknown) => {
   if (typeof err === "object" && err && "cause" in err) {
     console.error(`cause: ${String((err as { cause?: unknown }).cause)}`);
   }
-  console.error(`hint: ensure the dev server is running and OPENAI_API_KEY is set in .env.local.`);
-  console.error(`hint: pass GUIDE_BASE_URL=http://localhost:3030 if your dev server is on a non-default port.`);
+  console.error("hint: resolve the reported source/provenance or server error, then retry the affected LIFE_SKETCH_TEMPLATES only.");
   process.exit(1);
 });
-
-// Resolve unused import warning during dev (resolve is part of the API surface
-// in case future variants need cacheRoot overrides).
-void resolve;

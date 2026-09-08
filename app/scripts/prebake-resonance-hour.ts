@@ -19,12 +19,10 @@
  * pin the un-polished Life Sketch as the resonance still.
  */
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
 import process from "node:process";
-import { hashBytes } from "../src/lib/imageHash";
-import { getOpenAIImageModel } from "../src/server/openai/client";
-import { getAcceptedLifeSketchCachePath } from "../src/server/sketches/lifeSketchAsset";
+import { resolveAcceptedLifeSketchArtifact } from "../src/server/sketches/lifeSketchAsset";
+import { getResonanceHourCachePath, validateResonanceHourMetadata } from "../src/server/sketches/resonanceHourAsset";
+import { writeSketchArtifact } from "../src/server/sketches/writeSketchArtifact";
 import type { TemplateId } from "../src/server/geometry/types";
 
 const ALL_TEMPLATES: readonly TemplateId[] = [
@@ -36,26 +34,15 @@ const ALL_TEMPLATES: readonly TemplateId[] = [
 function pickTemplates(): TemplateId[] {
   const raw = process.env.LIFE_SKETCH_TEMPLATES;
   if (!raw) return [...ALL_TEMPLATES];
-  const ids = raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s): s is TemplateId => (ALL_TEMPLATES as readonly string[]).includes(s));
-  if (ids.length === 0) {
+  const ids = [...new Set(raw.split(",").map((s) => s.trim()))];
+  if (ids.some((id) => !(ALL_TEMPLATES as readonly string[]).includes(id))) {
     throw new Error(`LIFE_SKETCH_TEMPLATES does not match any known template. Valid ids: ${ALL_TEMPLATES.join(", ")}`);
   }
-  return ids;
+  return ids as TemplateId[];
 }
 
 function baseUrl(): string {
   return process.env.GUIDE_BASE_URL ?? "http://localhost:3000";
-}
-
-function cachePath(templateId: TemplateId): string {
-  return resolve(process.cwd(), "public", "resonance-hour", templateId, "accepted.png");
-}
-
-function metadataPath(templateId: TemplateId): string {
-  return resolve(process.cwd(), "public", "resonance-hour", templateId, "accepted.json");
 }
 
 interface PrebakeOutcome {
@@ -65,7 +52,7 @@ interface PrebakeOutcome {
 }
 
 async function bakeOne(templateId: TemplateId): Promise<PrebakeOutcome> {
-  const url = `${baseUrl()}/api/sketches/resonance-hour`;
+  const url = `${baseUrl()}/api/sketches/resonance-hour?materialize=1`;
   const t0 = Date.now();
   const res = await fetch(url, {
     method: "POST",
@@ -81,7 +68,8 @@ async function bakeOne(templateId: TemplateId): Promise<PrebakeOutcome> {
   const contentType = res.headers.get("Content-Type") ?? "";
   const source = res.headers.get("X-Sketch-Source") ?? "unknown";
   const fallback = res.headers.get("X-Sketch-Fallback");
-  if (!contentType.startsWith("image/png") || source !== "resonance-hour-background") {
+  if (!contentType.startsWith("image/png") || source !== "resonance-hour-background" || fallback ||
+      res.headers.get("X-Resonance-Hour-Base") !== "accepted-gpt-image-2-prebake") {
     throw new Error(
       `resonance-hour returned ${contentType} (source=${source}, fallback=${fallback ?? "none"}) for ${templateId}. ` +
         "Run prebake:life-sketches first, ensure OPENAI_API_KEY is set, and retry.",
@@ -89,29 +77,19 @@ async function bakeOne(templateId: TemplateId): Promise<PrebakeOutcome> {
   }
 
   const bytes = Buffer.from(await res.arrayBuffer());
-  const path = cachePath(templateId);
-  const sourceLifeSketch = getAcceptedLifeSketchCachePath(templateId);
-  const acceptedLifeSketchBytes = await readFile(sourceLifeSketch.absolutePath);
-  const metadata = {
-    templateId,
-    source: "resonance_hour_prebake" as const,
-    promptKind: "resonance-hour-background" as const,
-    evidenceTier: "prototype_visualisation" as const,
-    sourceTruth: "plan-geometry.json" as const,
-    qaGateVersion: "resonance-hour-wind-cues-v1" as const,
-    scope: "phase1_demo_flagship" as const,
-    generationModel: getOpenAIImageModel(),
-    acceptedAtIso: new Date().toISOString(),
-    sourceLifeSketch: sourceLifeSketch.relativePath,
-    dependencyHashes: {
-      acceptedLifeSketchHash: hashBytes(acceptedLifeSketchBytes),
-    },
-  };
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, bytes);
-  await writeFile(metadataPath(templateId), JSON.stringify(metadata, null, 2), "utf8");
+  const cache = getResonanceHourCachePath(templateId);
+  const sourceLifeSketch = await resolveAcceptedLifeSketchArtifact(templateId);
+  const encodedMetadata = res.headers.get("X-Resonance-Hour-Metadata");
+  if (!sourceLifeSketch || !encodedMetadata) {
+    throw new Error(`Current accepted Life Sketch or server provenance is missing for ${templateId}. Rebuild Life Sketches and restart the server.`);
+  }
+  const metadata: unknown = JSON.parse(Buffer.from(encodedMetadata, "base64").toString("utf8"));
+  if (!validateResonanceHourMetadata(sourceLifeSketch, bytes, metadata)) {
+    throw new Error(`Server provenance does not match the current Life Sketch for ${templateId}. Use the same checkout/cache roots as the server, then retry.`);
+  }
+  await writeSketchArtifact(cache.absolutePath, cache.metadataAbsolutePath, bytes, metadata);
   console.log(`  ${templateId}: png ${Math.round(bytes.byteLength / 1024)} KB, ${elapsed}s -> resonance-hour/${templateId}/accepted.png`);
-  return { templateId, pngBytes: bytes.byteLength, cachePath: path };
+  return { templateId, pngBytes: bytes.byteLength, cachePath: cache.absolutePath };
 }
 
 async function main(): Promise<void> {
@@ -120,11 +98,21 @@ async function main(): Promise<void> {
   console.log(`Templates: ${templates.join(", ")}`);
 
   let totalBytes = 0;
+  let succeeded = 0;
+  const failures: string[] = [];
   for (const templateId of templates) {
-    const outcome = await bakeOne(templateId);
-    totalBytes += outcome.pngBytes;
+    try {
+      const outcome = await bakeOne(templateId);
+      totalBytes += outcome.pngBytes;
+      succeeded += 1;
+    } catch (error) {
+      const failure = `${templateId}: ${error instanceof Error ? error.message : String(error)}`;
+      failures.push(failure);
+      console.error(failure);
+    }
   }
-  console.log(`done: ${templates.length} template(s), ${Math.round(totalBytes / 1024)} KB total.`);
+  console.log(`done: ${succeeded} template(s), ${Math.round(totalBytes / 1024)} KB total.`);
+  if (failures.length > 0) throw new Error(`${failures.length} template(s) failed; successful templates were saved. See failures above.`);
 }
 
 main().catch((err: unknown) => {

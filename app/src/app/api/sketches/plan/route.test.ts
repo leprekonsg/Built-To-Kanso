@@ -3,12 +3,6 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { hashBytes, hashString } from "@/lib/imageHash";
-import { getPlanGeometry } from "@/server/geometry/registry";
-import { keyFor, putCached } from "@/server/openai/cache";
-import { renderPlanSketchFallbackSvg } from "@/server/openai/fallbackSvg";
-import { getOpenAIImagePrompt } from "@/server/folio/prompts";
-import { rasterizeSvgToPng } from "@/server/openai/svgRaster";
 import { getPlanSketchCachePath } from "@/server/sketches/planSketchAsset";
 import { POST } from "./route";
 
@@ -16,7 +10,7 @@ import { POST } from "./route";
 // never decode it; only the magic-number prefix is asserted on the wire.
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const TINY_PNG_BASE64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==";
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABpfZFQAAAAABJRU5ErkJggg==";
 const TINY_PNG = Buffer.from(TINY_PNG_BASE64, "base64");
 
 interface EnvSnapshot {
@@ -52,15 +46,6 @@ function postPlan(templateId: string, accept?: string): Request {
   });
 }
 
-async function planCacheKeyFor(templateId: "tampines-greenweave" | "tengah-5room" | "resale-exec-1990s"): Promise<string> {
-  const plan = getPlanGeometry(templateId);
-  const svg = renderPlanSketchFallbackSvg(plan);
-  const raster = await rasterizeSvgToPng(svg);
-  if (!raster.ok) throw new Error(`rasterizer unavailable in test env: ${raster.message}`);
-  const prompt = getOpenAIImagePrompt("plan-sketch-style-transfer").prompt;
-  return keyFor("plan-sketch-style-transfer", { imageHashes: [hashBytes(raster.png)], promptHash: hashString(prompt) });
-}
-
 describe("Plan Sketch route", () => {
   let tempDir: string;
   let envSnap: EnvSnapshot;
@@ -87,10 +72,13 @@ describe("Plan Sketch route", () => {
     assert.equal(response.status, 400);
   });
 
-  it("serves cache-hit PNG with X-From-Cache: true and prototype evidence tier", async () => {
+  it("serves generated cache-hit PNG without an API key and with prototype evidence tier", async () => {
     process.env.OPENAI_API_KEY = "sk-test";
-    const key = await planCacheKeyFor("tengah-5room");
-    await putCached(key, TINY_PNG, tempDir);
+    globalThis.fetch = (async () => new Response(JSON.stringify({ data: [{ b64_json: TINY_PNG_BASE64 }] }), { status: 200 })) as typeof fetch;
+    const first = await POST(postPlan("tengah-5room"));
+    assert.equal(first.headers.get("content-type"), "image/png");
+    assert.equal(first.headers.get("x-from-cache"), "false");
+    delete process.env.OPENAI_API_KEY;
 
     // Fail the test loudly if the route ever reaches OpenAI on a cache hit.
     globalThis.fetch = (async () => {

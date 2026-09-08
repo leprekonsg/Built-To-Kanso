@@ -78,7 +78,7 @@ export default function LifeSketchPanel({ templateId, anchorSrc }: LifeSketchPan
               cachePath ? `cache ${cachePath}` : null,
               fallback ? `fallback ${fallback}` : null,
               anchorSource ? `anchor ${anchorSource}` : "anchor source unavailable",
-              anchorScene ?? "three-perspective-greybox-scene-manifest",
+              anchorScene ?? "three-orthographic-greybox-scene-manifest",
             ].filter((item): item is string => Boolean(item)),
           ),
         );

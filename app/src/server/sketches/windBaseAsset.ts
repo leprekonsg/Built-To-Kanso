@@ -5,6 +5,10 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import type { TemplateId } from "@/server/geometry/types";
+import { hashBytes, hashString } from "@/lib/imageHash";
+import { isPngImage } from "@/lib/png";
+import { getOpenAIImagePrompt } from "@/server/folio/prompts";
+import { resolveCurrentPlanSketchArtifact, type PlanSketchArtifact } from "./planSketchAsset";
 
 const WIND_BASE_TIER = "prototype_visualisation" as const;
 
@@ -18,6 +22,7 @@ export interface WindBaseCachePath {
   templateId: TemplateId;
   relativePath: string;
   absolutePath: string;
+  metadataAbsolutePath: string;
   directory: string;
 }
 
@@ -40,6 +45,7 @@ export function getWindBaseCachePath(
     templateId,
     relativePath: relativePath.replaceAll("\\", "/"),
     absolutePath,
+    metadataAbsolutePath: join(cacheRoot, "wind-base", templateId, "base.json"),
     directory: dirname(absolutePath),
   };
 }
@@ -50,8 +56,12 @@ export async function resolveWindBaseArtifact(
 ): Promise<WindBaseArtifact | null> {
   const cache = getWindBaseCachePath(templateId, cacheRoot);
   try {
-    const png = await readFile(/*turbopackIgnore: true*/ cache.absolutePath);
-    if (!isPng(png)) return null;
+    const [png, raw, topology] = await Promise.all([
+      readFile(/*turbopackIgnore: true*/ cache.absolutePath),
+      readFile(/*turbopackIgnore: true*/ cache.metadataAbsolutePath, "utf8"),
+      resolveCurrentPlanSketchArtifact(templateId, cacheRoot),
+    ]);
+    if (!topology || !validateWindBaseMetadata(templateId, topology, png, JSON.parse(raw))) return null;
     return {
       source: "local-prebaked",
       contentType: "image/png",
@@ -65,14 +75,33 @@ export async function resolveWindBaseArtifact(
   }
 }
 
-function isPng(bytes: Buffer): boolean {
-  return bytes.length >= 8 &&
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47 &&
-    bytes[4] === 0x0d &&
-    bytes[5] === 0x0a &&
-    bytes[6] === 0x1a &&
-    bytes[7] === 0x0a;
+export function buildWindBaseMetadata(templateId: TemplateId, topology: PlanSketchArtifact, png: Buffer, generationModel: string) {
+  return {
+    templateId,
+    source: "wind_sketch_stage_b_prebake",
+    promptKind: "wind-sketch-base",
+    evidenceTier: WIND_BASE_TIER,
+    sourceTruth: "plan-geometry.json",
+    inputFingerprintVersion: "v2-current-topology",
+    topologyProof: topology.cachePath,
+    dependencyHashes: { topologyProofHash: hashBytes(topology.png) },
+    pngHash: hashBytes(png),
+    promptHash: hashString(getOpenAIImagePrompt("wind-sketch-base").prompt),
+    generationModel,
+    acceptedAtIso: new Date().toISOString(),
+  };
+}
+
+export function validateWindBaseMetadata(templateId: TemplateId, topology: PlanSketchArtifact, png: Buffer, value: unknown): value is ReturnType<typeof buildWindBaseMetadata> {
+  if (!isPngImage(png) || png.readUInt32BE(16) !== 1536 || png.readUInt32BE(20) !== 1024 || !value || typeof value !== "object") return false;
+  const metadata = value as ReturnType<typeof buildWindBaseMetadata>;
+  const expected = buildWindBaseMetadata(templateId, topology, png, metadata.generationModel);
+  return metadata.templateId === expected.templateId && metadata.source === expected.source &&
+    metadata.promptKind === expected.promptKind && metadata.evidenceTier === expected.evidenceTier &&
+    metadata.sourceTruth === expected.sourceTruth && metadata.inputFingerprintVersion === expected.inputFingerprintVersion &&
+    metadata.topologyProof === expected.topologyProof &&
+    metadata.dependencyHashes?.topologyProofHash === expected.dependencyHashes.topologyProofHash &&
+    metadata.pngHash === expected.pngHash && metadata.promptHash === expected.promptHash &&
+    typeof metadata.generationModel === "string" && metadata.generationModel.length > 0 &&
+    typeof metadata.acceptedAtIso === "string" && Number.isFinite(Date.parse(metadata.acceptedAtIso));
 }

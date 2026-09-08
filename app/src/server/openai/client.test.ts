@@ -8,6 +8,11 @@ import {
   sanitizeOpenAIErrorDetail,
 } from "./client";
 
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABpfZFQAAAAABJRU5ErkJggg==",
+  "base64",
+);
+
 describe("OpenAI image client config", () => {
   it("reports an actionable missing-key error without calling OpenAI", () => {
     const config = getOpenAIImageConfig({});
@@ -50,7 +55,7 @@ describe("OpenAI image client config", () => {
     globalThis.fetch = (async (_url, init) => {
       body = JSON.parse(String(init?.body)) as Record<string, unknown>;
       return new Response(
-        JSON.stringify({ data: [{ b64_json: Buffer.from("png").toString("base64") }] }),
+        JSON.stringify({ data: [{ b64_json: PNG.toString("base64") }] }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }) as typeof fetch;
@@ -89,7 +94,7 @@ describe("OpenAI image client config", () => {
     globalThis.fetch = (async (_url, init) => {
       form = init?.body as FormData;
       return new Response(
-        JSON.stringify({ data: [{ b64_json: Buffer.from("png").toString("base64") }] }),
+        JSON.stringify({ data: [{ b64_json: PNG.toString("base64") }] }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }) as typeof fetch;
@@ -99,8 +104,8 @@ describe("OpenAI image client config", () => {
         mode: "edit",
         promptId: "life-sketch-from-anchor",
         prompt: "Preserve geometry.",
-        image: Buffer.from("anchor"),
-        referenceImages: [Buffer.from("style")],
+        image: PNG,
+        referenceImages: [PNG],
         n: 3,
         size: "1536x1024",
       });
@@ -153,4 +158,95 @@ describe("OpenAI image client config", () => {
       }
     }
   });
+});
+
+describe("OpenAI image transport failures", () => {
+  async function withFetch(
+    mockFetch: typeof fetch,
+    run: () => Promise<void>,
+  ): Promise<void> {
+    const originalFetch = globalThis.fetch;
+    const originalKey = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = "sk-test-transport";
+    globalThis.fetch = mockFetch;
+    try {
+      await run();
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalKey === undefined) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = originalKey;
+    }
+  }
+
+  for (const mode of ["generate", "edit"] as const) {
+    const request = () => ({
+      mode,
+      promptId: "empty-room-hero" as const,
+      prompt: "Generate a quiet room.",
+      ...(mode === "edit" ? { image: PNG } : {}),
+    });
+
+    it(`${mode} keeps the timeout active while reading the response body`, async () => {
+      await withFetch((async (_url, init) => {
+        const stream = new ReadableStream<Uint8Array>({
+          start(controller) {
+            const timer = setTimeout(() => {
+              controller.enqueue(new TextEncoder().encode(JSON.stringify({
+                data: [{ b64_json: PNG.toString("base64") }],
+              })));
+              controller.close();
+            }, 100);
+            init?.signal?.addEventListener("abort", () => {
+              clearTimeout(timer);
+              controller.error(new DOMException("Body aborted", "AbortError"));
+            }, { once: true });
+          },
+        });
+        return new Response(stream, { status: 200 });
+      }) as typeof fetch, async () => {
+        const result = await callOpenAIImage({ ...request(), timeoutMs: 10 } as Parameters<typeof callOpenAIImage>[0]);
+        assert.equal(result.ok, false);
+        if (!result.ok) assert.equal(result.reason, "openai_timeout");
+      });
+    });
+
+    it(`${mode} returns a sanitized failure when reading the response body fails`, async () => {
+      await withFetch((async () => new Response(new ReadableStream({
+        start(controller) { controller.error(new Error("Body disconnected sk-test-transport")); },
+      }))) as typeof fetch, async () => {
+        const result = await callOpenAIImage(request() as Parameters<typeof callOpenAIImage>[0]);
+        assert.equal(result.ok, false);
+        if (!result.ok) {
+          assert.equal(result.reason, "openai_unreachable");
+          assert.doesNotMatch(result.detail ?? "", /sk-test-transport/);
+        }
+      });
+    });
+
+    for (const [name, payload] of [
+      ["null payload", null],
+      ["non-array data", { data: {} }],
+      ["null data item", { data: [null] }],
+      ["non-string image", { data: [{ b64_json: 123 }] }],
+      ["non-PNG image", { data: [{ b64_json: Buffer.from("not an image").toString("base64") }] }],
+      ["truncated PNG signature", { data: [{ b64_json: PNG.subarray(0, 8).toString("base64") }] }],
+      ["PNG with corrupt IDAT checksum", { data: [{ b64_json: Buffer.from(PNG.map((value, index) => index === 47 ? value ^ 1 : value)).toString("base64") }] }],
+    ] as const) {
+      it(`${mode} rejects ${name} without throwing`, async () => {
+        await withFetch((async () => new Response(JSON.stringify(payload), { status: 200 })) as typeof fetch, async () => {
+          const result = await callOpenAIImage(request() as Parameters<typeof callOpenAIImage>[0]);
+          assert.equal(result.ok, false);
+          if (!result.ok) assert.equal(result.reason, "openai_error");
+        });
+      });
+    }
+
+    it(`${mode} handles a non-string upstream error message without throwing`, async () => {
+      await withFetch((async () => new Response(JSON.stringify({ error: { message: { text: "bad gateway" } } }), { status: 502 })) as typeof fetch, async () => {
+        const result = await callOpenAIImage(request() as Parameters<typeof callOpenAIImage>[0]);
+        assert.equal(result.ok, false);
+        if (!result.ok) assert.equal(result.reason, "openai_error");
+      });
+    });
+  }
 });

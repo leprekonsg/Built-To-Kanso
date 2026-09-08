@@ -9,10 +9,15 @@ function png(id: number): Buffer {
 }
 
 function acceptedReviewPayload(
-  overrides: { acceptedObserved?: number; acceptedServiceYard?: "pass" | "fail" | "uncertain" } = {},
+  overrides: {
+    acceptedObserved?: number;
+    acceptedServiceYard?: "pass" | "fail" | "uncertain";
+    acceptedHouseholdShelter?: "pass" | "fail" | "uncertain";
+  } = {},
 ): Record<string, unknown> {
   const acceptedObserved = overrides.acceptedObserved ?? 2;
   const acceptedServiceYard = overrides.acceptedServiceYard ?? "pass";
+  const acceptedHouseholdShelter = overrides.acceptedHouseholdShelter ?? "pass";
   return {
     acceptedCandidateIndex: 1,
     summary: "candidate_1_preserves_locked_topology",
@@ -30,6 +35,7 @@ function acceptedReviewPayload(
           cameraView: "fail",
           bathroomCount: "pass",
           serviceYard: "pass",
+          householdShelterInterior: "pass",
         },
       },
       {
@@ -45,6 +51,7 @@ function acceptedReviewPayload(
           cameraView: "pass",
           bathroomCount: acceptedObserved === 2 ? "pass" : "fail",
           serviceYard: acceptedServiceYard,
+          householdShelterInterior: acceptedHouseholdShelter,
         },
       },
     ],
@@ -165,6 +172,14 @@ describe("Life Sketch candidate review", () => {
     assert.match(promptText, /exterior louvre/);
     assert.match(promptText, /never a sealed closet/);
     assert.match(promptText, /service_yard_blank/);
+    assert.ok(promptText.indexOf("Spatial room-matching protocol") < promptText.indexOf("Bathroom counting protocol"));
+    assert.match(promptText, /Trace that same footprint into the camera-view anchor/);
+    assert.match(promptText, /Finding the required object elsewhere in the flat is not evidence for that room/);
+    assert.match(promptText, /Never relabel a furnished shelter as a service yard/);
+    assert.match(promptText, /service_yard_fixtures_wrong_room/);
+    assert.match(promptText, /verify visible kitchen counters, a sink, and a cooking hob/);
+    assert.match(promptText, /kitchen_missing_equipment or kitchen_equipment_wrong_room/);
+    assert.match(promptText, /occluded, too small, or ambiguous.*uncertain.*reject/);
   });
 
   it("overrides accept and reports service_yard_check_failed when the accepted candidate's serviceYard check is fail", async () => {
@@ -221,6 +236,89 @@ describe("Life Sketch candidate review", () => {
     assert.ok(accepted);
     assert.equal(accepted?.checks.serviceYard, "uncertain");
     assert.ok(accepted?.reasons.includes("service_yard_check_failed"));
+  });
+
+  it("surfaces Household Shelter interior discipline in the reviewer prompt", async () => {
+    let body: Record<string, unknown> | undefined;
+    globalThis.fetch = (async (_url, init) => {
+      body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(
+        JSON.stringify({ output_text: JSON.stringify(acceptedReviewPayload()) }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    const result = await reviewLifeSketchCandidates({
+      anchorPng: png(0),
+      topologyProof: png(9),
+      candidates: [png(1), png(2)],
+      manifestSummary: "template=tampines-greenweave; bathroomCount=2",
+      lockedBathroomCount: 2,
+    });
+
+    assert.equal(result.ok, true);
+    const promptInputs = ((body?.input as Array<{ content: Array<{ type: string; text?: string }> }>)[0]
+      .content.filter((item) => item.type === "input_text") ?? []) as Array<{ text: string }>;
+    const promptText = promptInputs.map((item) => item.text).join("\n");
+    assert.match(promptText, /Household-Shelter interior discipline/);
+    assert.match(promptText, /single small empty reinforced-concrete cube/);
+    assert.match(promptText, /one heavy steel pivot door/);
+    assert.match(promptText, /no internal walls/);
+    assert.match(promptText, /household_shelter_internal_partitions/);
+    assert.match(promptText, /household_shelter_split_footprint/);
+    assert.match(promptText, /Inspect the exact shelter footprint established by spatial room matching/);
+    assert.match(promptText, /no washing machine, dryer, sink, hob/);
+    assert.match(promptText, /household_shelter_contains_appliances/);
+    assert.match(promptText, /Any fail or uncertain means status = "rejected"/);
+  });
+
+  it("overrides accept and reports household_shelter_check_failed when the shelter interior check is fail", async () => {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          output_text: JSON.stringify(acceptedReviewPayload({ acceptedHouseholdShelter: "fail" })),
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )) as typeof fetch;
+
+    const result = await reviewLifeSketchCandidates({
+      anchorPng: png(0),
+      topologyProof: png(9),
+      candidates: [png(1), png(2)],
+      manifestSummary: "template=tampines-greenweave; bathroomCount=2",
+      lockedBathroomCount: 2,
+    });
+
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.equal(result.reason, "household_shelter_check_failed");
+    const accepted = result.candidateReviews?.find((item) => item.candidateIndex === 1);
+    assert.ok(accepted);
+    assert.equal(accepted?.status, "rejected");
+    assert.equal(accepted?.checks.householdShelterInterior, "fail");
+    assert.ok(accepted?.reasons.includes("household_shelter_check_failed"));
+  });
+
+  it("overrides accept when the Household Shelter interior check is uncertain", async () => {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          output_text: JSON.stringify(acceptedReviewPayload({ acceptedHouseholdShelter: "uncertain" })),
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )) as typeof fetch;
+
+    const result = await reviewLifeSketchCandidates({
+      anchorPng: png(0),
+      topologyProof: png(9),
+      candidates: [png(1), png(2)],
+      manifestSummary: "template=tampines-greenweave; bathroomCount=2",
+      lockedBathroomCount: 2,
+    });
+
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.equal(result.reason, "household_shelter_check_failed");
   });
 
   it("overrides accept and reports bathroom_count_drift when reviewer's observed count disagrees with the locked plan", async () => {

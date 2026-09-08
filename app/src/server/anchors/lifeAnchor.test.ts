@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { getPlanGeometry, listGeometrySummaries } from "@/server/geometry/registry";
 import {
   buildLifeAnchorSceneManifest,
+  buildLifeAnchorCacheMetadata,
   clearLifeAnchorByteCache,
   createLifeAnchorThreeScene,
   getLifeAnchorCachePath,
@@ -16,7 +17,7 @@ import {
 } from "./lifeAnchor";
 import { renderLifeSketchSumiSvg } from "./lifeAnchorRender";
 
-const PNG_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const PNG_BYTES = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABpfZFQAAAAABJRU5ErkJggg==", "base64");
 
 type SpanInterval = { start: number; end: number };
 
@@ -62,8 +63,10 @@ function assertNoDuplicateCoplanarWalls(
       const overlap =
         Math.min(aCenter + aLen / 2, bCenter + bLen / 2) -
         Math.max(aCenter - aLen / 2, bCenter - bLen / 2);
+      const heightOverlap = Math.min(a.position[1] + a.scale[1] / 2, b.position[1] + b.scale[1] / 2) -
+        Math.max(a.position[1] - a.scale[1] / 2, b.position[1] - b.scale[1] / 2);
       assert.ok(
-        overlap <= eps,
+        overlap <= eps || heightOverlap <= eps,
         `${templateId} duplicate coplanar walls: ${a.roomId}:${a.edge} and ${b.roomId}:${b.edge} overlap by ${overlap.toFixed(3)}m at perp ${aPerp.toFixed(3)}`,
       );
     }
@@ -132,6 +135,7 @@ function assertOpeningsOnSurvivingWalls(
 ): void {
   const eps = 0.02;
   for (const opening of manifestOpenings) {
+    if (!opening.renderable) continue;
     const dx = opening.end[0] - opening.start[0];
     const dz = opening.end[2] - opening.start[2];
     const horizontal = Math.abs(dx) >= Math.abs(dz);
@@ -191,6 +195,7 @@ function assertNoWallCrossesWinningRoomInterior(
       if (other.kind === "corridor") continue;
       const otherArea = other.width * other.height;
       const otherWins = otherArea < ownerArea || (otherArea === ownerArea && other.id < owner.id);
+      if (owner.kind === "shelter" && other.kind !== "shelter") continue;
       if (!otherWins) continue;
 
       const perpLo = horizontal ? other.y : other.x;
@@ -209,7 +214,7 @@ function assertNoWallCrossesWinningRoomInterior(
 }
 
 function expectedWallOwnerIds(plan: ReturnType<typeof getPlanGeometry>): Set<string> {
-  return new Set(plan.rooms.filter((room) => room.kind !== "corridor").map((room) => room.id));
+  return new Set(buildLifeAnchorSceneManifest(plan).rooms.filter((room) => room.kind !== "corridor" && room.renderable).map((room) => room.id));
 }
 
 function assertCorridorsDoNotEmitWalls(
@@ -262,6 +267,7 @@ describe("Life Sketch anchor pipeline", () => {
       const cache = getLifeAnchorCachePath(plan.templateId, root);
       await mkdir(cache.directory, { recursive: true });
       await writeFile(cache.absolutePath, PNG_BYTES);
+      await writeFile(cache.metadataAbsolutePath, JSON.stringify(buildLifeAnchorCacheMetadata(buildLifeAnchorSceneManifest(plan), PNG_BYTES)));
 
       const artifact = await resolveLifeAnchorArtifact(plan, { cacheRoot: root });
 
@@ -283,17 +289,17 @@ describe("Life Sketch anchor pipeline", () => {
       assert.equal(artifact.source, "deterministic-svg");
       assert.equal(artifact.contentType, "image/svg+xml");
       assert.equal(artifact.cachePath, `life-anchors/tampines-greenweave/anchor.png`);
-      assert.equal(artifact.manifest.camera.kind, "perspective");
+      assert.equal(artifact.manifest.camera.kind, "orthographic");
       assert.equal(artifact.manifest.metadata.complianceTruth, false);
       assert.equal(artifact.manifest.metadata.geometrySource, "architect_curated_template");
-      assert.equal(artifact.manifest.metadata.source, "three-perspective-greybox-scene-manifest");
+      assert.equal(artifact.manifest.metadata.source, "three-orthographic-greybox-scene-manifest");
       assert.match(artifact.svg, /camera-view greybox anchor/);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 
-  it("builds a Node-safe perspective Three.js manifest without mutating plan geometry", () => {
+  it("builds a Node-safe orthographic Three.js manifest without mutating plan geometry", () => {
     const plan = getPlanGeometry("tengah-5room");
     const before = JSON.stringify(plan);
 
@@ -301,7 +307,7 @@ describe("Life Sketch anchor pipeline", () => {
 
     assert.equal(JSON.stringify(plan), before);
     assert.equal(manifest.templateId, "tengah-5room");
-    assert.equal(manifest.camera.kind, "perspective");
+    assert.equal(manifest.camera.kind, "orthographic");
     assert.equal(manifest.camera.aspect, 1536 / 1024);
     assert.deepEqual(manifest.camera.up, [0, 1, 0]);
     assert.equal(manifest.rooms.length, plan.rooms.length);
@@ -345,17 +351,17 @@ describe("Life Sketch anchor pipeline", () => {
     assert.match(svg, new RegExp(`service_fixture:${serviceRoom.id}:floor_drain`));
   });
 
-  it("fits the perspective camera to the fixed 1536x1024 anchor viewport", () => {
+  it("fits the orthographic camera to the fixed 1536x1024 anchor viewport", () => {
     const plan = getPlanGeometry("resale-exec-1990s");
     const manifest = buildLifeAnchorSceneManifest(plan);
 
     assert.equal(Number(manifest.camera.aspect.toFixed(6)), Number((1536 / 1024).toFixed(6)));
-    assert.equal(manifest.camera.fov, 46);
+    assert.ok(Math.abs((manifest.camera.right - manifest.camera.left) / (manifest.camera.top - manifest.camera.bottom) - 1.5) < 1e-9);
     assert.equal(manifest.viewport.width, 1536);
     assert.equal(manifest.viewport.height, 1024);
   });
 
-  it("builds a stable eye-level camera basis for plan-coordinate projection", () => {
+  it("builds a stable elevated axonometric camera basis for plan-coordinate projection", () => {
     const plan = getPlanGeometry("tampines-greenweave");
     const { camera } = createLifeAnchorThreeScene(plan);
     camera.updateMatrixWorld(true);
@@ -365,7 +371,8 @@ describe("Life Sketch anchor pipeline", () => {
     assert.equal(camera.up.x, 0);
     assert.equal(camera.up.y, 1);
     assert.equal(camera.up.z, 0);
-    assert.ok(camera.position.y > 7 && camera.position.y < 8);
+    assert.ok(camera instanceof THREE.OrthographicCamera);
+    assert.ok(camera.position.y > 2.6);
     assert.ok(Number.isFinite(projected.x));
     assert.ok(Number.isFinite(projected.y));
     assert.ok(Number.isFinite(projected.z));
@@ -504,7 +511,8 @@ describe("Life Sketch anchor pipeline", () => {
         plan.fixedElements.map((element) => element.id).sort(),
       );
       assert.ok(scene.getObjectByName(`pipeshaft:${plan.pipeshaft.id}`), `${plan.templateId} missing pipeshaft anchor`);
-      assert.ok(scene.getObjectByName(`wall:${plan.rooms[0].id}:north`), `${plan.templateId} missing extruded wall volume`);
+      const firstWall = manifest.wallVolumes[0];
+      assert.ok(scene.getObjectByName(`wall:${firstWall.roomId}:${firstWall.edge}`), `${plan.templateId} missing extruded wall volume`);
       assert.ok(
         plan.fixedElements.some((element) => element.kind === "pipeshaft_opening" && element.bufferEligible),
         `${plan.templateId} missing buffer-eligible pipeshaft opening`,
@@ -588,8 +596,9 @@ describe("Life Sketch anchor pipeline", () => {
     });
 
     assert.equal(result.ok, true);
+    const manifest = buildLifeAnchorSceneManifest(plan);
     const expectedMeshes =
-      plan.rooms.length + buildLifeAnchorSceneManifest(plan).wallVolumes.length + plan.fixedElements.length + plan.openings.length + 1;
+      manifest.rooms.filter((room) => room.renderable).length + manifest.wallVolumes.length + plan.fixedElements.length + manifest.openings.filter((opening) => opening.renderable).length + 1;
     assert.ok(geometryDisposeCount >= expectedMeshes);
     assert.ok(materialDisposeCount >= expectedMeshes);
   });
@@ -620,6 +629,7 @@ describe("Life Sketch anchor pipeline", () => {
       const cache = getLifeAnchorCachePath(plan.templateId, root);
       await mkdir(cache.directory, { recursive: true });
       await writeFile(cache.absolutePath, PNG_BYTES);
+      await writeFile(cache.metadataAbsolutePath, JSON.stringify(buildLifeAnchorCacheMetadata(buildLifeAnchorSceneManifest(plan), PNG_BYTES)));
 
       const artifact = await resolveLifeAnchorArtifact(plan, { cacheRoot: root });
       assert.equal(artifact.source, "cache-png");

@@ -14,6 +14,7 @@ import { resolveAcceptedLifeSketchArtifact } from "@/server/sketches/lifeSketchA
 import { getPlanGeometry, isTemplateId } from "@/server/geometry/registry";
 import { resolveLifeAnchorArtifact } from "@/server/anchors/lifeAnchor";
 import { generateResonanceHour } from "@/server/openai/sketches";
+import { resonanceHourMetadata, resolveResonanceHourArtifact } from "@/server/sketches/resonanceHourAsset";
 
 interface ResonanceHourRequestBody {
   templateId?: unknown;
@@ -27,31 +28,45 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
 
-  if (typeof body.templateId !== "string" || !isTemplateId(body.templateId)) {
+  if (!body || typeof body.templateId !== "string" || !isTemplateId(body.templateId)) {
     return NextResponse.json(
       { error: "templateId must be one of: tampines-greenweave, tengah-5room, resale-exec-1990s." },
       { status: 400 },
     );
   }
 
-  // Source image: the accepted GPT Image 2 Life Sketch if the prebake exists,
-  // otherwise the locally-prebaked greybox anchor PNG. We deliberately do NOT
-  // fall back to the deterministic SVG anchor — the resonance-hour-background
-  // prompt expects a photoreal base to add wind cues on top of.
   const accepted = await resolveAcceptedLifeSketchArtifact(body.templateId);
+  const materialize = new URL(request.url).searchParams.get("materialize") === "1";
   if (accepted) {
-    const result = await generateResonanceHour(accepted.png);
-    if (result.ok) {
+    if (!materialize) {
+      const prebake = await resolveResonanceHourArtifact(body.templateId, undefined, accepted);
+      if (prebake) return new NextResponse(new Uint8Array(prebake.png), {
+        status: 200,
+        headers: {
+          "Content-Type": "image/png",
+          "Cache-Control": "private, no-cache",
+          "X-Evidence-Tier": prebake.metadata.evidenceTier,
+          "X-Prompt-Id": prebake.metadata.promptKind,
+          "X-From-Cache": "prebake",
+          "X-Sketch-Source": "resonance-hour-prebake",
+          "X-Resonance-Hour-Base": "accepted-gpt-image-2-prebake",
+        },
+      });
+    }
+    const result = materialize ? await generateResonanceHour(accepted.png) : null;
+    if (result?.ok) {
+      const metadata = resonanceHourMetadata(accepted, result.png, result.generationModel ?? "");
       return new NextResponse(new Uint8Array(result.png), {
         status: 200,
         headers: {
           "Content-Type": "image/png",
-          "Cache-Control": "private, max-age=300",
+          "Cache-Control": "private, no-cache",
           "X-Evidence-Tier": result.tier,
           "X-Prompt-Id": result.promptId,
           "X-From-Cache": String(result.fromCache),
           "X-Sketch-Source": "resonance-hour-background",
           "X-Resonance-Hour-Base": "accepted-gpt-image-2-prebake",
+          "X-Resonance-Hour-Metadata": Buffer.from(JSON.stringify(metadata)).toString("base64"),
         },
       });
     }
@@ -59,10 +74,10 @@ export async function POST(request: Request) {
       status: 200,
       headers: {
         "Content-Type": accepted.contentType,
-        "Cache-Control": "private, max-age=300",
+        "Cache-Control": "private, no-cache",
         "X-Evidence-Tier": accepted.tier,
         "X-Sketch-Source": "accepted-gpt-image-2-prebake",
-        "X-Sketch-Fallback": result.reason,
+        "X-Sketch-Fallback": result && !result.ok ? result.reason : "missing-current-resonance-prebake",
       },
     });
   }
@@ -70,31 +85,14 @@ export async function POST(request: Request) {
   const plan = getPlanGeometry(body.templateId);
   const anchor = await resolveLifeAnchorArtifact(plan);
   if (anchor.source === "cache-png") {
-    const anchorBuffer = anchor.png;
-    const localPng = Buffer.isBuffer(anchorBuffer) ? anchorBuffer : Buffer.from(anchorBuffer);
-    const result = await generateResonanceHour(localPng);
-    if (result.ok) {
-      return new NextResponse(new Uint8Array(result.png), {
-        status: 200,
-        headers: {
-          "Content-Type": "image/png",
-          "Cache-Control": "private, max-age=300",
-          "X-Evidence-Tier": result.tier,
-          "X-Prompt-Id": result.promptId,
-          "X-From-Cache": String(result.fromCache),
-          "X-Sketch-Source": "resonance-hour-background",
-          "X-Resonance-Hour-Base": "local-prebaked-anchor",
-        },
-      });
-    }
-    return new NextResponse(new Uint8Array(localPng), {
+    return new NextResponse(new Uint8Array(anchor.png), {
       status: 200,
       headers: {
         "Content-Type": "image/png",
-        "Cache-Control": "private, max-age=300",
+        "Cache-Control": "private, no-cache",
         "X-Evidence-Tier": anchor.manifest.metadata.tier,
         "X-Sketch-Source": "local-prebaked-anchor",
-        "X-Sketch-Fallback": result.reason,
+        "X-Sketch-Fallback": "missing-current-accepted-life-sketch",
       },
     });
   }
@@ -103,7 +101,7 @@ export async function POST(request: Request) {
     {
       error: "no_3d_source_image",
       message:
-        "Resonance Hour requires either the accepted GPT Image 2 Life Sketch (life-sketches/<templateId>/accepted.png) or the local prebaked anchor (life-anchors/<templateId>/anchor.png). Run prebake:anchors and prebake:life-sketches first.",
+        "Resonance Hour requires a current accepted Life Sketch. Run prebake:anchors and prebake:life-sketches before prebake:resonance-hour.",
     },
     { status: 503 },
   );

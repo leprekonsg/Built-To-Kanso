@@ -7,7 +7,8 @@
 import { NextResponse } from "next/server";
 import { isTemplateId } from "@/server/geometry/registry";
 import { generateWindSketchBase } from "@/server/openai/sketches";
-import { resolvePlanSketchArtifact } from "@/server/sketches/planSketchAsset";
+import { resolveCurrentPlanSketchArtifact } from "@/server/sketches/planSketchAsset";
+import { buildWindBaseMetadata } from "@/server/sketches/windBaseAsset";
 
 interface WindBaseRequestBody {
   templateId?: unknown;
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
 
-  if (typeof body.templateId !== "string" || !isTemplateId(body.templateId)) {
+  if (!body || typeof body.templateId !== "string" || !isTemplateId(body.templateId)) {
     return NextResponse.json(
       { error: "templateId must be one of: tampines-greenweave, tengah-5room, resale-exec-1990s." },
       { status: 400 },
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
   // The topology proof is the locked-geometry input — Stage B styles it and
   // strips furniture/labels per prompt. Without the topology proof we can't
   // produce a sumi-e Stage B background.
-  const topology = await resolvePlanSketchArtifact(body.templateId);
+  const topology = await resolveCurrentPlanSketchArtifact(body.templateId);
   if (!topology) {
     return NextResponse.json(
       {
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
       "X-Prompt-Id": result.promptId,
       "X-From-Cache": String(result.fromCache),
       "X-Sketch-Source": "wind-sketch-base",
+      "X-Wind-Base-Metadata": Buffer.from(JSON.stringify(buildWindBaseMetadata(body.templateId, topology, result.png, result.generationModel ?? ""))).toString("base64"),
     },
   });
 }

@@ -1,6 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import type { TemplateId } from "@/server/geometry/types";
+import { getPlanGeometry } from "@/server/geometry/registry";
+import { renderTopologyProofSvg } from "@/server/openai/fallbackSvg";
+import { hashBytes, hashString } from "@/lib/imageHash";
+import { isPngImage } from "@/lib/png";
 
 const PLAN_SKETCH_TIER = "prototype_visualisation" as const;
 
@@ -14,6 +18,7 @@ export interface PlanSketchCachePath {
   templateId: TemplateId;
   relativePath: string;
   absolutePath: string;
+  metadataAbsolutePath: string;
   directory: string;
 }
 
@@ -26,6 +31,17 @@ export interface PlanSketchArtifact {
   png: Buffer;
 }
 
+export interface PlanSketchCacheMetadata {
+  schemaVersion: 1;
+  templateId: TemplateId;
+  sourceSvgHash: string;
+  pngHash: string;
+}
+
+export function buildPlanSketchCacheMetadata(templateId: TemplateId, sourceSvg: string, png: Buffer): PlanSketchCacheMetadata {
+  return { schemaVersion: 1, templateId, sourceSvgHash: hashString(sourceSvg), pngHash: hashBytes(png) };
+}
+
 export function getPlanSketchCachePath(
   templateId: TemplateId,
   cacheRoot: string = defaultPlanSketchRoot(),
@@ -36,6 +52,7 @@ export function getPlanSketchCachePath(
     templateId,
     relativePath: relativePath.replaceAll("\\", "/"),
     absolutePath,
+    metadataAbsolutePath: join(cacheRoot, "plan-sketches", templateId, "plan.json"),
     directory: dirname(absolutePath),
   };
 }
@@ -47,7 +64,7 @@ export async function resolvePlanSketchArtifact(
   const cache = getPlanSketchCachePath(templateId, cacheRoot);
   try {
     const png = await readFile(/*turbopackIgnore: true*/ cache.absolutePath);
-    if (!isPng(png)) return null;
+    if (!isPngImage(png)) return null;
     return {
       source: "local-prebaked",
       contentType: "image/png",
@@ -61,14 +78,19 @@ export async function resolvePlanSketchArtifact(
   }
 }
 
-function isPng(bytes: Buffer): boolean {
-  return bytes.length >= 8 &&
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47 &&
-    bytes[4] === 0x0d &&
-    bytes[5] === 0x0a &&
-    bytes[6] === 0x1a &&
-    bytes[7] === 0x0a;
+// Image generation must never pair a current scene with an obsolete proof.
+export async function resolveCurrentPlanSketchArtifact(templateId: TemplateId, cacheRoot?: string): Promise<PlanSketchArtifact | null> {
+  const artifact = await resolvePlanSketchArtifact(templateId, cacheRoot);
+  if (!artifact) return null;
+  const cache = getPlanSketchCachePath(templateId, cacheRoot);
+  try {
+    const metadata: unknown = JSON.parse(await readFile(/*turbopackIgnore: true*/ cache.metadataAbsolutePath, "utf8"));
+    if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+    const expected = buildPlanSketchCacheMetadata(templateId, renderTopologyProofSvg(getPlanGeometry(templateId)), artifact.png);
+    const recorded = metadata as Partial<PlanSketchCacheMetadata>;
+    return recorded.schemaVersion === expected.schemaVersion && recorded.templateId === expected.templateId &&
+      recorded.sourceSvgHash === expected.sourceSvgHash && recorded.pngHash === expected.pngHash ? artifact : null;
+  } catch {
+    return null;
+  }
 }

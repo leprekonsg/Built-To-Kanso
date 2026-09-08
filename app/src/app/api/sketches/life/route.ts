@@ -24,9 +24,8 @@
 // As of 2026-05-10 every failure mode lands on a calm 200 + local/deterministic
 // fallback. The route never returns 5xx for an OpenAI miss; the UI renders a
 // designed surface, not an alarming error toast.
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import { NextResponse } from "next/server";
+import { hashBytes } from "@/lib/imageHash";
 import {
   buildLifeAnchorSceneManifest,
   getLifeAnchorCachePath,
@@ -45,11 +44,11 @@ import {
 import { generateLifeSketch, type LifeSketchReferenceBundle } from "@/server/openai/sketches";
 import {
   resolveAcceptedLifeSketchArtifact,
+  lifeSketchInputFingerprint,
+  loadLifeSketchStyleReferences,
   type AcceptedLifeSketchArtifact,
 } from "@/server/sketches/lifeSketchAsset";
-import { resolvePlanSketchArtifact } from "@/server/sketches/planSketchAsset";
-
-const REFERENCES_DIR = resolve(process.cwd(), "public", "references");
+import { resolveCurrentPlanSketchArtifact } from "@/server/sketches/planSketchAsset";
 
 type FallbackKind =
   | "deterministic-anchor-svg"
@@ -60,28 +59,9 @@ type FallbackKind =
   | "openai-timeout"
   | "openai-unreachable";
 
-async function readReferenceFile(name: string): Promise<Buffer | undefined> {
-  try {
-    return await readFile(resolve(REFERENCES_DIR, name));
-  } catch {
-    return undefined;
-  }
-}
-
-async function loadLifeReferenceBundle(): Promise<LifeSketchReferenceBundle> {
-  const [brand, material] = await Promise.all([
-    readReferenceFile("brand-v3-poster.png"),
-    readReferenceFile("hdb-material-board.png").then(async (buf) => buf ?? readReferenceFile("japandi-material-board.png")),
-  ]);
-  return {
-    ...(brand ? { brand } : {}),
-    ...(material ? { material } : {}),
-  };
-}
-
 async function loadStructuralReferenceBundle(templateId: TemplateId): Promise<LifeSketchReferenceBundle> {
-  const style = await loadLifeReferenceBundle();
-  const topology = await resolvePlanSketchArtifact(templateId);
+  const style = await loadLifeSketchStyleReferences();
+  const topology = await resolveCurrentPlanSketchArtifact(templateId);
   return {
     ...(topology ? { topologyProof: topology.png } : {}),
     ...style,
@@ -117,8 +97,32 @@ function referenceHeaders(references: LifeSketchReferenceBundle): Record<string,
   };
 }
 
-function resultHeaders(result: Extract<Awaited<ReturnType<typeof generateLifeSketch>>, { ok: true }>): Record<string, string> {
+function resultHeaders(
+  result: Extract<Awaited<ReturnType<typeof generateLifeSketch>>, { ok: true }>,
+  anchor: LifeAnchorDescriptor,
+  fingerprint: ReturnType<typeof lifeSketchInputFingerprint>,
+): Record<string, string> {
+  const metadata = {
+    templateId: anchor.manifest.templateId,
+    source: "accepted_gpt_image_2_prebake",
+    promptKind: result.promptId,
+    candidateCount: result.candidateCount,
+    acceptedCandidateIndex: result.acceptedCandidateIndex,
+    rejectedCandidates: result.qa?.rejectedCandidates ?? [],
+    acceptedAtIso: new Date().toISOString(),
+    evidenceTier: result.tier,
+    sourceTruth: "plan-geometry.json",
+    generationModel: result.generationModel,
+    reviewerModel: result.qa?.reviewerModel,
+    reviewerSummary: result.qa?.reviewerSummary,
+    candidateReviews: result.qa?.candidateReviews,
+    anchorCachePath: anchor.cachePath,
+    topologyProof: `plan-sketches/${anchor.manifest.templateId}/plan.png`,
+    ...fingerprint,
+    pngHash: hashBytes(result.png),
+  };
   return {
+    "X-Life-Sketch-Metadata": Buffer.from(JSON.stringify(metadata)).toString("base64"),
     ...(result.qa ? { "X-Life-Sketch-QA": result.qa.status } : {}),
     ...(result.qa?.reviewerModel ? { "X-Life-Sketch-QA-Model": result.qa.reviewerModel } : {}),
     ...(result.candidateCount ? { "X-Life-Sketch-Candidates": String(result.candidateCount) } : {}),
@@ -147,7 +151,7 @@ function lifeSketchReviewContext(anchor: LifeAnchorDescriptor): {
   lockedBathroomCount: number;
 } {
   const manifest = anchor.manifest;
-  const rooms = manifest.rooms.map((room) => `${room.id}:${room.kind}`).join(",");
+  const rooms = manifest.rooms.map((room) => `${room.id}:${room.kind}@centerXZ=${room.position[0]},${room.position[2]}:sizeXZ=${room.scale[0]},${room.scale[2]}`).join(",");
   const openings = manifest.openings
     .map((opening) => `${opening.id}:${opening.kind}:${opening.roomIds.join("+")}@${opening.position[0].toFixed(1)},${opening.position[2].toFixed(1)}`)
     .join(",");
@@ -219,7 +223,7 @@ function acceptedLifeSketchPngResponse(
     status: 200,
     headers: {
       "Content-Type": artifact.contentType,
-      "Cache-Control": "public, max-age=31536000, immutable",
+      "Cache-Control": "private, no-cache",
       "X-Evidence-Tier": artifact.tier,
       "X-From-Cache": "prebake",
       ...anchorHeaders(anchor),
@@ -271,6 +275,16 @@ function deterministicLifeSketchSvgResponse(
   });
 }
 
+function missingTopologyResponse(request: Request, anchor: LifeAnchorDescriptor) {
+  const headers = { "X-Sketch-Fallback": "topology_proof_unavailable", ...anchorHeaders(anchor) };
+  if (wantsJson(request)) return NextResponse.json(deterministicLifeSketchJson(anchor, {
+    fallback: true,
+    reason: "topology_proof_unavailable",
+    nextAction: "The local topology proof is missing or stale. Run npm run prebake:plans before generating Life Sketches.",
+  }), { status: 200, headers });
+  return deterministicLifeSketchSvgResponse(anchor, headers);
+}
+
 function fallbackSvgResponse(
   fallback: ReturnType<typeof sketchFallbackArtifact>,
   anchor: LifeAnchorDescriptor,
@@ -320,7 +334,7 @@ function localAnchorPngResponse(
     status: 200,
     headers: {
       "Content-Type": anchor.contentType,
-      "Cache-Control": "public, max-age=31536000, immutable",
+      "Cache-Control": "private, no-cache",
       "X-Evidence-Tier": anchor.manifest.metadata.tier,
       "X-From-Cache": "true",
       "X-Sketch-Source": "local-prebaked-anchor",
@@ -402,7 +416,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
 
-  if (!body.templateId || !isTemplateId(body.templateId)) {
+  if (!body || typeof body.templateId !== "string" || !isTemplateId(body.templateId)) {
     return NextResponse.json(
       { error: "templateId must be one of: tampines-greenweave, tengah-5room, resale-exec-1990s." },
       { status: 400 },
@@ -410,6 +424,16 @@ export async function POST(request: Request) {
   }
 
   const plan = getPlanGeometry(body.templateId);
+  const descriptor = deterministicAnchor(plan);
+  if (!anchorOnlyRequested(request) && descriptor.manifest.metadata.geometryIssues.length > 0) {
+    const headers = { "X-Sketch-Fallback": "geometry_source_conflict" };
+    if (wantsJson(request)) return NextResponse.json(deterministicLifeSketchJson(descriptor, {
+      fallback: true,
+      reason: "geometry_source_conflict",
+      nextAction: "The curated plan contains overlapping protected-space geometry. Resolve the source plan conflict before generating a Life Sketch.",
+    }), { status: 200, headers });
+    return deterministicLifeSketchSvgResponse(descriptor, headers);
+  }
 
   if (!body.anchorPng || typeof body.anchorPng !== "string") {
     const anchor = await resolveLifeAnchorArtifact(plan);
@@ -464,6 +488,8 @@ export async function POST(request: Request) {
 
     if (anchor.source === "cache-png") {
       const references = await loadStructuralReferenceBundle(body.templateId);
+      if (!references.topologyProof) return missingTopologyResponse(request, anchor);
+      const fingerprint = lifeSketchInputFingerprint(body.templateId, anchor.png, references);
       const result = await generateLifeSketch(anchor.png, references, lifeSketchReviewContext(anchor));
 
       if (result.ok) {
@@ -477,7 +503,7 @@ export async function POST(request: Request) {
             "X-From-Cache": String(result.fromCache),
             ...anchorHeaders(anchor),
             ...referenceHeaders(references),
-            ...resultHeaders(result),
+            ...resultHeaders(result, anchor, fingerprint),
           },
         });
       }
@@ -500,6 +526,7 @@ export async function POST(request: Request) {
       }
       return deterministicLifeSketchSvgResponse(anchorDescriptor, {
         "X-Sketch-Fallback": kind,
+        "X-Sketch-Failure-Detail": encodeURIComponent((result.detail ?? result.reason).slice(0, 2000)),
         "X-Prompt-Id": result.promptId,
         ...referenceHeaders(references),
       });
@@ -533,6 +560,8 @@ export async function POST(request: Request) {
 
   const references = await loadStructuralReferenceBundle(body.templateId);
   const suppliedAnchor = requestAnchor(plan);
+  if (!references.topologyProof) return missingTopologyResponse(request, suppliedAnchor);
+  const fingerprint = lifeSketchInputFingerprint(body.templateId, anchorBuffer, references);
   const result = await generateLifeSketch(anchorBuffer, references, lifeSketchReviewContext(suppliedAnchor));
 
   if (!result.ok) {
@@ -553,6 +582,7 @@ export async function POST(request: Request) {
 
     return deterministicLifeSketchSvgResponse(suppliedAnchor, {
       "X-Sketch-Fallback": kind,
+      "X-Sketch-Failure-Detail": encodeURIComponent((result.detail ?? result.reason).slice(0, 2000)),
       "X-Prompt-Id": result.promptId,
       ...referenceHeaders(references),
     });
@@ -568,7 +598,7 @@ export async function POST(request: Request) {
       "X-From-Cache": String(result.fromCache),
       ...anchorHeaders(suppliedAnchor),
       ...referenceHeaders(references),
-      ...resultHeaders(result),
+      ...resultHeaders(result, suppliedAnchor, fingerprint),
     },
   });
 }

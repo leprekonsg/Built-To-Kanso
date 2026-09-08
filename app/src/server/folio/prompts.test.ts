@@ -7,8 +7,6 @@ describe("OpenAI image prompt discipline", () => {
     for (const kind of [
       "plan-sketch-style-transfer",
       "life-sketch-from-anchor",
-      "wind-sketch-export-polish",
-      "wind-sketch-micro-polish",
       "resonance-hour-background",
       "material-reveal-demo-frame",
     ] as const) {

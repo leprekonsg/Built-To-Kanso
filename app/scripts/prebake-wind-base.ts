@@ -15,12 +15,10 @@
  * cached base.
  */
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
 import process from "node:process";
-import { hashBytes } from "../src/lib/imageHash";
-import { getOpenAIImageModel } from "../src/server/openai/client";
-import { getPlanSketchCachePath } from "../src/server/sketches/planSketchAsset";
+import { resolveCurrentPlanSketchArtifact } from "../src/server/sketches/planSketchAsset";
+import { getWindBaseCachePath, validateWindBaseMetadata } from "../src/server/sketches/windBaseAsset";
+import { writeSketchArtifact } from "../src/server/sketches/writeSketchArtifact";
 import type { TemplateId } from "../src/server/geometry/types";
 
 const ALL_TEMPLATES: readonly TemplateId[] = [
@@ -32,26 +30,15 @@ const ALL_TEMPLATES: readonly TemplateId[] = [
 function pickTemplates(): TemplateId[] {
   const raw = process.env.LIFE_SKETCH_TEMPLATES;
   if (!raw) return [...ALL_TEMPLATES];
-  const ids = raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s): s is TemplateId => (ALL_TEMPLATES as readonly string[]).includes(s));
-  if (ids.length === 0) {
-    throw new Error(`LIFE_SKETCH_TEMPLATES does not match any known template. Valid ids: ${ALL_TEMPLATES.join(", ")}`);
+  const ids = [...new Set(raw.split(",").map((id) => id.trim()))];
+  if (ids.some((id) => !(ALL_TEMPLATES as readonly string[]).includes(id))) {
+    throw new Error(`LIFE_SKETCH_TEMPLATES must contain only: ${ALL_TEMPLATES.join(", ")}`);
   }
-  return ids;
+  return ids as TemplateId[];
 }
 
 function baseUrl(): string {
   return process.env.GUIDE_BASE_URL ?? "http://localhost:3000";
-}
-
-function cachePath(templateId: TemplateId): string {
-  return resolve(process.cwd(), "public", "wind-base", templateId, "base.png");
-}
-
-function metadataPath(templateId: TemplateId): string {
-  return resolve(process.cwd(), "public", "wind-base", templateId, "base.json");
 }
 
 async function bakeOne(templateId: TemplateId): Promise<number> {
@@ -78,27 +65,14 @@ async function bakeOne(templateId: TemplateId): Promise<number> {
   }
 
   const bytes = Buffer.from(await res.arrayBuffer());
-  const path = cachePath(templateId);
-  const proofPath = getPlanSketchCachePath(templateId);
-  const topologyProofBytes = await readFile(proofPath.absolutePath);
-  const metadata = {
-    templateId,
-    source: "wind_sketch_stage_b_prebake" as const,
-    promptKind: "wind-sketch-base" as const,
-    evidenceTier: "prototype_visualisation" as const,
-    sourceTruth: "plan-geometry.json" as const,
-    qaGateVersion: "stage-b-no-streamlines-v1" as const,
-    scope: "phase1_demo_flagship" as const,
-    generationModel: getOpenAIImageModel(),
-    acceptedAtIso: new Date().toISOString(),
-    topologyProof: proofPath.relativePath,
-    dependencyHashes: {
-      topologyProofHash: hashBytes(topologyProofBytes),
-    },
-  };
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, bytes);
-  await writeFile(metadataPath(templateId), JSON.stringify(metadata, null, 2), "utf8");
+  const encoded = res.headers.get("X-Wind-Base-Metadata");
+  const topology = await resolveCurrentPlanSketchArtifact(templateId);
+  const metadata: unknown = encoded ? JSON.parse(Buffer.from(encoded, "base64").toString("utf8")) : null;
+  if (!topology || !validateWindBaseMetadata(templateId, topology, bytes, metadata)) {
+    throw new Error(`Wind background provenance for ${templateId} does not match the current topology or output. Rebuild plans and use the same checkout as the server.`);
+  }
+  const cache = getWindBaseCachePath(templateId);
+  await writeSketchArtifact(cache.absolutePath, cache.metadataAbsolutePath, bytes, metadata);
   console.log(`  ${templateId}: png ${Math.round(bytes.byteLength / 1024)} KB, ${elapsed}s -> wind-base/${templateId}/base.png`);
   return bytes.byteLength;
 }
@@ -108,9 +82,15 @@ async function main(): Promise<void> {
   console.log(`Prebaking Wind Sketch Stage B against ${baseUrl()}`);
   console.log(`Templates: ${templates.join(", ")}`);
   let totalBytes = 0;
+  const failures: string[] = [];
   for (const templateId of templates) {
-    totalBytes += await bakeOne(templateId);
+    try {
+      totalBytes += await bakeOne(templateId);
+    } catch (error) {
+      failures.push(`${templateId}: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
+  if (failures.length) throw new Error(failures.join("\n"));
   console.log(`done: ${templates.length} template(s), ${Math.round(totalBytes / 1024)} KB total.`);
 }
 

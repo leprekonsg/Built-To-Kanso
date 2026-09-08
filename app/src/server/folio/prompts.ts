@@ -5,8 +5,6 @@ export type ImagePromptKind =
   | "life-sketch-from-anchor"
   | "empty-room-hero"
   | "wind-sketch-base"
-  | "wind-sketch-export-polish"
-  | "wind-sketch-micro-polish"
   | "environmental-texture-atlas"
   | "resonance-hour-background"
   | "material-reveal-demo-frame";
@@ -55,19 +53,21 @@ export const OPENAI_IMAGE_PROMPTS: Record<ImagePromptKind, OpenAIImagePromptSpec
       "Use case: sketch-to-render",
       "Asset type: Built-To-Kanso Life Sketch",
       "Task: Materialize a locked deterministic camera-view greybox into a beautiful Singapore HDB Life Sketch. This is prototype_visualisation, not compliance evidence.",
-      "Source of truth: Image 1 is LOCKED CAMERA AND VISIBLE GEOMETRY, a deterministic Three.js greybox generated from plan-geometry.json. Image 2 is topology reference only, a top-down plan proof. Image 3 is optional brand atmosphere. Image 4 is optional material board.",
+      "Source of truth: Image 1 is LOCKED CAMERA AND VISIBLE GEOMETRY, a deterministic Three.js greybox generated from plan-geometry.json. Image 2 is topology reference only, a top-down plan proof. Any additional images supply optional brand atmosphere and material finishes only.",
       "Authority order: Image 1 camera and visible geometry override Image 2, style references, photorealism, interior-design convention, aesthetic cleanup, and any inferred room correction. Image 2 resolves topology only; do not convert to a different viewpoint.",
       "Change only: materialize surfaces, walls, floor, curtains, light, modest HDB finishes, token surface character, realistic shadow softness, exposure, fine sensor grain, and quiet HDB atmosphere.",
       "Preserve exactly: Image 1 camera angle, crop, room count, room proportions, ceiling height, wall masses, every internal door position, window positions, balcony direction, kitchen doorway, Household Shelter/service/pipeshaft relationship, major object positions, token count, token centerpoints, token bounding boxes, and token placement.",
       "Bathroom discipline: render only the bathrooms shown in the locked references. Do not turn Household Shelter, pipeshaft, service yard, or wet-zone overlays into an extra toilet, shower, or bathroom.",
+      "Spatial room identity: match each labeled room in Image 2 to its same footprint in Image 1 before furnishing it. Keep kitchen counters, sink and hob inside the locked kitchen; keep washer, drain and exterior louvre inside the locked service yard. The dark reinforced shelter box must remain empty: never put laundry appliances or a window there. Do not swap room functions to suit the camera, and do not leave the kitchen as an empty room.",
       "Service yard discipline: every room locked as a service yard must visibly read as a Singapore HDB service yard — render a stacked washer/dryer (or front-load washing machine) parked against an interior wall, a visible floor drain near the center, and the exterior louvre or louvered window opening the locked plan defines. The yard must read as a utility space open to outside air, never as a sealed closet, storage cell, blank alcove, second bathroom, shower stall, or extra bedroom. Do not place a toilet bowl, washbasin, shower head, bathtub, bed, sofa, or dining furniture in the service yard.",
+      "Household Shelter discipline: every room locked as a Household Shelter (Singapore civil-defence shelter) must render as a single small empty reinforced-concrete cube with one heavy steel pivot door on the locked-plan opening, no windows, and no internal articulation. Walls are plain bare concrete with visible thickness; the interior volume reads as a single empty cube. Do not insert internal walls, internal partitions, nested sub-compartments, cabinets, shelving racks, storage cubbies, ventilation grilles drawn as bathroom fixtures, or any furniture inside the shelter. Do not split the shelter into stacked or adjacent boxes. The shelter is unfurnished by default.",
       "Circulation discipline: preserve bedroom doors to corridor/circulation exactly where shown. The main bedroom must not be accessible only through a bathroom if the topology proof shows a corridor door.",
       "Scene/backdrop: honest compact Singapore HDB architecture, light oak or terrazzo floor, off-white limewash walls, sheer linen curtains, HDB balcony/window light, modest public-housing proportions, no generic luxury Japandi room.",
       "Objects: preserve major object and token positions from Image 1. Style tokens as single integrated material objects, never as furniture catalog staging or generated-room proof. Use a plain wooden-bladed ceiling fan only if visible in Image 1.",
       "Lighting/mood: Singapore late-afternoon equatorial sun, warm 4500K, soft balcony light, long gentle shadow bars, realistic exposure, fine sensor grain, calm Monsoon Atelier atmosphere.",
       "Visual quality: photographic and physically plausible, with matte tropical materials and restrained contrast. Avoid plastic-AI-render sheen, HDR clarity, over-sharpening, waxy surfaces, anime, manga, game-asset styling, and showroom CGI.",
-      "Reject output if: extra rooms appear, rooms disappear, openings shift, bedroom corridor doors disappear, the main bedroom becomes bathroom-only access, Household Shelter reads as a bathroom, bathroom count increases, the service yard reads as a sealed closet, blank alcove, bathroom, or second bedroom, the washer/floor drain/exterior louvre of the service yard are missing, walls move, balcony/window side changes, camera/viewpoint changes, kitchen/Household Shelter/pipeshaft relationship changes, tokens move, token sizes change, luxury-condo cues appear, visible text appears, or the scene reads as generic render-SaaS staging.",
-      "Constraints: no extra bathrooms, no extra rooms, no bathroom fixtures in Household Shelter, no luxury condo cues, no marble lobby, no track lighting unless present in Image 1, no cove lighting, no designer pendant lighting, no tatami, no torii, no Kyoto temple, no cherry blossoms, no Mt Fuji, no fireplace, no Nordic snow, no visible text, no logos, no people, no watermark, no plastic-AI-render sheen, no HDR clarity, no anime, no manga.",
+      "Reject output if: extra rooms appear, rooms disappear, openings shift, bedroom corridor doors disappear, the main bedroom becomes bathroom-only access, Household Shelter reads as a bathroom, bathroom count increases, the Household Shelter has internal walls, shelves, racks, cabinets, or nested compartments, the Household Shelter is split into multiple boxes, the service yard reads as a sealed closet, blank alcove, bathroom, or second bedroom, the washer/floor drain/exterior louvre of the service yard are missing, walls move, balcony/window side changes, camera/viewpoint changes, kitchen/Household Shelter/pipeshaft relationship changes, tokens move, token sizes change, luxury-condo cues appear, visible text appears, or the scene reads as generic render-SaaS staging.",
+      "Constraints: no extra bathrooms, no extra rooms, no bathroom fixtures in Household Shelter, no internal walls inside the Household Shelter, no shelving or cabinets inside the Household Shelter, no nested compartments inside the Household Shelter, no luxury condo cues, no marble lobby, no track lighting unless present in Image 1, no cove lighting, no designer pendant lighting, no tatami, no torii, no Kyoto temple, no cherry blossoms, no Mt Fuji, no fireplace, no Nordic snow, no visible text, no logos, no people, no watermark, no plastic-AI-render sheen, no HDR clarity, no anime, no manga.",
     ].join("\n"),
   },
 
@@ -114,46 +114,6 @@ export const OPENAI_IMAGE_PROMPTS: Record<ImagePromptKind, OpenAIImagePromptSpec
       "Reject output if: any wall shifts, any room appears or disappears, any opening moves, labels or symbols are added, furniture appears, streamlines or arrows appear, or the plan becomes perspective.",
       "Constraints: no furniture, no streamlines, no airflow arrows, no new rooms, no missing rooms, no labels, no dimensions, no compass, no watermark, no title block, no invented symbols.",
       "Output: clean architectural top-down plan styled for the hero composition, 3:2 landscape aspect.",
-    ].join("\n"),
-  },
-
-  "wind-sketch-export-polish": {
-    kind: "wind-sketch-export-polish",
-    mode: "edit",
-    notes: [
-      "Use only after deterministic SVG streamlines are already composited.",
-      "Reject any output that moves, smooths, merges, splits, or invents airflow lines.",
-    ],
-    prompt: [
-      "Use case: precise-object-edit",
-      "Asset type: Built-To-Kanso Wind Sketch polish",
-      "Task: Subtle polish only. Do not alter airflow geometry or underlying plan geometry.",
-      "Source of truth: Image 1 is LOCKED WIND SKETCH COMPOSITE. It already contains deterministic physics-derived sumi-e airflow streamlines composited over the plan or room.",
-      "Authority order: existing pixels and line paths override beauty, smoothness, style consistency, and inferred airflow.",
-      "Change only: subtle ink-paper interaction, small ink bloom at existing stroke intersections, dry-brush kasure texture at existing stroke tails, slight washi paper fiber interaction, gentle tonal variation in black ink.",
-      "Preserve exactly: every streamline path, start point, end point, curvature, branch, gap, stroke count, wall, object, label, token, badge, and camera crop.",
-      "Reject output if: any airflow line moves, smooths, merges, splits, extends, disappears, appears, thickens into smoke, or becomes an arrow.",
-      "Constraints: do not move, redraw, smooth, merge, split, extend, or invent any airflow line. No arrows, no smoke, no fog, no weather-map look, no new text, no watermark.",
-    ].join("\n"),
-  },
-
-  "wind-sketch-micro-polish": {
-    kind: "wind-sketch-micro-polish",
-    mode: "edit",
-    notes: [
-      "Tier-2 polish (Stage D). Off by default — gated by ?polish=1 query string and OPENAI_API_KEY.",
-      "Hard rule (brief Section 18): streamline geometry never moves. The image-edit input is the deterministic SVG composite rasterized to PNG; the prompt restates preservation explicitly.",
-    ],
-    prompt: [
-      "Use case: precise-object-edit",
-      "Asset type: Built-To-Kanso Wind Sketch micro-polish",
-      "Task: ink-paper interaction effects only; preserve all line geometry exactly; no new content; subtle paper grain and ink-bleed only.",
-      "Source of truth: Image 1 is the LOCKED WIND SKETCH COMPOSITE rasterized from deterministic SVG. Streamline geometry is final and must not move.",
-      "Authority order: existing pixels and deterministic streamline paths override style, smoothness, and inferred airflow.",
-      "Change only: subtle washi paper grain, faint ink bleed at existing stroke crossings, gentle tonal variation in black ink, slight kasure dry-brush at existing stroke tails.",
-      "Preserve exactly: every streamline path, start point, end point, curvature, branch, gap, stroke count, wall, room outline, opening, fixed element, particle, label, and crop.",
-      "Reject output if: any streamline moves, any stroke count changes, any airflow line is added or removed, any room outline changes, or any weather-map symbol appears.",
-      "Constraints: do not move, redraw, smooth, merge, split, extend, or invent any airflow line. No arrows, no smoke, no fog, no weather-map look, no new text, no watermark.",
     ].join("\n"),
   },
 

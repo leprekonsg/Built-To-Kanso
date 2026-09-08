@@ -2,6 +2,10 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { hashBytes } from "../../lib/imageHash";
 import { LIFE_SKETCH_QA_GATE_VERSION } from "../openai/lifeSketchReview";
+import { isTemplateId } from "../geometry/registry";
+import { LIFE_SKETCH_INPUT_FINGERPRINT_VERSION, resolveAcceptedLifeSketchArtifact } from "../sketches/lifeSketchAsset";
+import { RESONANCE_HOUR_INPUT_VERSION, resolveResonanceHourArtifact } from "../sketches/resonanceHourAsset";
+import { resolveWindBaseArtifact } from "../sketches/windBaseAsset";
 
 export type RenderAssetKind =
   | "empty_room_hero"
@@ -144,6 +148,7 @@ export function expectedRenderAssets(): RenderAssetSpec[] {
       evidenceTier: "prototype_visualisation",
       sourceTruth: "plan-geometry.json",
       qaGateVersion: LIFE_SKETCH_QA_GATE_VERSION,
+      inputFingerprintVersion: LIFE_SKETCH_INPUT_FINGERPRINT_VERSION,
     },
     dependencyHashes: [
       {
@@ -176,8 +181,7 @@ export function expectedRenderAssets(): RenderAssetSpec[] {
         promptKind: "wind-sketch-base",
         evidenceTier: "prototype_visualisation",
         sourceTruth: "plan-geometry.json",
-        qaGateVersion: "stage-b-no-streamlines-v1",
-        scope: "phase1_demo_flagship",
+        inputFingerprintVersion: "v2-current-topology",
       },
       dependencyHashes: [
         {
@@ -185,11 +189,11 @@ export function expectedRenderAssets(): RenderAssetSpec[] {
           metadataPath: "dependencyHashes.topologyProofHash",
         },
       ],
-      minWidth: 1000,
+      minWidth: 1500,
       minHeight: 1000,
       minBytes: 500_000,
-      aspectMin: 0.95,
-      aspectMax: 1.05,
+      aspectMin: 1.45,
+      aspectMax: 1.55,
     },
     {
       id: "tampines-greenweave-resonance-hour",
@@ -204,8 +208,7 @@ export function expectedRenderAssets(): RenderAssetSpec[] {
         promptKind: "resonance-hour-background",
         evidenceTier: "prototype_visualisation",
         sourceTruth: "plan-geometry.json",
-        qaGateVersion: "resonance-hour-wind-cues-v1",
-        scope: "phase1_demo_flagship",
+        inputFingerprintVersion: RESONANCE_HOUR_INPUT_VERSION,
       },
       dependencyHashes: [
         {
@@ -213,11 +216,11 @@ export function expectedRenderAssets(): RenderAssetSpec[] {
           metadataPath: "dependencyHashes.acceptedLifeSketchHash",
         },
       ],
-      minWidth: 1000,
+      minWidth: 1500,
       minHeight: 1000,
       minBytes: 500_000,
-      aspectMin: 0.95,
-      aspectMax: 1.05,
+      aspectMin: 1.45,
+      aspectMax: 1.55,
     },
   ];
 
@@ -386,6 +389,18 @@ async function validateSidecar(
       }
     } catch {
       result.issues.push(`${dependency.relativePath}: dependency for ${spec.metadataRelativePath} is missing or unreadable.`);
+    }
+  }
+
+  if (spec.templateId && isTemplateId(spec.templateId)) {
+    if (spec.kind === "accepted_life_sketch" && !await resolveAcceptedLifeSketchArtifact(spec.templateId, publicRoot)) {
+      result.issues.push(`${spec.relativePath}: accepted image provenance is invalid or stale. Rebuild the anchor and Life Sketch with the current pipeline.`);
+    }
+    if (spec.kind === "resonance_hour" && !await resolveResonanceHourArtifact(spec.templateId, publicRoot)) {
+      result.issues.push(`${spec.relativePath}: Resonance Hour provenance is invalid or stale. Rebuild it from a current accepted Life Sketch.`);
+    }
+    if (spec.kind === "wind_base" && !await resolveWindBaseArtifact(spec.templateId, publicRoot)) {
+      result.issues.push(`${spec.relativePath}: Wind background provenance is invalid or stale. Rebuild it from the current topology proof.`);
     }
   }
 

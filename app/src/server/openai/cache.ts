@@ -42,6 +42,7 @@ export interface CacheKeyInputs {
 
 export interface SketchCacheMetadata {
   key: string;
+  pngHash?: string;
   promptKind: ImagePromptKind;
   candidateCount: number;
   acceptedCandidateIndex: number;
@@ -58,6 +59,10 @@ export interface SketchCacheMetadata {
 }
 
 const METADATA_CACHE = new Map<string, SketchCacheMetadata>();
+
+function usesFileMetadata(): boolean {
+  return ["file", "local"].includes((process.env.SKETCH_CACHE_PROVIDER ?? "memory").trim().toLowerCase());
+}
 
 export function keyFor(promptKind: ImagePromptKind, inputs: CacheKeyInputs): string {
   const model = inputs.model ? normalizeOpenAIImageModel(inputs.model) : getOpenAIImageModel();
@@ -91,8 +96,14 @@ export async function putCachedMetadata(
   metadata: SketchCacheMetadata,
   dir: string = process.env.SKETCH_CACHE_DIR ?? DEFAULT_SKETCH_CACHE_DIR,
 ): Promise<void> {
-  METADATA_CACHE.set(metadata.key, metadata);
-  if ((process.env.SKETCH_CACHE_PROVIDER ?? "memory").toLowerCase() !== "file") return;
+  if (!usesFileMetadata()) {
+    METADATA_CACHE.delete(metadata.key);
+    METADATA_CACHE.set(metadata.key, metadata);
+    while (METADATA_CACHE.size > DEFAULT_SKETCH_CACHE_MAX_ENTRIES) {
+      METADATA_CACHE.delete(METADATA_CACHE.keys().next().value!);
+    }
+    return;
+  }
   await mkdir(dir, { recursive: true });
   await writeFile(metadataPath(dir, metadata.key), JSON.stringify(metadata, null, 2), "utf8");
 }
@@ -101,14 +112,11 @@ export async function getCachedMetadata(
   key: string,
   dir: string = process.env.SKETCH_CACHE_DIR ?? DEFAULT_SKETCH_CACHE_DIR,
 ): Promise<SketchCacheMetadata | undefined> {
-  const memory = METADATA_CACHE.get(key);
-  if (memory) return memory;
-  if ((process.env.SKETCH_CACHE_PROVIDER ?? "memory").toLowerCase() !== "file") return undefined;
+  if (!usesFileMetadata()) return METADATA_CACHE.get(key);
   try {
     const raw = await readFile(metadataPath(dir, key), "utf8");
     const metadata = JSON.parse(raw) as SketchCacheMetadata;
-    if (metadata.key !== key) return undefined;
-    METADATA_CACHE.set(key, metadata);
+    if (metadata?.key !== key) return undefined;
     return metadata;
   } catch {
     return undefined;

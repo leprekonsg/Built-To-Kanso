@@ -25,6 +25,7 @@ import { getPlanGeometry } from "../src/server/geometry/registry";
 import type { TemplateId } from "../src/server/geometry/types";
 import {
   getLifeAnchorCachePath,
+  buildLifeAnchorCacheMetadata,
   renderLifeAnchorPng,
 } from "../src/server/anchors/lifeAnchor";
 import { renderLifeAnchorSceneSvg } from "../src/server/anchors/lifeAnchorRender";
@@ -84,6 +85,7 @@ async function bakeTemplate(
     }
     const png = rendered.png;
     await writeFile(cache.absolutePath, png);
+    await writeFile(cache.metadataAbsolutePath, JSON.stringify(buildLifeAnchorCacheMetadata(rendered.manifest, png), null, 2) + "\n", "utf8");
     return {
       templateId,
       contentType: "image/png",
