@@ -1,8 +1,8 @@
 /**
  * Deterministic streamline extraction from a velocity field.
  *
- * Per CLAUDE.md: "SVG streamlines are extracted deterministically from the
- * LBM velocity field — they are the airflow source of truth in the UI."
+ * The paths are deterministic illustrations derived from the prototype
+ * velocity field. They do not establish measured airflow or physical benefit.
  *
  * Algorithm:
  *   1. Place ~12 seed points evenly across the inflow edge (within plan bounds).
@@ -13,7 +13,7 @@
  */
 
 import type { PlanGeometry, Point, Rect } from "@/server/geometry/types";
-import type { RawVelocityField, VelocityField } from "./types";
+import type { RawVelocityField, StreamlineSource, VelocityField } from "./types";
 
 const DEFAULT_SEED_COUNT = 12;
 const MAX_STEPS = 200;
@@ -26,20 +26,25 @@ interface Vec2 {
   y: number;
 }
 
+export interface ExtractedStreamline {
+  points: Point[];
+  source: StreamlineSource;
+}
+
 export function extractStreamlines(
   field: VelocityField,
   plan: PlanGeometry,
   count: number = DEFAULT_SEED_COUNT,
 ): { paths: string[] } {
   const lines = extractStreamlinePoints(field, plan, { count });
-  return { paths: lines.map(toSvgPath) };
+  return { paths: lines.map((line) => toSvgPath(line.points)) };
 }
 
 export function extractStreamlinePoints(
   field: VelocityField,
   plan: PlanGeometry,
-  options: { count?: number; compassDeg?: number } = {},
-): Point[][] {
+  options: { count?: number; compassDeg?: number; includePipeshaftSource?: boolean } = {},
+): ExtractedStreamline[] {
   const raw = field as unknown as RawVelocityField;
   const N = raw.width; // width === height per types contract
   const bounds = plan.bounds;
@@ -50,22 +55,28 @@ export function extractStreamlinePoints(
   const stepM = cellM * STEP_CELL_FRACTION;
 
   const inflowEdge = pickInflowEdge(options.compassDeg ?? plan.defaultDoorFacingDeg ?? 0);
-  const seeds = seedPoints(bounds, inflowEdge, count);
+  const ordinaryCount = options.includePipeshaftSource && plan.pipeshaft ? Math.max(0, count - 1) : count;
+  const seeds = seedPoints(bounds, inflowEdge, ordinaryCount);
 
-  const lines: Point[][] = [];
-  for (const seed of seeds) {
+  const lines: ExtractedStreamline[] = [];
+  for (const [index, seed] of seeds.entries()) {
     const pts = integrate(raw, plan, seed, stepM);
     if (pts.length < 2) continue;
-    lines.push(pts);
+    lines.push({ points: pts, source: { kind: "boundary", edge: inflowEdge, index } });
   }
 
   if (lines.length < Math.min(3, count)) {
-    for (const seed of interiorSeedPoints(raw, plan, count * 2)) {
+    for (const [index, seed] of interiorSeedPoints(raw, plan, count * 2).entries()) {
       const pts = integrate(raw, plan, seed, stepM);
       if (pts.length < 2) continue;
-      lines.push(pts);
-      if (lines.length >= count) break;
+      lines.push({ points: pts, source: { kind: "interior_diagnostic", index } });
+      if (lines.length >= ordinaryCount) break;
     }
+  }
+
+  if (options.includePipeshaftSource && plan.pipeshaft && lines.length < count) {
+    const points = integrate(raw, plan, plan.pipeshaft.openingPoint, stepM);
+    if (points.length >= 2) lines.push({ points, source: { kind: "pipeshaft", shaftId: plan.pipeshaft.id } });
   }
 
   return lines.slice(0, count);

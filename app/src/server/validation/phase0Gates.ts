@@ -62,7 +62,7 @@ export const PHASE0_GATE_REQUIREMENTS: readonly Phase0GateRequirement[] = [
   {
     gateId: "life_sketch_preservation",
     evidenceKey: "templateOutcomes",
-    required: "One preservation outcome for each Phase 1 template.",
+    required: "One preservation outcome for each template selected for Life Sketch output.",
     example: {
       templateOutcomes: [
         {
@@ -77,7 +77,7 @@ export const PHASE0_GATE_REQUIREMENTS: readonly Phase0GateRequirement[] = [
   {
     gateId: "webgpu_redmi_benchmark",
     evidenceKey: "fpsSamples + tier4LookupSamples",
-    required: "Redmi Note 13 FPS samples plus Tier 4 lookup samples for all three templates.",
+    required: "Redmi Note 13 FPS samples plus Tier 4 lookup samples for each selected illustrative-airflow template.",
     example: {
       device: "Redmi Note 13",
       fpsSamples: [31, 30, 32],
@@ -119,7 +119,7 @@ export const PHASE0_GATE_REQUIREMENTS: readonly Phase0GateRequirement[] = [
   {
     gateId: "resonance_historical_wind",
     evidenceKey: "templateWeeks",
-    required: "Four weekly historical fire counts for each Phase 1 template, each between 1 and 4.",
+    required: "Four weekly historical fire counts for each selected weather-alignment template, each between 1 and 4.",
     example: {
       templateWeeks: [
         { templateId: "resale-exec-1990s", weeklyFires: [1, 2, 3, 4] },
@@ -178,7 +178,11 @@ export function evaluateTemplateArchitectureVerification(): AutomatedPhase0GateR
   };
 }
 
-export function evaluatePhase0Gate(gateId: Phase0GateId, evidence: unknown): Phase0GateResult {
+export function evaluatePhase0Gate(
+  gateId: Phase0GateId,
+  evidence: unknown,
+  templateIds: readonly TemplateId[] = PHASE1_TEMPLATE_IDS,
+): Phase0GateResult {
   switch (gateId) {
     case "empty_room_beauty":
       return emptyRoomGate(evidence);
@@ -191,11 +195,11 @@ export function evaluatePhase0Gate(gateId: Phase0GateId, evidence: unknown): Pha
     case "material_slider_comprehension":
       return materialSliderGate(evidence);
     case "life_sketch_preservation":
-      return lifeSketchGate(evidence);
+      return lifeSketchGate(evidence, templateIds);
     case "webgpu_redmi_benchmark":
-      return webGpuGate(evidence);
+      return webGpuGate(evidence, templateIds);
     case "resonance_historical_wind":
-      return resonanceGate(evidence);
+      return resonanceGate(evidence, templateIds);
   }
 }
 
@@ -298,9 +302,9 @@ function testerGate(
   };
 }
 
-function lifeSketchGate(evidence: unknown): Phase0GateResult {
+function lifeSketchGate(evidence: unknown, templateIds: readonly TemplateId[]): Phase0GateResult {
   const outcomes = readArray(evidence, "templateOutcomes");
-  const required = "All three Phase 1 templates preserve room counts, wall topology, and HDB layout signatures after GPT Image edit.";
+  const required = "Every template selected for Life Sketch output preserves room counts, wall topology, and HDB layout signatures after GPT Image edit.";
   if (typeof outcomes === "string") return pending("life_sketch_preservation", required, outcomes);
 
   const byTemplate = new Map<string, { roomCounts: boolean; wallTopology: boolean; hdbSignatures: boolean }>();
@@ -315,7 +319,7 @@ function lifeSketchGate(evidence: unknown): Phase0GateResult {
     }
   }
   const missing: string[] = [];
-  for (const templateId of PHASE1_TEMPLATE_IDS) {
+  for (const templateId of templateIds) {
     const result = byTemplate.get(templateId);
     if (!result) {
       missing.push(`Missing GPT Image edit preservation evidence for ${templateId}.`);
@@ -329,10 +333,10 @@ function lifeSketchGate(evidence: unknown): Phase0GateResult {
   return {
     gateId: "life_sketch_preservation",
     passed: missing.length === 0,
-    summary: `${PHASE1_TEMPLATE_IDS.filter((templateId) => {
+    summary: `${templateIds.filter((templateId) => {
       const result = byTemplate.get(templateId);
       return result?.roomCounts && result.wallTopology && result.hdbSignatures;
-    }).length}/${PHASE1_TEMPLATE_IDS.length} templates preserved.`,
+    }).length}/${templateIds.length} templates preserved.`,
     required,
     observed: Array.from(byTemplate.entries())
       .map(
@@ -344,9 +348,9 @@ function lifeSketchGate(evidence: unknown): Phase0GateResult {
   };
 }
 
-function webGpuGate(evidence: unknown): Phase0GateResult {
+function webGpuGate(evidence: unknown, templateIds: readonly TemplateId[]): Phase0GateResult {
   const required =
-    "Live LBM benchmark reaches >=30fps on Redmi Note 13 baseline, and Tier 4 lookup stays <200ms for every Phase 1 template.";
+    "Live LBM benchmark reaches >=30fps on Redmi Note 13 baseline, and Tier 4 lookup stays <200ms for every selected illustrative-airflow template.";
   if (!isRecord(evidence)) return pending("webgpu_redmi_benchmark", required, "evidence must be an object.");
 
   const device = readString(evidence, "device") ?? "";
@@ -367,7 +371,7 @@ function webGpuGate(evidence: unknown): Phase0GateResult {
         byTemplate.set(templateId, readNumberArray(entry, "lookupMs"));
       }
     }
-    for (const templateId of PHASE1_TEMPLATE_IDS) {
+    for (const templateId of templateIds) {
       const lookupMs = byTemplate.get(templateId);
       if (!lookupMs || lookupMs.length === 0) {
         missing.push(`Missing Tier 4 lookup samples for ${templateId}.`);
@@ -389,8 +393,8 @@ function webGpuGate(evidence: unknown): Phase0GateResult {
   };
 }
 
-function resonanceGate(evidence: unknown): Phase0GateResult {
-  const required = "Each Phase 1 template fires between 1x/week and 4x/week across one month of historical wind records.";
+function resonanceGate(evidence: unknown, templateIds: readonly TemplateId[]): Phase0GateResult {
+  const required = "Each template selected for home weather alignment fires between 1x/week and 4x/week across one month of historical wind records.";
   const templateWeeks = readArray(evidence, "templateWeeks");
   if (typeof templateWeeks === "string") return pending("resonance_historical_wind", required, templateWeeks);
 
@@ -403,7 +407,7 @@ function resonanceGate(evidence: unknown): Phase0GateResult {
   }
 
   const missing: string[] = [];
-  for (const templateId of PHASE1_TEMPLATE_IDS) {
+  for (const templateId of templateIds) {
     const weeklyFires = byTemplate.get(templateId);
     if (!weeklyFires || weeklyFires.length < 4) {
       missing.push(`Missing four weekly historical fire counts for ${templateId}.`);
@@ -417,7 +421,7 @@ function resonanceGate(evidence: unknown): Phase0GateResult {
   return {
     gateId: "resonance_historical_wind",
     passed: missing.length === 0,
-    summary: `${PHASE1_TEMPLATE_IDS.length - missing.length}/${PHASE1_TEMPLATE_IDS.length} templates inside weekly frequency band.`,
+    summary: `${templateIds.length - missing.length}/${templateIds.length} templates inside weekly frequency band.`,
     required,
     observed: Array.from(byTemplate.entries()).map(([templateId, counts]) => `${templateId}:${counts.join("/")}`).join(", "),
     missing,

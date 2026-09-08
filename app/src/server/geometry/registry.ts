@@ -9,6 +9,7 @@ import tengahManifest from "@/data/templates/tengah-5room/source-manifest.json";
 import tengahReview from "@/data/templates/tengah-5room/geometry-review.json";
 import type { GeometryReviewRecord, GeometrySourceManifest, PlanGeometry, TemplateId } from "./types";
 import { evaluateGeometryReleaseGate } from "./provenance";
+import type { ReleaseManifest } from "./releaseManifest";
 
 const GEOMETRIES: Record<TemplateId, PlanGeometry> = {
   "tampines-greenweave": tampinesGreenweave as unknown as PlanGeometry,
@@ -36,8 +37,8 @@ export function getPlanGeometry(templateId: TemplateId): PlanGeometry {
   return GEOMETRIES[templateId];
 }
 
-export function getGeometryReleaseGate(templateId: TemplateId) {
-  return evaluateGeometryReleaseGate(GEOMETRIES[templateId], MANIFESTS[templateId], REVIEWS[templateId]);
+export function getGeometryReleaseGate(templateId: TemplateId, releaseManifest?: ReleaseManifest) {
+  return evaluateGeometryReleaseGate(GEOMETRIES[templateId], MANIFESTS[templateId], REVIEWS[templateId], releaseManifest);
 }
 
 export function listGeometrySummaries() {

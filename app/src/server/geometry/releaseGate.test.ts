@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { getGeometryReleaseGate, getPlanGeometry } from "./registry";
 import { evaluateGeometryReleaseGate, geometrySha256, sourceManifestSha256 } from "./provenance";
+import { coherentShaftlessPlan, verifiedTestEvidence } from "./testFixtures";
 import { validatePlanTopology } from "./topology";
 import type { GeometryReviewRecord, GeometrySourceManifest, PlanGeometry } from "./types";
 import { validatePlanGeometry } from "./validation";
@@ -76,20 +77,62 @@ describe("geometry release containment", () => {
   });
 
   it("passes a coherent generic template without implying as-built or renovation approval", () => {
-    const plan = structuredClone(getPlanGeometry("tampines-greenweave"));
-    plan.bounds = { x: 0, y: 0, width: 4, height: 2 };
-    plan.rooms = [
-      { id: "a", label: "A", kind: "living", confidence: "green", x: 0, y: 0, width: 2, height: 2 },
-      { id: "b", label: "B", kind: "bedroom", confidence: "green", x: 2, y: 0, width: 2, height: 2 },
-    ];
-    plan.openings = [{ id: "shared", kind: "door", roomIds: ["a", "b"], start: { x: 2, y: 0.5 }, end: { x: 2, y: 1.5 }, operable: true }];
-    plan.fixedElements = [];
-    plan.bathrooms = [{ roomId: "a", exhaustPoint: { x: 1, y: 1 } }];
-    const [manifest, review] = verifiedEvidence(plan);
-    assert.equal(evaluateGeometryReleaseGate(plan, manifest, review).eligible, true);
+    const plan = coherentShaftlessPlan();
+    const [manifest, review] = verifiedTestEvidence(plan);
+    const gate = evaluateGeometryReleaseGate(plan, manifest, review);
+    assert.equal(gate.eligible, true);
+    assert.equal(gate.capabilities.layoutDisplay.available, true);
+    assert.equal(gate.capabilities.shaftAdvice.available, false);
+    assert.equal(gate.capabilities.homeWeatherAlignment.available, false);
 
-    plan.openings[0].end = { x: 3, y: 2 };
-    assert.match(validatePlanTopology(plan).issues.join("\n"), /shared.*declared room/);
+    plan.openings[1].end = { x: 5, y: 2 };
+    assert.match(validatePlanTopology(plan).issues.join("\n"), /living-bath.*declared room/);
+  });
+
+  it("rejects inconsistent present pipeshaft and bathroom semantics", () => {
+    const plan = coherentShaftlessPlan();
+    plan.pipeshaft = {
+      id: "shaft", roomId: "living", openingPoint: { x: 1, y: 1 }, openingDirectionDeg: 0,
+      jetVelocityMps: [0.1, 0.2], bufferRadiusM: 0.6, downwindRoomIds: ["missing"],
+    };
+    plan.bathrooms[0].roomId = "living";
+    const issues = validatePlanGeometry(plan).issues.join("\n");
+    assert.match(issues, /room must be a service, kitchen, or bathroom/);
+    assert.match(issues, /exactly one physical opening/);
+    assert.match(issues, /downwind rooms must be unique known rooms/);
+    assert.match(issues, /must reference a room with kind "bathroom"/);
+  });
+
+  it("accepts a consistent present shaft while keeping advice behind release selection", () => {
+    const plan = coherentShaftlessPlan();
+    plan.pipeshaft = {
+      id: "bath-shaft", roomId: "bath", openingPoint: { x: 5, y: 1 }, openingDirectionDeg: 90,
+      jetVelocityMps: [0.1, 0.2], bufferRadiusM: 0.6, downwindRoomIds: ["living"],
+    };
+    plan.fixedElements.push({ id: "bath-shaft-opening", kind: "pipeshaft_opening", confidence: "black", x: 4.8, y: 0.8, width: 0.4, height: 0.4, bufferEligible: true });
+    const [manifest, review] = verifiedTestEvidence(plan);
+    const gate = evaluateGeometryReleaseGate(plan, manifest, review);
+    assert.equal(gate.eligible, true);
+    assert.equal(gate.basicValidation.ok, true);
+    assert.equal(gate.capabilities.shaftAdvice.available, false);
+    assert.match(gate.capabilities.shaftAdvice.reason ?? "", /release selection/);
+
+    plan.fixedElements.push({ id: "orphan-shaft", kind: "pipeshaft_opening", confidence: "black", x: 4.2, y: 0.2, width: 0.2, height: 0.2 });
+    assert.match(validatePlanGeometry(plan).issues.join("\n"), /exactly one physical opening/);
+    plan.fixedElements.pop();
+    plan.pipeshaft.jetVelocityMps = [0.1] as unknown as [number, number];
+    assert.match(validatePlanGeometry(plan).issues.join("\n"), /values must be finite/);
+  });
+
+  it("suppresses home-specific alignment when orientation is unknown", () => {
+    const plan = coherentShaftlessPlan();
+    const [manifest, review] = verifiedTestEvidence(plan);
+    manifest.coordinateTransform.planToNorthDeg = null;
+    review.sourceManifestSha256 = sourceManifestSha256(manifest);
+    const gate = evaluateGeometryReleaseGate(plan, manifest, review);
+    assert.equal(gate.eligible, true);
+    assert.equal(gate.capabilities.orientationAnalysis.available, false);
+    assert.equal(gate.capabilities.homeWeatherAlignment.available, false);
   });
 
   it("never releases diagnostic scope even if review fields are complete", () => {

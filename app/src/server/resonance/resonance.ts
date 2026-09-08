@@ -92,7 +92,7 @@ export function evaluateResonance(input: EvaluateResonanceInput): ResonanceEvalu
   }
 
   const aligned =
-    angularDiffDeg(input.wind.directionDeg, corridor.azimuthDeg) <= thresholds.alignmentToleranceDeg;
+    angularAxisDiffDeg(input.wind.directionDeg, corridor.azimuthDeg) <= thresholds.alignmentToleranceDeg;
   const strongEnough = input.wind.speedMps >= thresholds.minOutdoorSpeedMps;
   const predictedIndoorSpeedMps =
     input.predictedIndoorSpeedMps ?? estimatePredictedIndoorSpeedMps(input.wind.speedMps);
@@ -275,6 +275,10 @@ function normalizeDeg(deg: number): number {
 function angularDiffDeg(a: number, b: number): number {
   const diff = Math.abs(((a - b + 540) % 360) - 180);
   return diff;
+}
+
+function angularAxisDiffDeg(directionDeg: number, axisDeg: number): number {
+  return Math.min(angularDiffDeg(directionDeg, axisDeg), angularDiffDeg(directionDeg, axisDeg + 180));
 }
 
 function estimatePredictedIndoorSpeedMps(outdoorSpeedMps: number): number {

@@ -1,5 +1,6 @@
 import type { EvidenceTier } from "@/server/evidence";
 import type { Point, TemplateId } from "@/server/geometry/types";
+import type { StreamlineSource } from "@/server/lbm/types";
 
 export type SimulationSourceKind = "tier1_live" | "prebaked_fallback";
 export type WeatherTrialConditionId =
@@ -60,6 +61,8 @@ export interface SimulationStreamline {
   material: SimulationStreamlineMaterial;
   points: Point[];
   speedMps: number;
+  /** Seed provenance for calculated lines; legacy pre-baked fixtures may omit it. */
+  source?: StreamlineSource;
 }
 
 export interface Tier4SimulationField {

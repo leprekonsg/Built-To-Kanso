@@ -1,17 +1,7 @@
 /**
- * Canonical airflow physics types.
- *
- * Per CLAUDE.md "Physics and compliance":
- * - WebGPU LBM is canonical airflow.
- * - D2Q9 lattice, 256x256 grid.
- * - SVG streamlines extracted deterministically from LBM velocity field
- *   are the airflow source of truth in the UI.
- *
- * NOTE on grid size: the brief mandates 256x256 as the canonical grid for the
- * GPU solver. The CPU reference (`solver.ts`) accepts any grid size to keep
- * dev-loop typecheck/run-time reasonable; pre-bake currently runs at 64.
- * The interface still pins 256x256 as the canonical shape — runtime arrays may
- * differ during development, see solver.ts and prebake.ts for the cast.
+ * Types for the illustrative D2Q9 airflow prototype. Grid dimensions are
+ * runtime values and may differ between live and pre-baked visualisations.
+ * These fields drive presentation only; they are not measured indoor airflow.
  */
 
 export interface VelocityField {
@@ -20,6 +10,11 @@ export interface VelocityField {
   /** size width*height*2: [u, v] interleaved, row-major (y * width + x) * 2 */
   data: Float32Array;
 }
+
+export type StreamlineSource =
+  | { kind: "boundary"; edge: "north" | "south" | "east" | "west"; index: number }
+  | { kind: "interior_diagnostic"; index: number }
+  | { kind: "pipeshaft"; shaftId: string };
 
 export interface LbmConfig {
   templateId: string;
@@ -36,13 +31,7 @@ export interface ObstacleMask {
   data: Uint8Array;
 }
 
-/**
- * Internal helper: a velocity field of arbitrary grid size.
- * The public `VelocityField` always claims 256x256 (canonical contract).
- * `RawVelocityField` is what the CPU reference produces during dev when we
- * lower the grid for performance. Cache + UI consumers should treat both as
- * the same shape; the typecheck just enforces interleaved [u,v] data.
- */
+/** Internal structural view used by solvers and presentation builders. */
 export interface RawVelocityField {
   width: number;
   height: number;

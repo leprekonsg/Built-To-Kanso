@@ -38,9 +38,14 @@ function stopChild() {
 
 child.once("exit", (code, signal) => {
   if (!shuttingDown) {
-    process.exitCode = code ?? (signal ? 1 : 0);
+    process.exitCode = code ?? 1;
     process.exit();
   }
+});
+child.once("error", (error) => {
+  console.error(error);
+  process.exitCode = 1;
+  stopChild();
 });
 
 process.once("SIGINT", () => {

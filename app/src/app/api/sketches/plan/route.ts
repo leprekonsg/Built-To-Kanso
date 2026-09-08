@@ -15,7 +15,7 @@
 // The route never returns 5xx for an OpenAI miss; the UI renders a designed
 // surface, not an alarming error toast.
 import { NextResponse } from "next/server";
-import { geometryReleaseResponse } from "@/server/geometry/releaseResponse";
+import { geometryOutputResponse } from "@/server/geometry/releaseResponse";
 import { getPlanGeometry, isTemplateId } from "@/server/geometry/registry";
 import {
   renderPlanSketchFallbackSvg,
@@ -154,7 +154,7 @@ export async function POST(request: Request) {
   const plan = getPlanGeometry(body.templateId);
   const svg = renderPlanSketchFallbackSvg(plan);
   if (wantsSvg(request)) return svgFallbackResponse(svg, "deterministic-svg", { "X-Geometry-Use": "diagnostic-only" });
-  const blocked = geometryReleaseResponse(body.templateId);
+  const blocked = geometryOutputResponse(body.templateId, "plan_sketch");
   if (blocked) return blocked;
 
   const local = await resolvePlanSketchArtifact(body.templateId);

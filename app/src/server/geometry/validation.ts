@@ -17,6 +17,14 @@ function hasDuplicate(values: string[]): boolean {
   return new Set(values).size !== values.length;
 }
 
+function containsPoint(rect: Rect, point: { x: number; y: number }): boolean {
+  return point.x >= rect.x && point.x <= rect.x + rect.width && point.y >= rect.y && point.y <= rect.y + rect.height;
+}
+
+function containsRect(bounds: Rect, rect: Rect): boolean {
+  return rect.x >= bounds.x && rect.y >= bounds.y && rect.x + rect.width <= bounds.x + bounds.width && rect.y + rect.height <= bounds.y + bounds.height;
+}
+
 export function validatePlanGeometry(plan: PlanGeometry): GeometryValidationResult {
   const issues: string[] = [];
 
@@ -39,6 +47,7 @@ export function validatePlanGeometry(plan: PlanGeometry): GeometryValidationResu
   if (hasDuplicate(openingIds)) issues.push("Opening ids must be unique.");
   for (const opening of plan.openings) {
     if (opening.roomIds.length === 0) issues.push(`Opening "${opening.id}" must declare at least one adjoining room.`);
+    if (hasDuplicate(opening.roomIds)) issues.push(`Opening "${opening.id}" adjoining rooms must be unique.`);
     if (opening.roomIds.some((id) => !roomIdSet.has(id))) {
       issues.push(`Opening "${opening.id}" references an unknown room.`);
     }
@@ -51,11 +60,51 @@ export function validatePlanGeometry(plan: PlanGeometry): GeometryValidationResu
   }
   for (const element of plan.fixedElements) {
     if (!isPositiveRect(element)) issues.push(`Fixed element "${element.id}" must have finite positive dimensions.`);
+    if (element.kind === "pipeshaft_opening" && !containsRect(plan.bounds, element)) {
+      issues.push(`Pipeshaft opening "${element.id}" must lie within plan bounds.`);
+    }
+  }
+
+  if (plan.pipeshaft) {
+    const shaft = plan.pipeshaft;
+    const shaftRoom = plan.rooms.find((room) => room.id === shaft.roomId);
+    if (!shaftRoom) issues.push(`Pipeshaft "${shaft.id}" references an unknown room.`);
+    else if (!["service", "kitchen", "bathroom"].includes(shaftRoom.kind)) {
+      issues.push(`Pipeshaft "${shaft.id}" room must be a service, kitchen, or bathroom space.`);
+    }
+    if (shaft.jetVelocityMps.length !== 2 || ![shaft.openingPoint.x, shaft.openingPoint.y, shaft.openingDirectionDeg, ...shaft.jetVelocityMps, shaft.bufferRadiusM].every(Number.isFinite)) {
+      issues.push(`Pipeshaft "${shaft.id}" values must be finite.`);
+    }
+    if (shaft.jetVelocityMps[0] < 0 || shaft.jetVelocityMps[1] < shaft.jetVelocityMps[0]) {
+      issues.push(`Pipeshaft "${shaft.id}" velocity range must be non-negative and ordered.`);
+    }
+    if (shaft.bufferRadiusM <= 0) issues.push(`Pipeshaft "${shaft.id}" buffer radius must be greater than zero.`);
+    if (shaftRoom && !containsPoint(shaftRoom, shaft.openingPoint)) {
+      issues.push(`Pipeshaft "${shaft.id}" opening point must lie within room "${shaft.roomId}".`);
+    }
+    if (hasDuplicate(shaft.downwindRoomIds) || shaft.downwindRoomIds.some((id) => !roomIdSet.has(id))) {
+      issues.push(`Pipeshaft "${shaft.id}" downwind rooms must be unique known rooms.`);
+    }
+    if (!containsPoint(plan.bounds, shaft.openingPoint)) issues.push(`Pipeshaft "${shaft.id}" opening point must lie within plan bounds.`);
+    const shaftElements = plan.fixedElements.filter((element) => element.kind === "pipeshaft_opening");
+    const matchingElements = shaftElements.filter((element) => containsPoint(element, shaft.openingPoint));
+    if (shaftElements.length !== 1 || matchingElements.length !== 1) {
+      issues.push(`Pipeshaft "${shaft.id}" must have exactly one physical opening containing its opening point.`);
+    }
+  } else if (plan.fixedElements.some((element) => element.kind === "pipeshaft_opening" || element.bufferEligible)) {
+    issues.push("Pipeshaft physical elements require a corresponding pipeshaft record.");
   }
 
   if (plan.bathrooms.length === 0) issues.push("Plan must include at least one bathroom.");
   for (const bathroom of plan.bathrooms) {
-    if (!roomIdSet.has(bathroom.roomId)) issues.push(`Bathroom "${bathroom.roomId}" must exist in rooms.`);
+    const room = plan.rooms.find((candidate) => candidate.id === bathroom.roomId);
+    if (!room) issues.push(`Bathroom "${bathroom.roomId}" must exist in rooms.`);
+    else if (room.kind !== "bathroom") issues.push(`Bathroom "${bathroom.roomId}" must reference a room with kind "bathroom".`);
+    if (![bathroom.exhaustPoint.x, bathroom.exhaustPoint.y].every(Number.isFinite)) {
+      issues.push(`Bathroom "${bathroom.roomId}" exhaust point must be finite.`);
+    } else if (room && !containsPoint(room, bathroom.exhaustPoint)) {
+      issues.push(`Bathroom "${bathroom.roomId}" exhaust point must lie within its room.`);
+    }
   }
 
   if (plan.siteContext !== undefined) {

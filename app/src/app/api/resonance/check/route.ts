@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { submittedGeometryReleaseResponse } from "@/server/geometry/releaseResponse";
+import { submittedGeometryCapabilityResponse } from "@/server/geometry/releaseResponse";
 import type { PlanGeometry } from "@/server/geometry/types";
 import { computeCrossVentCorridor } from "@/server/resonance/corridor";
 import { defaultFrequencyTierForFloor, floorToTier } from "@/server/resonance/floorTier";
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const blocked = submittedGeometryReleaseResponse(body.plan);
+  const blocked = submittedGeometryCapabilityResponse(body.plan, "homeWeatherAlignment");
   if (blocked) return blocked;
   const floor = body.floor;
   const tierFromBody: FrequencyTier = body.frequencyTier ?? defaultFrequencyTierForFloor(floor);

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { geometryReleaseResponse } from "@/server/geometry/releaseResponse";
+import { geometryCapabilityResponse } from "@/server/geometry/releaseResponse";
 import { getPlanGeometry, isTemplateId } from "@/server/geometry/registry";
 import { generateHouseChangelog } from "@/server/rules/changelog";
 import { isTokenPlacement, type TokenPlacement } from "@/server/rules/tokens";
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const blocked = geometryReleaseResponse(body.templateId);
+  const blocked = geometryCapabilityResponse(body.templateId, "placementAdvice");
   if (blocked) return blocked;
   return NextResponse.json(
     generateHouseChangelog({

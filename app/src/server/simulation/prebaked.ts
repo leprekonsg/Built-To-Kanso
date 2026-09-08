@@ -319,14 +319,13 @@ function buildGeneratedField(
   const base = TIER4_PREBAKED_FIELDS[templateId];
   const plan = getPlanGeometry(templateId);
   const tokenFactor = tokenPlacements.reduce((factor, placement) => factor * tokenSpeedFactor(placement.tokenId), 1);
-  const shaftFactor = tokenPlacements.some((placement) => placement.tokenId === "shaft_buffer") ? 0.72 : 1;
   const cleanFactor = condition.speedFactor * tokenFactor;
   const pull = candidate ? 0.035 : 0;
 
   return {
     streamlines: base.streamlines.filter((line) => plan.pipeshaft || !(line.id.includes("shaft") || line.id.includes("pipeshaft"))).map((line) => {
       const isShaftLine = line.id.includes("shaft") || line.id.includes("pipeshaft");
-      const factor = isShaftLine ? condition.speedFactor * shaftFactor : cleanFactor;
+      const factor = isShaftLine ? condition.speedFactor : cleanFactor;
       return {
         ...line,
         speedMps: round(line.speedMps * factor),
@@ -334,7 +333,7 @@ function buildGeneratedField(
       };
     }),
     particles: base.particles.filter((particle) => plan.pipeshaft || particle.kind !== "pipeshaft_drift").flatMap((particle) => {
-      const factor = particle.kind === "pipeshaft_drift" ? condition.speedFactor * shaftFactor : cleanFactor;
+      const factor = particle.kind === "pipeshaft_drift" ? condition.speedFactor : cleanFactor;
       const shifted = shiftPoint(particle, candidate, pull);
       const seed = {
         ...particle,
@@ -343,7 +342,7 @@ function buildGeneratedField(
         speedMps: round(particle.speedMps * factor),
       };
       if (particle.kind !== "pipeshaft_drift") return [seed];
-      return expandPipeshaftJet(seed, plan, condition, shaftFactor);
+      return expandPipeshaftJet(seed, plan);
     }),
     velocitySamples: base.velocitySamples.map((sample) => {
       const shifted = shiftPoint(sample, candidate, pull);
@@ -369,8 +368,6 @@ function buildGeneratedField(
 function expandPipeshaftJet(
   seed: SimulationParticle,
   plan: ReturnType<typeof getPlanGeometry>,
-  _condition: Tier4WeatherCondition,
-  _shaftFactor: number,
 ): SimulationParticle[] {
   if (!plan.pipeshaft) return [];
   const directionRad = (plan.pipeshaft.openingDirectionDeg * Math.PI) / 180;

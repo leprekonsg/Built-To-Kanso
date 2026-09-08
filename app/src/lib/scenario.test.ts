@@ -48,15 +48,49 @@ describe("shared scenario identity", () => {
     assert.ok(value.openings.every((opening) => opening.evidence === "assumed"));
   });
 
-  it("rejects runtime inputs that claim unsupported orientation or weather", () => {
+  it("rejects valid-identity scenarios with unsupported orientation, weather, or opening states", () => {
     const plan = getPlanGeometry("tengah-5room");
-    const rotated = structuredClone(scenario()) as ReturnType<typeof scenario>;
-    rotated.orientation.planRotationDeg = 90;
-    assert.equal(typeof parseIllustrativeAirflowScenario(rotated, plan, "geometry-sha256"), "string");
+    const rotated = buildScenario({
+      plan, geometryContentHash: "geometry-sha256", geometryReleaseEligible: true,
+      planRotationDeg: 90, mirrored: null, placements: [], weatherCondition: "ne_monsoon", windFromDeg: 45, ambientWindMps: 2.4,
+    });
+    assert.equal(hasValidScenarioIdentity(rotated), true);
+    assert.equal(
+      parseIllustrativeAirflowScenario(rotated, plan, "geometry-sha256"),
+      "illustrative airflow currently supports plan-relative orientation only; rotation and mirroring must be unknown.",
+    );
 
-    const alteredWeather = structuredClone(scenario()) as ReturnType<typeof scenario>;
-    alteredWeather.conditions.ambientWindMps = 99;
-    assert.equal(typeof parseIllustrativeAirflowScenario(alteredWeather, plan, "geometry-sha256"), "string");
+    const alteredWeather = buildScenario({
+      plan, geometryContentHash: "geometry-sha256", geometryReleaseEligible: true,
+      planRotationDeg: null, mirrored: null, placements: [], weatherCondition: "ne_monsoon", windFromDeg: 45, ambientWindMps: 99,
+    });
+    assert.equal(hasValidScenarioIdentity(alteredWeather), true);
+    assert.equal(
+      parseIllustrativeAirflowScenario(alteredWeather, plan, "geometry-sha256"),
+      "weather direction and speed must match the selected illustrative condition.",
+    );
+
+    const changedPlan = structuredClone(plan);
+    changedPlan.openings[0].operable = !changedPlan.openings[0].operable;
+    const alteredOpenings = buildScenario({
+      plan: changedPlan, geometryContentHash: "geometry-sha256", geometryReleaseEligible: true,
+      planRotationDeg: null, mirrored: null, placements: [], weatherCondition: "ne_monsoon", windFromDeg: 45, ambientWindMps: 2.4,
+    });
+    assert.equal(hasValidScenarioIdentity(alteredOpenings), true);
+    assert.equal(
+      parseIllustrativeAirflowScenario(alteredOpenings, plan, "geometry-sha256"),
+      "opening operating states are not supported by this airflow method.",
+    );
+  });
+
+  it("rejects a mutated scenario at the identity boundary", () => {
+    const plan = getPlanGeometry("tengah-5room");
+    const mutated = structuredClone(scenario()) as ReturnType<typeof scenario>;
+    mutated.conditions.ambientWindMps = 99;
+    assert.equal(
+      parseIllustrativeAirflowScenario(mutated, plan, "geometry-sha256"),
+      "scenario identity does not match its inputs.",
+    );
   });
 });
 

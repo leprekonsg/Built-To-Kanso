@@ -73,15 +73,20 @@ test.describe("Backend route contracts", () => {
     expect(JSON.stringify(body)).not.toMatch(/sk-[A-Za-z0-9]/);
   });
 
-  test("readiness reports geometry review and stale assets as blockers", async ({ request }) => {
+  test("readiness scopes blockers to the selected layout while other templates remain contained", async ({ request }) => {
     const response = await request.get("/api/validation/phase1-readiness");
     expect(response.ok()).toBe(true);
     const body = await response.json();
-    expect(body).toMatchObject({ complete: false, demoReady: false, repoImplementationComplete: false });
-    expect(body.demoBlockers).toEqual(expect.arrayContaining([
-      expect.stringContaining("geometry_review:tampines-greenweave"),
-      expect.stringContaining("geometry_review:tengah-5room"),
-      expect.stringContaining("geometry_review:resale-exec-1990s"),
-    ]));
+    expect(body).toMatchObject({ complete: false, demoReady: false, repoImplementationComplete: true });
+    expect(body.releaseManifest.entries).toEqual([
+      { templateId: "tampines-greenweave", capabilities: ["layout_display"], outputs: ["plan_svg"] },
+    ]);
+    expect(body.demoBlockers).toEqual([expect.stringContaining("geometry_review:tampines-greenweave")]);
+    expect(body.renderAssets.ok).toBe(false);
+    for (const templateId of ["tengah-5room", "resale-exec-1990s"]) {
+      const simulation = await request.post("/api/simulation", { data: { templateId } });
+      expect(simulation.status()).toBe(422);
+      expect((await simulation.json()).error).toBe("geometry_not_ready");
+    }
   });
 });

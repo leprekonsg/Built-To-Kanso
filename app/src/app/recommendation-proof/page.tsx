@@ -11,7 +11,7 @@ import { PlanGlyph } from "@/components/PlanGlyph";
 import { EVIDENCE_TIER_LABELS, type EvidenceTier } from "@/server/evidence";
 import { buildLifeAnchorSceneManifest } from "@/server/anchors/lifeAnchor";
 import { getPlanGeometry, getGeometryReleaseGate } from "@/server/geometry/registry";
-import GeometryReviewNotice from "@/components/GeometryReviewNotice";
+import GeometryReviewNotice, { GeometryCapabilityNotice } from "@/components/GeometryReviewNotice";
 import type { Point, RoomGeometry } from "@/server/geometry/types";
 import { buildRecommendationProof, type RecommendationAction, type RecommendationProof } from "@/server/recommendations/proof";
 import type { SimulationStreamline } from "@/server/simulation/types";
@@ -46,8 +46,12 @@ export default async function RecommendationProofPage({ searchParams }: Recommen
     return <MissingInputs />;
   }
 
-  if (!getGeometryReleaseGate(templateId).eligible) {
+  const gate = getGeometryReleaseGate(templateId);
+  if (!gate.eligible) {
     return <main className={styles.page}><GeometryReviewNotice templateId={templateId} /></main>;
+  }
+  if (!gate.capabilities.placementAdvice.available) {
+    return <main className={styles.page}><GeometryCapabilityNotice templateId={templateId} reason={gate.capabilities.placementAdvice.reason ?? "Placement advice is unavailable for this release."} /></main>;
   }
   const plan = getPlanGeometry(templateId);
   const template = TEMPLATES.find((item) => item.id === templateId);

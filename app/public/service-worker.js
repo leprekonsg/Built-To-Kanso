@@ -32,7 +32,7 @@ function readPushPayload(event) {
       body:
         typeof payload.body === "string"
           ? payload.body
-          : "Your home is breathing right now.",
+          : "Open the studio to review the latest update. Indoor airflow is not measured.",
       url: typeof payload.url === "string" ? payload.url : "/threshold",
       tag: typeof payload.tag === "string" ? payload.tag : "resonance-hours",
       timestamp:
@@ -48,7 +48,7 @@ function readPushPayload(event) {
 function defaultPayload() {
   return {
     title: "Built-To-Kanso",
-    body: "Your home is breathing right now.",
+    body: "Open the studio to review the latest update. Indoor airflow is not measured.",
     url: "/threshold",
     tag: "resonance-hours",
     timestamp: new Date().toISOString(),

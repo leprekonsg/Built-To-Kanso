@@ -7,6 +7,7 @@ import type {
 } from "./types";
 import { validatePlanTopology } from "./topology";
 import { validatePlanGeometry } from "./validation";
+import { PHASE1_RELEASE_MANIFEST, releaseManifestAllows, type ReleaseManifest } from "./releaseManifest";
 
 function canonicalJson(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
@@ -29,6 +30,7 @@ export function evaluateGeometryReleaseGate(
   plan: PlanGeometry,
   manifest: GeometrySourceManifest,
   review: GeometryReviewRecord,
+  releaseManifest: ReleaseManifest = PHASE1_RELEASE_MANIFEST,
 ): GeometryReleaseGateResult {
   const basicValidation = validatePlanGeometry(plan);
   const topology = validatePlanTopology(plan);
@@ -61,18 +63,40 @@ export function evaluateGeometryReleaseGate(
     (element) => element.kind === "pipeshaft_opening" && element.bufferEligible,
   );
   const pipeshaft = plan.pipeshaft;
-  const shaftAdviceAvailable = Boolean(shaftElement && pipeshaft && plan.rooms.some((room) => room.id === pipeshaft.roomId));
+  const shaftAdviceAvailable = Boolean(shaftElement && pipeshaft && basicValidation.ok && topology.ok);
   const provenance = { ok: issues.length === 0, issues, geometrySha256: hash, statuses: review.statuses };
+  const eligible = basicValidation.ok && topology.ok && provenance.ok;
+  const unavailableGeometryReason = "Source-reviewed geometry is required for this capability.";
+  const hasIllustrativeOpenings = plan.openings.filter((opening) => opening.operable).length >= 2;
+  const layoutSelected = releaseManifestAllows(plan.templateId, "layout_display", releaseManifest);
+  const placementSelected = releaseManifestAllows(plan.templateId, "placement_advice", releaseManifest);
+  const airflowSelected = releaseManifestAllows(plan.templateId, "illustrative_airflow", releaseManifest);
 
   return {
-    eligible: basicValidation.ok && topology.ok && provenance.ok,
+    eligible,
     basicValidation,
     topology,
     provenance,
     capabilities: {
+      layoutDisplay: {
+        available: eligible && layoutSelected,
+        reason: !eligible ? unavailableGeometryReason : layoutSelected ? null : "Layout display is not selected in the current release manifest.",
+      },
+      placementAdvice: {
+        available: eligible && placementSelected,
+        reason: !eligible ? unavailableGeometryReason : placementSelected ? null : "Placement advice is not selected in the current release manifest.",
+      },
+      illustrativeAirflow: {
+        available: eligible && airflowSelected && hasIllustrativeOpenings,
+        reason: !eligible ? unavailableGeometryReason : !airflowSelected ? "Illustrative airflow is not selected in the current release manifest." : hasIllustrativeOpenings ? null : "At least two operable openings are required for illustrative airflow.",
+      },
+      homeWeatherAlignment: {
+        available: false,
+        reason: "Home-specific weather alignment requires an identified exterior-opening path, directional inlet/outlet assumptions, and a verified station-to-site relationship; geometry v1 does not record these prerequisites.",
+      },
       shaftAdvice: {
-        available: shaftAdviceAvailable,
-        reason: shaftAdviceAvailable ? null : "Pipeshaft location or buffer evidence is unavailable; shaft-related advice is disabled.",
+        available: eligible && placementSelected && shaftAdviceAvailable,
+        reason: eligible && placementSelected && shaftAdviceAvailable ? null : "Pipeshaft location, reviewed buffer evidence, or placement-advice release selection is unavailable; shaft-related advice is disabled.",
       },
       orientationAnalysis: {
         available: manifest.coordinateTransform.planToNorthDeg !== null && Number.isFinite(manifest.coordinateTransform.planToNorthDeg),

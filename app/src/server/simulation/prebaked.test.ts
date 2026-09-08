@@ -120,4 +120,26 @@ describe("Tier 4 prebake matrix", () => {
     assert.equal(first.meta.matrix.baseCellCount, 270);
     assert.equal(first.meta.lookup.matched, true);
   });
+
+  it("does not present a shaft buffer as a simulated shaft-speed benefit", () => {
+    const baseline = lookupTier4Prebake({
+      templateId: "resale-exec-1990s",
+      tokenPlacements: [],
+      weatherCondition: DEFAULT_TIER4_WEATHER_CONDITION,
+    });
+    const buffered = lookupTier4Prebake({
+      templateId: "resale-exec-1990s",
+      tokenPlacements: [{ tokenId: "shaft_buffer", point: { x: 5.4, y: 3.95 } }],
+      weatherCondition: DEFAULT_TIER4_WEATHER_CONDITION,
+    });
+    const shaftLineSpeeds = (value: typeof baseline) => value.field.streamlines
+      .filter((line) => line.id.includes("shaft"))
+      .map((line) => line.speedMps);
+    const shaftParticleSpeeds = (value: typeof baseline) => value.field.particles
+      .filter((particle) => particle.kind === "pipeshaft_drift")
+      .map((particle) => particle.speedMps);
+
+    assert.deepEqual(shaftLineSpeeds(buffered), shaftLineSpeeds(baseline));
+    assert.deepEqual(shaftParticleSpeeds(buffered), shaftParticleSpeeds(baseline));
+  });
 });

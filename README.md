@@ -6,13 +6,15 @@
 
 Wind-aware placement studio for Singapore HDB homes.
 
-Built-To-Kanso helps a resident read an HDB home before adding more things to it. Pick a familiar flat template, set the door direction and floor level, then watch the home surface its airflow, damp, quiet, light, and placement constraints. The product is calm by design: it protects fixed HDB/SCDF elements, keeps Damp Risk in simple bands, refuses unsafe placements, and occasionally listens for real outdoor wind so the home can say when it is breathing well.
+Built-To-Kanso helps a resident read an HDB home before adding more things to it. Resident-ready operations are enabled per source-reviewed template and capability through an explicit release manifest. Templates outside that manifest remain diagnostic. Unsupported humidity and physical-benefit outcomes remain Not assessed; visual airflow is illustrative and does not establish measured performance.
 
 For a visual map of how the pieces fit together, open the [architecture overview](https://leprekonsg.github.io/Built-To-Kanso/built-to-kanso-architecture.html).
 
 ---
 
 ## Pages
+
+The table describes intended workflows. Current templates show diagnostic notices; resident-ready operations remain gated.
 
 | Route | What it does |
 | --- | --- |
@@ -50,8 +52,8 @@ Local `.env*` files are gitignored and must stay out of git. The app runs withou
 
 | Variable | Effect when absent |
 | --- | --- |
-| `NEA_API_KEY` | Resonance uses mock wind that rotates every 20 minutes. |
-| `OPENAI_API_KEY` | All sketch routes return deterministic SVG fallbacks. |
+| `NEA_API_KEY` | Live weather is unavailable. Home-specific Resonance remains disabled regardless of credentials. |
+| `OPENAI_API_KEY` | Eligible sketch operations use deterministic fallbacks; unreleased outputs remain blocked. |
 | `OPENAI_ORG_ID`, `OPENAI_IMAGE_MODEL` | Optional. Default model is `gpt-image-2`. |
 | `OPENAI_TIMEOUT_MS` | Optional. Default 120000 ms. |
 | `SKETCH_CACHE_PROVIDER` | `memory` (default) or `file`. Per-process LRU, 64 entries / 30 min TTL. |
@@ -66,7 +68,16 @@ cd app
 npm.cmd run typecheck
 npm.cmd run test          # unit tests (tsx --test)
 npm.cmd run test:e2e      # Playwright
+npm.cmd run validate:release # unit + runner checks, build, typecheck, production Chromium tests
 ```
+
+Release readiness evaluates only the templates, capabilities, and output types selected in `PHASE1_RELEASE_MANIFEST`. A layout-only release does not require pipeshaft data or generated image assets. Selecting an image output makes its template-bound PNG and metadata part of the release gate; stale or rejected pre-bakes cannot satisfy readiness.
+
+The current manifest targets Tampines layout inspection, but its geometry remains unreviewed and blocked. This is a containment milestone. No template is enabled and home-specific environmental advice remains unavailable.
+
+`app/output/release-validation/report.json` records commit and source fingerprints, build ID, commands, counts, and log paths. Production Playwright JSON/HTML reports and failure artifacts live in `app/output/e2e-production/`; the application-validation workflow uploads them for each CI run. Desktop Chromium and Pixel 7 emulation do not establish physical-device GPU performance or WebKit support. Synthetic permitted-path tests validate software behaviour, never source authenticity.
+
+Cached template images in `app/public/` are not release evidence. The Next.js output boundary also covers direct cache URLs. Existing copies on static hosts or previously downloaded artifacts require a separate publishing audit; a local gate cannot retract them.
 
 ---
 
@@ -95,10 +106,10 @@ npm.cmd run test:e2e      # Playwright
 - `plan-geometry.json` is compliance truth. AI must not alter walls, streamlines, token legality, Damp Risk, or Black-state decisions.
 - Black-state HDB/SCDF elements hard-block with Golden Failure copy. Refusal is a designed surface, not an error state.
 - Scout Pass surfaces at most three Asking Points. Severity meters and ranked defect lists are forbidden.
-- Damp Risk surfaces as `Clear / Watch / High` only. Internal numerics never reach the homeowner.
+- Unmeasured humidity remains `Not assessed`. A physical claim requires an identified method, applicable inputs, and validation.
 - Streamlines are deterministic from the LBM velocity field. Image generation may only polish allowed visuals, never streamlines.
 - Three.js renders are reference imagery only, never compliance truth.
-- If WebGPU fails, the prebaked result serves silently. The fallback never surfaces to the homeowner.
+- If WebGPU fails, an explicitly illustrative fallback may render for an enabled capability. Neither path establishes physical benefit.
 - External systems must report unavailable config honestly. Do not pretend NEA, OpenAI, or WebGPU ran.
 
 ## Design Rules

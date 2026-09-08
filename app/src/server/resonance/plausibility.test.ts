@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { describe, it } from "node:test";
-import { getPlanGeometry, listGeometrySummaries } from "@/server/geometry/registry";
+import { coherentShaftlessPlan } from "@/server/geometry/testFixtures";
 import type { PlanGeometry } from "@/server/geometry/types";
 import { computeCrossVentCorridor } from "./corridor";
 import { evaluateResonance } from "./resonance";
@@ -69,18 +69,10 @@ function normalizeDeg(deg: number): number {
 }
 
 describe("Resonance one-month plausibility fixture", () => {
-  it("keeps Standard tier notifications inside 1x/week to 4x/week for every Phase 1 template", () => {
-    const templateIds = listGeometrySummaries().map((summary) => summary.templateId);
-
-    for (const templateId of templateIds) {
-      const weeklyNotifications = simulateOneMonth(getPlanGeometry(templateId));
-
-      for (const [week, count] of weeklyNotifications.entries()) {
-        assert.ok(
-          count >= 1 && count <= 4,
-          `${templateId} week ${week + 1} fired ${count} times; expected 1..4`,
-        );
-      }
+  it("keeps Standard tier notifications inside 1x/week to 4x/week for a coherent software fixture", () => {
+    const weeklyNotifications = simulateOneMonth(coherentShaftlessPlan());
+    for (const [week, count] of weeklyNotifications.entries()) {
+      assert.ok(count >= 1 && count <= 4, `software fixture week ${week + 1} fired ${count} times; expected 1..4`);
     }
   });
 });

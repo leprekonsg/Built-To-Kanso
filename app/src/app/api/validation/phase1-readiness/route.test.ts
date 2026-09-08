@@ -16,13 +16,11 @@ describe("/api/validation/phase1-readiness", () => {
     const body = await response.json();
 
     assert.equal(response.status, 200);
-    assert.equal(body.repoImplementationComplete, false);
-    assert.equal(body.implementation.total, 26);
+    assert.equal(body.repoImplementationComplete, true);
+    assert.equal(body.implementation.total, 2);
     assert.equal(body.renderAssets.ok, false);
-    assert.equal(body.phase0.requirements.length, 8);
-    assert.ok(body.phase0.requirements.some((item: { gateId: string }) => item.gateId === "material_slider_comprehension"));
-    assert.equal(body.operational.requirements.length, 5);
-    assert.ok(body.operational.requirements.some((item: { id: string; sensitive: boolean }) => item.id === "nea_api_key" && item.sensitive));
+    assert.equal(body.phase0.requirements.length, 0);
+    assert.equal(body.operational.requirements.length, 0);
     assert.equal(body.complete, false);
     assert.equal(body.demoReady, false);
     assert.ok(body.demoBlockers.some((blocker: string) => blocker.startsWith("geometry_review:")));
@@ -46,8 +44,8 @@ describe("/api/validation/phase1-readiness", () => {
     const body = await response.json();
 
     assert.equal(response.status, 200);
-    assert.equal(body.phase0.items.find((item: { id: string }) => item.id === "webgpu_redmi_benchmark").status, "complete");
-    assert.equal(body.phase0.pendingExternal, 7);
+    assert.equal(body.phase0.items.length, 0);
+    assert.equal(body.phase0.pendingExternal, 0);
     assert.equal(body.demoReady, false);
   });
 
@@ -64,10 +62,7 @@ describe("/api/validation/phase1-readiness", () => {
     const body = await response.json();
 
     assert.equal(response.status, 200);
-    assert.equal(
-      body.operational.checks.find((item: { id: string }) => item.id === "openai_tier2_account").status,
-      "ready",
-    );
+    assert.equal(body.operational.checks.length, 0);
     assert.ok(body.blockers.every((blocker: string) => !blocker.includes("openai_tier2_account")));
     assert.doesNotMatch(JSON.stringify(body), /demo-operator/);
   });

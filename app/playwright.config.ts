@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const PORT = Number(process.env.PORT ?? 3030);
 const skipWebServer = process.env.PLAYWRIGHT_SKIP_WEBSERVER === "1";
+const reportDir = process.env.PLAYWRIGHT_REPORT_DIR ?? "output/e2e-development";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -11,7 +12,12 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? "github" : "list",
+  reporter: [
+    [process.env.CI ? "github" : "list"],
+    ["json", { outputFile: `${reportDir}/results.json` }],
+    ["html", { outputFolder: `${reportDir}/html`, open: "never" }],
+  ],
+  outputDir: `${reportDir}/artifacts`,
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: "retain-on-failure",

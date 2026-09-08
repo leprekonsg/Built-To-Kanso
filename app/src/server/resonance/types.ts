@@ -1,8 +1,8 @@
-// brief Phase 1 §23 — Resonance Hours.
-// "The home stays with the user": one quiet ping when real outdoor wind
-// aligns with the unit's optimal cross-vent corridor.
+// Diagnostic geometry and weather contracts. Home-specific alignment remains
+// disabled until orientation, site/station and operating-path evidence exists.
 
 export interface CrossVentCorridor {
+  /** Undirected plan-coordinate axis, 0 <= degrees < 180; not an inlet bearing. */
   azimuthDeg: number;
   openingIds: [string, string];
   spanM: number;

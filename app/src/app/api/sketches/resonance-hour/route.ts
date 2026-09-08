@@ -10,7 +10,7 @@
 // Sketch (unaltered) so the UI never sees a 5xx. The X-Sketch-Source header
 // lets prebake scripts distinguish a polished response from a passthrough.
 import { NextResponse } from "next/server";
-import { geometryReleaseResponse } from "@/server/geometry/releaseResponse";
+import { geometryOutputResponse } from "@/server/geometry/releaseResponse";
 import { resolveAcceptedLifeSketchArtifact } from "@/server/sketches/lifeSketchAsset";
 import { getPlanGeometry, isTemplateId } from "@/server/geometry/registry";
 import { resolveLifeAnchorArtifact } from "@/server/anchors/lifeAnchor";
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const blocked = geometryReleaseResponse(body.templateId);
+  const blocked = geometryOutputResponse(body.templateId, "resonance_hour");
   if (blocked) return blocked;
   const accepted = await resolveAcceptedLifeSketchArtifact(body.templateId);
   const materialize = new URL(request.url).searchParams.get("materialize") === "1";

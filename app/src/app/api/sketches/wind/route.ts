@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { geometryReleaseResponse } from "@/server/geometry/releaseResponse";
+import { geometryOutputResponse } from "@/server/geometry/releaseResponse";
 import { getPlanGeometry } from "@/server/geometry/registry";
 import {
   renderWindSketchOverBaseSvg,
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_wind_sketch_request", message: valid }, { status: 400 });
   }
 
-  const blocked = geometryReleaseResponse(valid.templateId);
+  const blocked = geometryOutputResponse(valid.templateId, "wind_sketch");
   if (blocked) return blocked;
   const plan = getPlanGeometry(valid.templateId);
   const field = buildTier4Simulation(valid);

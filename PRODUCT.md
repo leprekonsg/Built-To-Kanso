@@ -16,14 +16,14 @@ The Cultural-mode homeowner anchors every Phase 1 decision. When voices conflict
 
 ## Product Purpose
 
-Built-To-Kanso is a wind-aware feng shui studio for Singapore HDB homes. It reads a unit's plan geometry, simulates how air, light, and attention move through it, and helps the resident place fewer better objects. It then stays with the home: when the actual wind outside aligns with the unit's optimal cross-ventilation corridor, the resident gets one quiet notification ("Your home is breathing right now").
+Built-To-Kanso is a wind-aware feng shui studio for Singapore HDB homes. Its current release contract starts with source-reviewed plan geometry and enables only the capabilities named in the release manifest. Layout-based airflow remains a prototype visualisation. Home-specific weather alignment stays unavailable until orientation, exterior-opening connectivity, operating assumptions, and station-to-site evidence are verified.
 
-Success looks like:
+Current release success looks like:
 
-1. A homeowner placing a Shaft Buffer token within 90 seconds of opening the studio, watching Damp Risk in the adjacent bedroom drop in real time.
-2. The same homeowner opening the app three months later because the wind shifted, not because of a push notification campaign.
-3. An ID firm using Designer mode to print clearance sheets without ever feeling the calm voice was in the way.
-4. A cultural reviewer reading the etymology disclosure and the Nanyang positioning and concluding "they know what they are."
+1. One source-reviewed layout passes its selected operations while diagnostic templates remain contained.
+2. Unsupported placement, airflow, humidity, and weather claims remain unavailable or Not assessed.
+3. Generated and pre-baked outputs are released only when selected and bound to the reviewed source geometry.
+4. A cultural reviewer can trace the evidence tier and understand the limits of every active output.
 
 Anti-success: a 3D-render SaaS that lets users drop sofas from a catalog, a dashboard of severity meters, or a feng shui app that treats Singapore as Hong Kong with weather.
 
@@ -40,7 +40,7 @@ Voice (Cultural mode, default):
 - Refuses beautifully. The Black-state refusal copy is a feature, not an error.
 
 Voice (Designer mode):
-- Same calm, plus quantities. ACH estimates, RT60 windows, SHGC numbers, clearance dimensions.
+- Same calm, plus quantities only where method, inputs, and validation support them. ACH, RT60, SHGC, and clearance outputs remain aspirations until their individual prerequisites pass.
 - HDB caution callouts visible by default; nothing hidden behind a tooltip.
 - Never sarcastic toward the cultural register; both modes ride the same physics.
 
@@ -62,15 +62,15 @@ A standing brief-level anti-reference also applies: not generic Japanese minimal
 
 Five strategic principles, derived from the brief and load-bearing across every surface.
 
-1. **Remove rather than place.** The headline verb is remove. Kanso Reserve (≥73% healthy empty space) is the headline metric, not a footnote. The Anti-Cure ("leave this corner unbuilt for 90 days") is a first-class recommendation. The Less-Is-More Counter takes credit for objects the user did not buy. Every surface should answer "what did we leave alone?" before "what did we add?"
+1. **Remove rather than place.** The headline verb is remove. Kanso Reserve is an aspirational heuristic, not a healthy-space measurement. The Anti-Cure ("leave this corner unbuilt for 90 days") remains a product concept. Every released surface should answer "what did we leave alone?" before "what did we add?"
 
-2. **Every claim is physical.** No metaphysical cures. Each of the six Phase 1 tokens maps to a measurable physical effect (12% opening-area threshold, 0.15-0.25 m/s pipeshaft jet, RH-at-pillow ≥75% mould-likely, SHGC ≤ 0.30). Cultural framing carries the voice; physics carries the truth. If a feature cannot state its physical claim in one sentence, it does not ship.
+2. **Physical claims require evidence.** A physical claim ships only with an identified method, applicable inputs, and validation. Unsupported outcomes remain Not assessed. Prototype visualisations, animation speed, heuristic bands, and token placement do not establish a measured or calculated benefit. Earlier token-effect targets remain research aspirations until their methods and evidence are reviewed.
 
-3. **The home stays with the user.** Resonance Hours is the architectural commitment that the product is not a one-session questionnaire. When real wind aligns with the unit's optimal corridor, surface one quiet notification. Past that, silence. The relationship is the product, not the demo.
+3. **The home stays with the user.** Resonance Hours is an aspiration. Home-specific alignment remains disabled until orientation, exterior-opening connectivity, operating assumptions, and station-to-site evidence are verified. Past that prerequisite gate, notifications should remain quiet and infrequent.
 
 4. **Calm voice over alarm.** Maximum three Asking Points. No severity meters, no ranked defect backlogs, no scanner dashboards. The House Changelog reads as a receipt, not a patch note. Refusal is a designed surface, not an error state. When Designer mode adds analytical precision, it adds it; it does not replace the calm.
 
-5. **Tropical 1.35° N, not transplanted.** The Nanyang positioning is the entire physical-rule stack, not a marketing line. Pipeshafts. Bathroom-downwind checks. West-sun heat path (16:00-18:30) inverting the classical south-facing rule. NE / SW monsoon vectors driving Wind Gate behavior recommendations. If a rule does not pass through Singapore latitude, it does not ship.
+5. **Tropical 1.35° N, not transplanted.** The Nanyang positioning guides research and cultural framing. Pipeshaft, bathroom-downwind, west-sun, and monsoon concepts require their own applicable inputs and validation before they become physical recommendations. Singapore context alone is not evidence of an effect.
 
 ## Accessibility & Inclusion
 

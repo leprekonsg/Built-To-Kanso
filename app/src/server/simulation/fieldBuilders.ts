@@ -7,10 +7,11 @@
  */
 
 import { getPlanGeometry } from "@/server/geometry/registry";
+import type { PlanGeometry } from "@/server/geometry/types";
 import { getLbmComputeCapability } from "@/server/lbm/gpuSolver";
-import { extractStreamlinePoints } from "@/server/lbm/streamlines";
+import { extractStreamlinePoints, type ExtractedStreamline } from "@/server/lbm/streamlines";
 import type { RawVelocityField, VelocityField } from "@/server/lbm/types";
-import { allowedTokenPlacements, type TokenPlacement } from "@/server/rules/tokens";
+import type { TokenPlacement } from "@/server/rules/tokens";
 import type {
   SimulationParticle,
   SimulationSourceMetadata,
@@ -79,33 +80,48 @@ export function buildStreamlines(
   field: VelocityField,
   plan: ReturnType<typeof getPlanGeometry>,
   condition: WeatherTrialCondition,
-  placements: TokenPlacement[],
 ): SimulationStreamline[] {
   const lines = extractStreamlinePoints(field, plan, {
     count: STREAMLINE_COUNT,
     compassDeg: condition.compassDeg,
+    includePipeshaftSource: true,
   });
 
-  return lines.map((points, index) => {
+  return composeExtractedStreamlines(field, plan, condition, lines);
+}
+
+export function composeExtractedStreamlines(
+  field: VelocityField,
+  plan: ReturnType<typeof getPlanGeometry>,
+  condition: WeatherTrialCondition,
+  lines: ReadonlyArray<ExtractedStreamline>,
+): SimulationStreamline[] {
+  return lines.map(({ points, source }) => {
     const speeds = points.map((point) => sampleVelocityAt(field, plan, point.x, point.y).speedMps);
-    const isPipeshaft = index === lines.length - 1;
+    const isPipeshaft = source.kind === "pipeshaft";
     const speedMps = isPipeshaft
-      ? round(Math.max(round(condition.ambientWindMps * 0.08), round(average(speeds))) * shaftFactor(placements))
+      ? round(Math.max(round(condition.ambientWindMps * 0.08), round(average(speeds))))
       : round(average(speeds));
     return {
-      id: isPipeshaft ? "pipeshaft-drift" : `${condition.id}-streamline-${index + 1}`,
+      id: streamlineId(condition.id, source),
       material: isPipeshaft ? "sumi_ink" : "silk_ribbon",
       speedMps,
+      source,
       points: points.map((point) => ({ x: roundPoint(point.x), y: roundPoint(point.y) })),
     };
   });
+}
+
+function streamlineId(conditionId: WeatherTrialConditionId, source: ExtractedStreamline["source"]): string {
+  if (source.kind === "pipeshaft") return "pipeshaft-drift";
+  if (source.kind === "boundary") return `${conditionId}-boundary-${source.edge}-${source.index + 1}`;
+  return `${conditionId}-interior-${source.index + 1}`;
 }
 
 export function buildParticles(
   field: VelocityField,
   plan: ReturnType<typeof getPlanGeometry>,
   condition: WeatherTrialCondition,
-  placements: TokenPlacement[],
 ): SimulationParticle[] {
   const samples = sampleVelocityField(field, plan);
   const particles: SimulationParticle[] = samples.slice(0, 3).map((sample, index) => ({
@@ -118,7 +134,7 @@ export function buildParticles(
     speedMps: sample.speedMps,
   }));
 
-  particles.push(...buildPipeshaftJetParticles(plan, condition, 1260, shaftFactor(placements)));
+  particles.push(...buildPipeshaftJetParticles(plan, condition, 1260));
 
   return particles;
 }
@@ -158,7 +174,6 @@ export function buildPipeshaftJetParticles(
   plan: ReturnType<typeof getPlanGeometry>,
   condition: WeatherTrialCondition,
   startDelayMs: number,
-  attenuation: number,
 ): SimulationParticle[] {
   if (!plan.pipeshaft) return [];
   const pipeshaft = plan.pipeshaft;
@@ -166,7 +181,7 @@ export function buildPipeshaftJetParticles(
   const dx = Math.sin(rad);
   const dy = -Math.cos(rad);
   const [minJet, maxJet] = pipeshaft.jetVelocityMps;
-  const baseSpeed = round(((minJet + maxJet) / 2) * attenuation);
+  const baseSpeed = round((minJet + maxJet) / 2);
   return [0, 1, 2].map((index) => ({
     id: `pipeshaft-jet-${index + 1}`,
     kind: "pipeshaft_drift" as const,
@@ -205,10 +220,6 @@ function gridToPlan(bounds: ReturnType<typeof getPlanGeometry>["bounds"], width:
   };
 }
 
-function shaftFactor(placements: TokenPlacement[]): number {
-  return placements.some((placement) => placement.tokenId === "shaft_buffer") ? 0.72 : 1;
-}
-
 function average(values: number[]): number {
   if (values.length === 0) return 0;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -235,10 +246,12 @@ export function composeTier1Field(args: {
   condition: WeatherTrialCondition;
   tokenPlacements: TokenPlacement[];
   iterations: number;
-}): Tier4SimulationField {
-  const plan = getPlanGeometry(args.templateId);
+}, options: { plan?: PlanGeometry } = {}): Tier4SimulationField {
+  const plan = options.plan ?? getPlanGeometry(args.templateId);
+  if (plan.templateId !== args.templateId) {
+    throw new Error("Injected plan template must match the requested simulation template.");
+  }
   const condition = withPlanCondition(args.condition, plan.westSunFacadeDeg);
-  const placements = allowedTokenPlacements(plan, args.tokenPlacements);
   const raw = args.field as unknown as RawVelocityField;
   const source = simulationSourceMetadata(
     "tier1_live",
@@ -257,8 +270,8 @@ export function composeTier1Field(args: {
     },
     materialPreset: "monsoon_atelier_default",
     materialDefaults: MATERIAL_DEFAULTS,
-    streamlines: buildStreamlines(args.field, plan, condition, placements),
-    particles: buildParticles(args.field, plan, condition, placements),
+    streamlines: buildStreamlines(args.field, plan, condition),
+    particles: buildParticles(args.field, plan, condition),
     velocitySamples: sampleVelocityField(args.field, plan),
     source,
     simulationSource: source,

@@ -148,6 +148,10 @@ export interface GeometryReleaseGateResult {
     statuses: GeometryReviewRecord["statuses"];
   };
   capabilities: {
+    layoutDisplay: { available: boolean; reason: string | null };
+    placementAdvice: { available: boolean; reason: string | null };
+    illustrativeAirflow: { available: boolean; reason: string | null };
+    homeWeatherAlignment: { available: boolean; reason: string | null };
     shaftAdvice: { available: boolean; reason: string | null };
     orientationAnalysis: { available: boolean; reason: string | null };
   };

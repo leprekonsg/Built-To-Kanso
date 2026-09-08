@@ -7,7 +7,7 @@ import {
   type ThresholdParamIssue,
 } from "@/lib/thresholdParams";
 import { getPlanGeometry, getGeometryReleaseGate } from "@/server/geometry/registry";
-import GeometryReviewNotice from "@/components/GeometryReviewNotice";
+import GeometryReviewNotice, { GeometryCapabilityNotice } from "@/components/GeometryReviewNotice";
 import type { ConfidenceState, FixedElementGeometry, PlanGeometry, RoomGeometry } from "@/server/geometry/types";
 import { PlanGlyph, PROTECTED_GLYPH_KINDS, glyphKindLabel } from "@/components/PlanGlyph";
 import { BonesInteractive } from "./_components";
@@ -49,7 +49,8 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
   const scenario = scenarioId;
 
   const plan = getPlanGeometry(templateId);
-  if (!getGeometryReleaseGate(templateId).eligible) {
+  const gate = getGeometryReleaseGate(templateId);
+  if (!gate.eligible) {
     return <main className={styles.page}>
       <GeometryReviewNotice templateId={templateId} />
       <section className={styles.planPanel} aria-label="Diagnostic geometry, not a verified home layout">
@@ -57,6 +58,16 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
         <p>Existing coordinates are shown for review only. Dark restriction overlays do not represent solid walls. This is not a resident-ready plan.</p>
         <PlanSvg plan={plan} />
       </section>
+    </main>;
+  }
+  if (!gate.capabilities.placementAdvice.available || !gate.capabilities.illustrativeAirflow.available) {
+    return <main className={styles.page}>
+      <GeometryCapabilityNotice templateId={templateId} reason="Interactive advice and airflow are not enabled together in this release. The reviewed geometry can be inspected for its documented scope." />
+      {gate.capabilities.layoutDisplay.available ? <section className={styles.planPanel} aria-label="Source-reviewed layout inspection">
+        <h2>Reviewed layout</h2>
+        <p>Dark restriction overlays do not represent solid walls.</p>
+        <PlanSvg plan={plan} />
+      </section> : null}
     </main>;
   }
   const template = TEMPLATES.find((item) => item.id === templateId);
@@ -93,7 +104,7 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
 
       <BonesInteractive
         plan={plan}
-        geometryContentHash={getGeometryReleaseGate(templateId).provenance.geometrySha256}
+        geometryContentHash={gate.provenance.geometrySha256}
         geometryReleaseEligible={true}
         compassDeg={compassDeg}
         floor={floor}
