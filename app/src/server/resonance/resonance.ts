@@ -46,6 +46,8 @@ export const STANDARD_RESONANCE_THRESHOLDS = RESONANCE_THRESHOLDS_BY_TIER.standa
 
 export const OPT_IN_GRACE_HOURS = 24;
 export const MIN_NOTIFICATION_SPACING_HOURS = 6;
+export const MAX_WIND_AGE_MS = 15 * 60 * 1000;
+const MAX_FUTURE_WIND_SKEW_MS = 2 * 60 * 1000;
 
 interface EvaluateResonanceInput {
   plan: PlanGeometry;
@@ -71,6 +73,18 @@ export function evaluateResonance(input: EvaluateResonanceInput): ResonanceEvalu
       resonating: false,
       shouldNotify: false,
       reason: "no_cross_vent_corridor",
+      nextEligibleAt: null,
+      tier: "weather_context",
+      alignmentEventId: null,
+    };
+  }
+
+  const weatherIssue = weatherIntegrityIssue(input.wind, input.now);
+  if (weatherIssue) {
+    return {
+      resonating: false,
+      shouldNotify: false,
+      reason: weatherIssue,
       nextEligibleAt: null,
       tier: "weather_context",
       alignmentEventId: null,
@@ -214,6 +228,21 @@ export function evaluateResonance(input: EvaluateResonanceInput): ResonanceEvalu
     tier: "weather_context",
     alignmentEventId,
   };
+}
+
+function weatherIntegrityIssue(wind: WindReading, now: Date): string | null {
+  if (wind.source === "mock") return "weather_mock";
+  if (!wind.stationId) return "weather_missing_station";
+  if (!Number.isFinite(wind.directionDeg) || wind.directionDeg < 0 || wind.directionDeg > 360) {
+    return "weather_invalid";
+  }
+  if (!Number.isFinite(wind.speedMps) || wind.speedMps < 0) return "weather_invalid";
+
+  const observedAtMs = Date.parse(wind.timestamp);
+  if (!Number.isFinite(observedAtMs)) return "weather_invalid";
+  const ageMs = now.getTime() - observedAtMs;
+  if (ageMs > MAX_WIND_AGE_MS || ageMs < -MAX_FUTURE_WIND_SKEW_MS) return "weather_stale";
+  return null;
 }
 
 // Brief 14.5 dedup: bucket corridor azimuth and wind direction to 10deg, and

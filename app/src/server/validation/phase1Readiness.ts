@@ -21,7 +21,7 @@ import {
   methodologyMeasuredClaims,
 } from "@/lib/methodologyContent";
 import { DEFAULT_VOICE_MODE, VOICE_MODES } from "@/lib/voiceModes";
-import { getPlanGeometry, listGeometrySummaries } from "@/server/geometry/registry";
+import { getPlanGeometry, getGeometryReleaseGate, listGeometrySummaries } from "@/server/geometry/registry";
 import { getLbmComputeCapability } from "@/server/lbm/gpuSolver";
 import { recommendAntiCure } from "@/server/rules/antiCure";
 import { generateHouseChangelog } from "@/server/rules/changelog";
@@ -56,6 +56,7 @@ export interface Phase1ReadinessOptions {
 }
 
 export interface Phase1ReadinessReport {
+  geometry: Array<{ templateId: string; releaseGate: ReturnType<typeof getGeometryReleaseGate> }>;
   objective: string;
   complete: boolean;
   demoReady: boolean;
@@ -118,6 +119,9 @@ export async function buildPhase1ReadinessReport(
   ]);
   const phase1ImplementationItems = buildPhase1ImplementationItems(renderAssets);
   const phase0Items = buildPhase0Items(phase0Evidence);
+  const geometry = listGeometrySummaries().map(({ templateId }) => ({ templateId, releaseGate: getGeometryReleaseGate(templateId) }));
+  const geometryBlockers = geometry.filter(({ releaseGate }) => !releaseGate.eligible)
+    .map(({ templateId }) => `geometry_review:${templateId}: source-backed geometry review is incomplete or stale.`);
 
   const operationalComplete = operational.checks.every((check) =>
     check.status === "ready" || check.status === "waived",
@@ -128,6 +132,7 @@ export async function buildPhase1ReadinessReport(
     .map((phase1Item) => `${phase1Item.id}: ${phase1Item.evidence}`);
   const repoImplementationComplete = implementationBlockers.length === 0;
   const demoBlockers = [
+    ...geometryBlockers,
     ...implementationBlockers,
     ...operational.checks
       .filter((check) => check.requiredForDemo && check.status !== "ready")
@@ -135,6 +140,7 @@ export async function buildPhase1ReadinessReport(
     ...renderAssets.assets.flatMap((asset) => asset.issues),
   ];
   const blockers = [
+    ...geometryBlockers,
     ...implementationBlockers,
     ...phase0Items
       .filter((gate) => gate.status === "pending_external")
@@ -146,8 +152,9 @@ export async function buildPhase1ReadinessReport(
   ];
 
   return {
+    geometry,
     objective: "Complete Phase 1 of built-to-kanso-product-brief-v4_1.md.",
-    complete: repoImplementationComplete && phase0Complete && operationalComplete,
+    complete: geometryBlockers.length === 0 && repoImplementationComplete && phase0Complete && operationalComplete,
     demoReady: repoImplementationComplete && operational.okForDemo && demoBlockers.length === 0,
     repoImplementationComplete,
     implementation: {
@@ -239,14 +246,14 @@ function buildPhase1ImplementationItems(renderAssets: RenderAssetValidationRepor
   });
   const changelog = generateHouseChangelog({
     plan: firstPlan,
-    placements: [{ tokenId: "shaft_buffer", point: firstPlan.pipeshaft.openingPoint }],
+    placements: firstPlan.pipeshaft ? [{ tokenId: "shaft_buffer", point: firstPlan.pipeshaft.openingPoint }] : [],
   });
   const capability = getLbmComputeCapability();
   const hasThreeTemplates =
     templates.length === 3 &&
     templates.every((plan) =>
       plan.source === "architect_curated_template" &&
-      plan.pipeshaft.bufferRadiusM === 0.6 &&
+      plan.pipeshaft?.bufferRadiusM === 0.6 &&
       plan.bathrooms.length > 0 &&
       plan.fixedElements.some((element) => element.kind === "pipeshaft_opening" && element.bufferEligible) &&
       Number.isFinite(plan.openingAreaPct) &&
@@ -306,9 +313,9 @@ function buildPhase1ImplementationItems(renderAssets: RenderAssetValidationRepor
     methodologyHardRules.some((rule) => rule.includes("AI never edits compliance geometry")) &&
     methodologyHardRules.some((rule) => rule.includes("Streamlines are deterministic first")) &&
     methodologyHardRules.some((rule) => rule.includes("Scout Pass surfaces at most three Asking Points")) &&
-    methodologyHardRules.some((rule) => rule.includes("Damp Risk appears as Clear, Watch, or High")) &&
+    methodologyHardRules.some((rule) => rule.includes("Humidity remains Not assessed")) &&
     methodologyHardRules.some((rule) => rule.includes("Cosmological vocabulary is Cultural framing only")) &&
-    methodologyMeasuredClaims.includes("bedroom Damp Risk band, kept band-only in homeowner UI");
+    methodologyMeasuredClaims.includes("bedroom humidity evidence status, with unmeasured outcomes shown as Not assessed");
 
   return [
     checkedItem(
@@ -367,9 +374,9 @@ function buildPhase1ImplementationItems(renderAssets: RenderAssetValidationRepor
     ),
     checkedItem(
       "ghost_futures",
-      ghostFutures.length === 3 && ghostFutures.some((future) => future.dampBandCopy.includes("Damp Risk")),
-      "Ghost Futures previews Breath and Damp deltas before placement.",
-      "Ghost Futures must return three paths and Damp Risk copy.",
+      ghostFutures.length === 3 && ghostFutures.every((future) => future.dampBandCopy.includes("Not assessed")),
+      "Ghost Futures returns three illustrative paths and withholds unmeasured humidity outcomes.",
+      "Ghost Futures must return three paths with honest humidity evidence status.",
     ),
     checkedItem(
       "house_changelog_golden_failure",
@@ -421,9 +428,9 @@ function buildPhase1ImplementationItems(renderAssets: RenderAssetValidationRepor
     ),
     checkedItem(
       "damp_dimension",
-      scout.dampRisk.every((reading) => reading.recommendation.length > 0),
-      "Damp Risk is banded, paired with actions, and avoids RH numerics on homeowner surfaces.",
-      "Every Damp Risk reading must remain banded and paired with an action.",
+      scout.dampRisk.every((reading) => reading.band === "not_assessed" && reading.recommendation.includes("Not assessed")),
+      "Unmeasured bedroom humidity outcomes return Not assessed without RH numerics.",
+      "Every unmeasured bedroom humidity outcome must return Not assessed.",
     ),
     checkedItem(
       "bathroom_downwind",

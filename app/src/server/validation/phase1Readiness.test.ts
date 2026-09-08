@@ -3,21 +3,21 @@ import { describe, it } from "node:test";
 import { buildPhase1ReadinessReport } from "./phase1Readiness";
 
 describe("Phase 1 readiness report", () => {
-  it("proves repo implementation completion without hiding external blockers", async () => {
+  it("reports incomplete source review and assets without hiding external blockers", async () => {
     const report = await buildPhase1ReadinessReport(({ SKETCH_CACHE_PROVIDER: "memory" } as unknown) as NodeJS.ProcessEnv);
 
-    assert.equal(report.repoImplementationComplete, true);
+    assert.equal(report.repoImplementationComplete, false);
     assert.equal(report.implementation.total, 26);
-    assert.equal(report.implementation.complete, 26);
+    assert.ok(report.implementation.complete < report.implementation.total);
     assert.equal(report.implementation.items.find((item) => item.id === "ghost_futures")?.status, "complete");
     assert.match(report.implementation.items.find((item) => item.id === "kanso_reserve")?.evidence ?? "", /empty-space/);
     assert.match(report.implementation.items.find((item) => item.id === "resonance_hours")?.evidence ?? "", /cooldown/);
     assert.match(report.implementation.items.find((item) => item.id === "floor_golden_floors")?.evidence ?? "", /Golden Floors/);
     assert.match(report.implementation.items.find((item) => item.id === "cultural_designer_modes")?.evidence ?? "", /Cultural mode defaults/);
-    assert.equal(report.renderAssets.ok, true);
+    assert.equal(report.renderAssets.ok, false);
     assert.equal(report.complete, false);
-    assert.equal(report.demoReady, true);
-    assert.deepEqual(report.demoBlockers, []);
+    assert.equal(report.demoReady, false);
+    assert.ok(report.demoBlockers.some((blocker) => blocker.startsWith("geometry_review:")));
     assert.equal(report.phase0.pendingExternal, 8);
     assert.ok(report.blockers.some((blocker) => blocker.includes("webgpu_redmi_benchmark")));
     assert.ok(report.blockers.every((blocker) => !blocker.includes("vapid_keypair")));
@@ -33,7 +33,7 @@ describe("Phase 1 readiness report", () => {
     assert.equal(report.phase0.pendingExternal, 0);
     assert.equal(report.phase0.items.find((item) => item.id === "webgpu_redmi_benchmark")?.status, "complete");
     assert.equal(report.complete, false);
-    assert.equal(report.demoReady, true);
+    assert.equal(report.demoReady, false);
     assert.ok(report.blockers.every((blocker) => !blocker.includes("webgpu_redmi_benchmark")));
     assert.ok(report.blockers.every((blocker) => !blocker.includes("vapid_keypair")));
   });
@@ -65,7 +65,7 @@ describe("Phase 1 readiness report", () => {
     assert.ok(report.demoBlockers.some((blocker) => blocker.includes("empty_room_hero_rotation")));
   });
 
-  it("can report full completion when all external evidence and live env checks are present", async () => {
+  it("does not let external demo evidence override missing geometry review", async () => {
     const report = await buildPhase1ReadinessReport(
       ({
         OPENAI_API_KEY: "sk-test",
@@ -76,12 +76,12 @@ describe("Phase 1 readiness report", () => {
       { openaiTier2Account: { verified: true, verifiedAtIso: "2026-05-10T00:00:00.000Z" } },
     );
 
-    assert.equal(report.complete, true);
-    assert.equal(report.demoReady, true);
-    assert.equal(report.repoImplementationComplete, true);
+    assert.equal(report.complete, false);
+    assert.equal(report.demoReady, false);
+    assert.equal(report.repoImplementationComplete, false);
     assert.equal(report.phase0.pendingExternal, 0);
     assert.equal(report.operational.complete, true);
-    assert.deepEqual(report.blockers, []);
+    assert.ok(report.blockers.some((blocker) => blocker.startsWith("geometry_review:")));
   });
 });
 

@@ -6,7 +6,8 @@ import {
   parseThresholdParams,
   type ThresholdParamIssue,
 } from "@/lib/thresholdParams";
-import { getPlanGeometry } from "@/server/geometry/registry";
+import { getPlanGeometry, getGeometryReleaseGate } from "@/server/geometry/registry";
+import GeometryReviewNotice from "@/components/GeometryReviewNotice";
 import type { ConfidenceState, FixedElementGeometry, PlanGeometry, RoomGeometry } from "@/server/geometry/types";
 import { PlanGlyph, PROTECTED_GLYPH_KINDS, glyphKindLabel } from "@/components/PlanGlyph";
 import { BonesInteractive } from "./_components";
@@ -48,6 +49,16 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
   const scenario = scenarioId;
 
   const plan = getPlanGeometry(templateId);
+  if (!getGeometryReleaseGate(templateId).eligible) {
+    return <main className={styles.page}>
+      <GeometryReviewNotice templateId={templateId} />
+      <section className={styles.planPanel} aria-label="Diagnostic geometry, not a verified home layout">
+        <h2>Diagnostic template</h2>
+        <p>Existing coordinates are shown for review only. Dark restriction overlays do not represent solid walls. This is not a resident-ready plan.</p>
+        <PlanSvg plan={plan} />
+      </section>
+    </main>;
+  }
   const template = TEMPLATES.find((item) => item.id === templateId);
   const counts = countConfidence(plan);
   const blackKinds = Array.from(new Set(plan.fixedElements.map((element) => element.kind)));
@@ -82,6 +93,8 @@ export default async function BonesPage({ searchParams }: BonesPageProps) {
 
       <BonesInteractive
         plan={plan}
+        geometryContentHash={getGeometryReleaseGate(templateId).provenance.geometrySha256}
+        geometryReleaseEligible={true}
         compassDeg={compassDeg}
         floor={floor}
         scenario={scenario}
@@ -302,12 +315,12 @@ function PlanSvg({ plan }: { plan: PlanGeometry }) {
           className={`${styles.fixedElement} ${element.bufferEligible ? styles.bufferEligible : ""}`}
         />
       ))}
-      <circle
+      {plan.pipeshaft && <circle
         cx={plan.pipeshaft.openingPoint.x}
         cy={plan.pipeshaft.openingPoint.y}
         r={plan.pipeshaft.bufferRadiusM}
         className={styles.bufferCircle}
-      />
+      />}
       {plan.rooms.map((room) =>
         room.confidence === "black" ? (
           <PlanGlyph

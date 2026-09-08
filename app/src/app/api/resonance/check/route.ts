@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { submittedGeometryReleaseResponse } from "@/server/geometry/releaseResponse";
 import type { PlanGeometry } from "@/server/geometry/types";
 import { computeCrossVentCorridor } from "@/server/resonance/corridor";
 import { defaultFrequencyTierForFloor, floorToTier } from "@/server/resonance/floorTier";
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
 
-  if (!body.plan || typeof body.plan !== "object") {
+  if (!body?.plan || typeof body.plan !== "object") {
     return NextResponse.json({ error: "plan (PlanGeometry) is required." }, { status: 400 });
   }
 
@@ -117,6 +118,8 @@ export async function POST(request: Request) {
     );
   }
 
+  const blocked = submittedGeometryReleaseResponse(body.plan);
+  if (blocked) return blocked;
   const floor = body.floor;
   const tierFromBody: FrequencyTier = body.frequencyTier ?? defaultFrequencyTierForFloor(floor);
 
@@ -155,7 +158,7 @@ export async function POST(request: Request) {
       evaluation,
       corridor,
       wind,
-      message: evaluation.shouldNotify ? "Your home is breathing right now." : null,
+      message: evaluation.shouldNotify ? "Outdoor wind aligns with the illustrated path. Indoor airflow is not measured." : null,
       banner: buildBanner(evaluation, floor),
       pushDispatch: null,
       userId: subscription.userId,
@@ -184,7 +187,7 @@ export async function POST(request: Request) {
     evaluation,
     corridor,
     wind,
-    message: evaluation.shouldNotify ? "Your home is breathing right now." : null,
+    message: evaluation.shouldNotify ? "Outdoor wind aligns with the illustrated path. Indoor airflow is not measured." : null,
     banner: buildBanner(evaluation, floor),
     pushDispatch: null,
   });
@@ -197,8 +200,8 @@ function buildBanner(evaluation: ResonanceEvaluation, floor: number): ResonanceB
   if (evaluation.shouldNotify) {
     return {
       kind: "alignment",
-      title: "Your home is breathing right now.",
-      body: "The cross-vent corridor is open to the wind outside. Open the windows on that path.",
+      title: "Outdoor wind aligns with the illustrated path. Indoor airflow is not measured.",
+      body: "The selected outdoor station aligns with this assumed plan direction. Check local rain, access and actual openings before changing window use.",
       alignmentEventId: evaluation.alignmentEventId,
       floorTier: tier,
       floorMessage,

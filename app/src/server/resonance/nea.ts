@@ -112,6 +112,11 @@ export function selectMatchingWindReading(
 ): WindReading {
   const directionItem = firstItemWithReadings(directionData);
   const speedItem = firstItemWithReadings(speedData);
+  if (Date.parse(directionItem.timestamp) !== Date.parse(speedItem.timestamp)) {
+    throw new Error("NEA wind direction and speed timestamps do not match");
+  }
+  assertReadingUnit(directionData.data?.readingUnit, "degrees", "direction");
+  assertSpeedUnit(speedData.data?.readingUnit);
   const directionByStation = new Map(directionItem.data.map((reading) => [reading.stationId, reading]));
   const speedByStation = new Map(speedItem.data.map((reading) => [reading.stationId, reading]));
   const nearestStationId = nearestSharedStationId(
@@ -136,12 +141,7 @@ export function selectMatchingWindReading(
     }
   }
 
-  return {
-    directionDeg: directionItem.data[0].value,
-    speedMps: windSpeedToMps(speedItem.data[0].value, speedData.data?.readingUnit),
-    timestamp: directionItem.timestamp,
-    source: "nea",
-  };
+  throw new Error("NEA wind direction and speed have no shared station");
 }
 
 function firstItemWithReadings(data: DataGovResponse): DataGovReadingSet {
@@ -183,6 +183,12 @@ function windReading(
   timestamp: string,
   speedUnit?: string,
 ): WindReading {
+  if (!Number.isFinite(direction.value) || direction.value < 0 || direction.value > 360) {
+    throw new Error("NEA wind direction is outside 0-360 degrees");
+  }
+  if (!Number.isFinite(speed.value) || speed.value < 0) {
+    throw new Error("NEA wind speed must be a non-negative number");
+  }
   return {
     directionDeg: direction.value,
     speedMps: windSpeedToMps(speed.value, speedUnit),
@@ -190,6 +196,19 @@ function windReading(
     source: "nea",
     stationId: direction.stationId,
   };
+}
+
+function assertReadingUnit(unit: string | undefined, expected: string, label: string): void {
+  if (unit?.trim().toLowerCase() !== expected) {
+    throw new Error(`NEA wind ${label} unit must be ${expected}`);
+  }
+}
+
+function assertSpeedUnit(unit: string | undefined): void {
+  const normalized = unit?.trim().toLowerCase();
+  if (normalized !== "m/s" && normalized !== "knots") {
+    throw new Error("NEA wind speed unit must be m/s or knots");
+  }
 }
 
 function windSpeedToMps(value: number, unit?: string): number {

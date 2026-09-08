@@ -95,7 +95,7 @@ export function buildRecommendationProof(input: {
 }): RecommendationProof {
   const placements: TokenPlacement[] = [];
   const scout = runScoutPass({ ...input, tokenPlacements: placements });
-  const tokenActions = rankProofTokenIds(scout)
+  const tokenActions = rankProofTokenIds(input.plan, scout)
     .map((tokenId) => {
       const placement = candidateForToken(input.plan, tokenId);
       const future = previewGhostFuture({ ...input, placements, candidate: placement });
@@ -117,7 +117,7 @@ export function buildRecommendationProof(input: {
         point: placement.point,
         copy: token.copy,
         proof: future.preview,
-        tier: future.dampDelta?.tier ?? future.breathDelta.tier,
+        tier: future.breathDelta.tier,
       };
     });
 
@@ -144,8 +144,8 @@ export function buildRecommendationProof(input: {
     acceptedPlacements,
     reservePct: reserve.reservePct,
     changelog: changelog.lines,
-    streamlines: simulation.streamlines,
-    particles: simulation.particles,
+    streamlines: input.plan.pipeshaft ? simulation.streamlines : simulation.streamlines.filter((line) => !line.id.includes("shaft")),
+    particles: input.plan.pipeshaft ? simulation.particles : simulation.particles.filter((particle) => particle.kind !== "pipeshaft_drift"),
     simulationTier: simulation.tier,
     source: {
       geometry: "plan-geometry.json",
@@ -155,12 +155,12 @@ export function buildRecommendationProof(input: {
   };
 }
 
-function rankProofTokenIds(scout: ScoutPassResult): TokenId[] {
+function rankProofTokenIds(plan: PlanGeometry, scout: ScoutPassResult): TokenId[] {
   const ranked: TokenId[] = [];
-  const hasDampWatch = scout.dampRisk.some((reading) => reading.band !== "clear");
+  const hasPipeshaftPath = (plan.pipeshaft?.downwindRoomIds.length ?? 0) > 0;
   const hasWestSunAsk = scout.askingPoints.some((point) => point.id === "glow-west-edge");
 
-  if (hasDampWatch) ranked.push("shaft_buffer");
+  if (hasPipeshaftPath) ranked.push("shaft_buffer");
   ranked.push(scout.openingAreaBadge.status === "marginal" ? "fan_anchor" : "wind_gate");
   if (hasWestSunAsk) ranked.push("solar_shield");
   ranked.push("soft_screen", "wood_anchor", "wind_gate", "fan_anchor", "solar_shield");
@@ -196,6 +196,7 @@ function buildAntiCureAction(
 
 function candidateForToken(plan: PlanGeometry, tokenId: TokenId): TokenPlacement {
   if (tokenId === "shaft_buffer") {
+    if (!plan.pipeshaft) throw new Error("Shaft Buffer candidate requested without verified pipeshaft geometry.");
     return { tokenId, point: plan.pipeshaft.openingPoint };
   }
 

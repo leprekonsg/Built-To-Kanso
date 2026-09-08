@@ -2,12 +2,13 @@ import type { EvidenceTier } from "@/server/evidence";
 import type { PlanGeometry } from "@/server/geometry/types";
 import { evaluateBathroomDownwind } from "@/server/rules/downwind";
 import { evaluateOpeningArea, type OpeningAreaBadge } from "@/server/rules/openingArea";
-import { allowedTokenPlacements, type TokenPlacement } from "@/server/rules/tokens";
+import type { TokenPlacement } from "@/server/rules/tokens";
 import { rankAskingPoints } from "@/server/scout/priority";
 
 export interface ScoutInput {
   plan: PlanGeometry;
   compassDeg: number;
+  windFromDeg?: number;
   floor: number;
   tokenPlacements: TokenPlacement[];
 }
@@ -21,18 +22,13 @@ export interface AskingPoint {
   tier: EvidenceTier;
 }
 
-export type DampRiskBand = "clear" | "watch" | "high";
+export type DampRiskBand = "clear" | "watch" | "high" | "not_assessed";
 
 export interface DampRiskReading {
   roomId: string;
   band: DampRiskBand;
   recommendation: string;
   tier: EvidenceTier;
-}
-
-interface DampRiskEstimate extends DampRiskReading {
-  predictedRhPct: number;
-  thresholdPct: 75;
 }
 
 export interface ScoutPassResult {
@@ -42,16 +38,11 @@ export interface ScoutPassResult {
 }
 
 export function runScoutPass(input: ScoutInput): ScoutPassResult {
-  const validPlacements = allowedTokenPlacements(input.plan, input.tokenPlacements);
-  const dampRiskEstimates = estimateDampRisk(input.plan, validPlacements);
-  const dampRisk = dampRiskEstimates.map(({ roomId, band, recommendation, tier }) => ({
-    roomId,
-    band,
-    recommendation,
-    tier,
-  }));
+  const dampRisk = assessDampRisk(input.plan);
   const openingAreaBadge = evaluateOpeningArea(input.plan);
-  const bathroomDownwind = evaluateBathroomDownwind(input.plan, input.compassDeg);
+  const bathroomDownwind = input.windFromDeg === undefined
+    ? undefined
+    : evaluateBathroomDownwind(input.plan, input.windFromDeg);
   const askingPoints: AskingPoint[] = [];
 
   if (openingAreaBadge.status === "marginal") {
@@ -75,17 +66,6 @@ export function runScoutPass(input: ScoutInput): ScoutPassResult {
     });
   }
 
-  const highDamp = dampRiskEstimates.find((reading) => reading.band === "high");
-  if (highDamp) {
-    askingPoints.push({
-      id: `damp-${highDamp.roomId}`,
-      scout: "damp",
-      copy: "Damp Risk wants a buffer.",
-      designerDetail: `Damp Risk is High for this bedroom. ${highDamp.recommendation}`,
-      tier: "heuristic_estimate",
-    });
-  }
-
   if (bathroomDownwind) {
     askingPoints.push({
       id: bathroomDownwind.id,
@@ -97,7 +77,7 @@ export function runScoutPass(input: ScoutInput): ScoutPassResult {
     });
   }
 
-  if (input.plan.pipeshaft.downwindRoomIds.length > 0) {
+  if (input.plan.pipeshaft && input.plan.pipeshaft.downwindRoomIds.length > 0) {
     askingPoints.push({
       id: "breath-pipeshaft-drift",
       scout: "breath",
@@ -116,34 +96,16 @@ export function runScoutPass(input: ScoutInput): ScoutPassResult {
   };
 }
 
-function estimateDampRisk(plan: PlanGeometry, tokenPlacements: TokenPlacement[]): DampRiskEstimate[] {
-  const hasShaftBuffer = tokenPlacements.some((placement) => placement.tokenId === "shaft_buffer");
-  const shaftPenalty = hasShaftBuffer ? -3 : 0;
-
+function assessDampRisk(plan: PlanGeometry): DampRiskReading[] {
   return plan.rooms
     .filter((room) => room.kind === "bedroom")
-    .map((room) => {
-      const downwindPenalty = plan.pipeshaft.downwindRoomIds.includes(room.id) ? 3 : 0;
-      const predictedRhPct = 75 + downwindPenalty + shaftPenalty;
-      const band = bandDampRisk(predictedRhPct);
-      return {
-        roomId: room.id,
-        predictedRhPct,
-        thresholdPct: 75,
-        band,
-        recommendation:
-          band !== "clear"
-            ? "Place a Shaft Buffer, move the bed away from the pipeshaft path, or run bathroom exhaust on a timer."
-            : "Keep the current buffer and bathroom exhaust habit.",
-        tier: "heuristic_estimate",
-      };
-    });
-}
-
-function bandDampRisk(predictedRhPct: number): DampRiskBand {
-  if (predictedRhPct >= 78) return "high";
-  if (predictedRhPct >= 75) return "watch";
-  return "clear";
+    .map((room) => ({
+      roomId: room.id,
+      band: "not_assessed",
+      recommendation:
+        "Humidity effect: Not assessed. Measure bedroom humidity across wet-weather and post-shower periods before drawing a damp conclusion.",
+      tier: "heuristic_estimate",
+    }));
 }
 
 function isWestSunExposed(facadeDeg: number, compassDeg: number): boolean {

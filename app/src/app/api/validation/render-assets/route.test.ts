@@ -8,9 +8,12 @@ describe("/api/validation/render-assets", () => {
     const body = await response.json();
 
     assert.equal(response.status, 200);
-    assert.equal(body.ok, true, body.assets.flatMap((asset: { issues: string[] }) => asset.issues).join("\n"));
+    assert.equal(body.ok, false);
     assert.equal(body.assetCount, 18);
-    assert.equal(body.failedCount, 0);
+    assert.ok(body.failedCount >= 3);
+    for (const id of ["tampines-greenweave", "tengah-5room", "resale-exec-1990s"]) {
+      assert.equal(body.assets.find((asset: { relativePath: string }) => asset.relativePath === `life-sketches/${id}/accepted.png`)?.ok, false);
+    }
     assert.ok(body.byTemplate.some((template: { templateId: string; assetCount: number }) => template.templateId === "tampines-greenweave" && template.assetCount === 5));
     assert.ok(body.assets.some((asset: { relativePath: string }) => asset.relativePath === "life-sketches/tampines-greenweave/accepted.png"));
     assert.ok(body.assets.some((asset: { relativePath: string }) => asset.relativePath === "wind-base/tampines-greenweave/base.png"));

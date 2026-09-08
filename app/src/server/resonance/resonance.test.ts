@@ -60,12 +60,13 @@ function nsPlan(): PlanGeometry {
   };
 }
 
-function wind(directionDeg: number, speedMps: number): WindReading {
+function wind(directionDeg: number, speedMps: number, observedAt = new Date("2026-05-09T06:00:00Z")): WindReading {
   return {
     directionDeg,
     speedMps,
-    timestamp: "2026-05-09T05:00:00Z",
-    source: "mock",
+    timestamp: observedAt.toISOString(),
+    source: "nea",
+    stationId: "S-test",
   };
 }
 
@@ -226,7 +227,7 @@ describe("evaluateResonance", () => {
       lastNotifiedAtIso: null,
       recentNotificationsIso: [],
       now: lateNight,
-      wind: wind(180, 2.0),
+      wind: wind(180, 2.0, lateNight),
     });
     assert.equal(result.resonating, true);
     assert.equal(result.shouldNotify, false);
@@ -296,6 +297,30 @@ describe("frequency tier thresholds", () => {
     });
     assert.equal(result.shouldNotify, false);
     assert.equal(result.reason, "indoor_draft_too_strong");
+  });
+
+  it("never notifies from mock or stale weather", () => {
+    const mockResult = evaluateResonance({
+      plan: nsPlan(),
+      floor: 12,
+      lastNotifiedAtIso: null,
+      recentNotificationsIso: [],
+      now: AWAKE_NOW,
+      wind: { directionDeg: 180, speedMps: 2, timestamp: AWAKE_NOW.toISOString(), source: "mock" },
+    });
+    assert.equal(mockResult.shouldNotify, false);
+    assert.equal(mockResult.reason, "weather_mock");
+
+    const staleResult = evaluateResonance({
+      plan: nsPlan(),
+      floor: 12,
+      lastNotifiedAtIso: null,
+      recentNotificationsIso: [],
+      now: AWAKE_NOW,
+      wind: wind(180, 2, new Date(AWAKE_NOW.getTime() - 16 * 60 * 1000)),
+    });
+    assert.equal(staleResult.shouldNotify, false);
+    assert.equal(staleResult.reason, "weather_stale");
   });
 
   it("Active accepts what Standard rejects (speed 1.4 m/s)", () => {
@@ -444,7 +469,7 @@ describe("user-configurable sleep window", () => {
       lastNotifiedAtIso: null,
       recentNotificationsIso: [],
       now: lateNight,
-      wind: wind(180, 2.0),
+      wind: wind(180, 2.0, lateNight),
       sleepWindow: {
         sleepStartHourSgt: 23,
         sleepStartMinuteSgt: 0,

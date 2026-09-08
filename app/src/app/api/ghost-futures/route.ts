@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { geometryReleaseResponse } from "@/server/geometry/releaseResponse";
 import { getPlanGeometry, isTemplateId } from "@/server/geometry/registry";
 import { previewGhostFuture, previewGhostFutures } from "@/server/rules/ghostFutures";
 import { isTokenPlacement, type TokenPlacement } from "@/server/rules/tokens";
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
 
-  if (!body.templateId || !isTemplateId(body.templateId)) {
+  if (!body?.templateId || !isTemplateId(body.templateId)) {
     return NextResponse.json(
       { error: "templateId must be one of: tampines-greenweave, tengah-5room, resale-exec-1990s." },
       { status: 400 },
@@ -59,6 +60,8 @@ export async function POST(request: Request) {
     );
   }
 
+  const blocked = geometryReleaseResponse(body.templateId);
+  if (blocked) return blocked;
   const plan = getPlanGeometry(body.templateId);
   const base = {
     plan,

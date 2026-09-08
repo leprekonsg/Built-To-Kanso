@@ -32,10 +32,14 @@ describe("render asset validation", () => {
     assert.match(result.issues.join("\n"), /Regenerate the local\/prebaked asset/);
   });
 
-  it("validates every committed Phase 1 local/prebaked render asset", async () => {
+  it("reports quarantined or stale Life assets as incomplete, while retaining diagnostic references", async () => {
     const report = await validateExpectedRenderAssets();
 
-    assert.equal(report.ok, true, report.assets.flatMap((asset) => asset.issues).join("\n"));
+    assert.equal(report.ok, false);
+    for (const id of ["tampines-greenweave", "tengah-5room", "resale-exec-1990s"]) {
+      assert.equal(report.assets.find((asset) => asset.relativePath === `life-sketches/${id}/accepted.png`)?.ok, false);
+      assert.equal(report.assets.find((asset) => asset.relativePath === `life-anchors/${id}/anchor.png`)?.ok, true);
+    }
     assert.equal(report.assetCount, 18);
     assert.equal(report.assetCount, expectedRenderAssets().length);
     assert.ok(report.assets.some((asset) => asset.relativePath === "life-sketches/tampines-greenweave/accepted.png"));

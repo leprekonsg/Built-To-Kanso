@@ -35,14 +35,14 @@ function validChangelog(placements: TokenPlacement[]): string[] {
   const lines: string[] = [];
 
   if (tokenIds.has("wind_gate") || tokenIds.has("soft_screen")) {
-    lines.push("entry rush softened");
+    lines.push("entry path arrangement changed");
   }
 
   if (tokenIds.has("shaft_buffer")) {
-    lines.push("pipeshaft jet deflected");
+    lines.push("Shaft Buffer placed near the pipeshaft path");
   }
 
-  lines.push("one corner left empty", "no fixed HDB elements touched");
+  lines.push("physical airflow and humidity effects not assessed", "one corner left empty", "no fixed HDB elements touched");
 
   return lines;
 }

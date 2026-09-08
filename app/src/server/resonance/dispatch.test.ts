@@ -72,12 +72,13 @@ function registerEstablished(endpoint: string) {
   return register({ ...sub(endpoint), optInAtIso: ESTABLISHED_OPT_IN });
 }
 
-function wind(directionDeg: number, speedMps: number): WindReading {
+function wind(directionDeg: number, speedMps: number, observedAt = AWAKE_NOW): WindReading {
   return {
     directionDeg,
     speedMps,
-    timestamp: "2026-05-09T06:00:00Z",
-    source: "mock",
+    timestamp: observedAt.toISOString(),
+    source: "nea",
+    stationId: "S-dispatch-fixture",
   };
 }
 
@@ -120,6 +121,27 @@ describe("dispatchScheduledResonancePush", () => {
     assert.equal(result.sentCount, 0);
   });
 
+  it("never sends a real notification from mock weather", async () => {
+    registerEstablished("https://push.example/sub-a");
+    let sends = 0;
+    const sender: PushSender = {
+      status: { available: true, status: "configured" },
+      async send() { sends += 1; },
+    };
+
+    const result = await dispatchScheduledResonancePush({
+      plan: nsPlan(),
+      floor: 12,
+      now: AWAKE_NOW,
+      wind: { directionDeg: 180, speedMps: 2, timestamp: AWAKE_NOW.toISOString(), source: "mock" },
+      sender,
+    });
+
+    assert.equal(result.status, "skipped");
+    assert.equal(result.evaluation.reason, "weather_mock");
+    assert.equal(sends, 0);
+  });
+
   it("enforces the 6-hour cooldown across scheduled dispatch calls", async () => {
     registerEstablished("https://push.example/sub-a");
 
@@ -134,7 +156,7 @@ describe("dispatchScheduledResonancePush", () => {
       plan: nsPlan(),
       floor: 12,
       now: new Date("2026-05-09T08:00:00Z"),
-      wind: wind(180, 2),
+      wind: wind(180, 2, new Date("2026-05-09T08:00:00Z")),
       sender: fakeSender(),
     });
 
@@ -182,7 +204,7 @@ describe("dispatchScheduledResonancePush", () => {
     assert.deepEqual(sentPayloads, [
       {
         title: "Resonance Hours",
-        body: "Your home is breathing right now.",
+        body: "Outdoor wind aligns with the illustrated path. Indoor airflow is not measured.",
         url: "/threshold?resonance=now",
         tag: "resonance-hours",
         timestamp: "2026-05-09T06:00:00.000Z",

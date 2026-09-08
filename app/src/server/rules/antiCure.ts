@@ -32,7 +32,7 @@ export function recommendAntiCure(
   plan: PlanGeometry,
   scout: ScoutPassResult,
 ): AntiCureReading | null {
-  const downwindRoomIds = new Set(plan.pipeshaft.downwindRoomIds);
+  const downwindRoomIds = new Set(plan.pipeshaft?.downwindRoomIds ?? []);
   const askingRoomIds = collectAskingRoomIds(plan, scout);
 
   const eligible = plan.rooms.filter((room) => {
@@ -60,14 +60,14 @@ export function recommendAntiCure(
 function collectAskingRoomIds(plan: PlanGeometry, scout: ScoutPassResult): Set<string> {
   const ids = new Set<string>();
   for (const reading of scout.dampRisk) {
-    if (reading.band !== "clear") ids.add(reading.roomId);
+    if (reading.band === "watch" || reading.band === "high") ids.add(reading.roomId);
   }
   for (const point of scout.askingPoints) {
     // asking-point ids of the form "damp-<roomId>" carry a roomId suffix.
     const dampMatch = point.id.match(/^damp-(.+)$/);
     if (dampMatch) ids.add(dampMatch[1]);
   }
-  for (const id of plan.pipeshaft.downwindRoomIds) ids.add(id);
+  for (const id of plan.pipeshaft?.downwindRoomIds ?? []) ids.add(id);
   return ids;
 }
 

@@ -12,7 +12,7 @@ export const methodologyEvidenceTiers = [
   {
     tier: "Heuristic estimate",
     source: "Rule-based Phase 1 briefing model",
-    use: "Scout asks, Damp bands, stagnation hints, and token effects. Useful for triage, not certification.",
+    use: "Scout asks and stagnation hints. Humidity outcomes remain Not assessed until measurement evidence exists.",
   },
   {
     tier: "Weather context",
@@ -30,7 +30,7 @@ export const methodologyHardRules = [
   "AI never edits compliance geometry, walls, streamlines, Damp Risk logic, or Black-state decisions.",
   "Streamlines are deterministic first. Image generation may polish allowed visuals only after the facts are fixed.",
   "Scout Pass surfaces at most three Asking Points. No scanner language, severity dashboards, or ranked defect backlog.",
-  "Damp Risk appears as Clear, Watch, or High, and Watch or High always comes with a recommended action.",
+  "Humidity remains Not assessed until measurement evidence supports a bedroom outcome.",
   "Cosmological vocabulary is Cultural framing only. It never becomes a physical prediction.",
 ] as const;
 
@@ -39,7 +39,7 @@ export const methodologyMeasuredClaims = [
   "door facing, floor band, and monsoon exposure",
   "room adjacency to shafts, baths, windows, and fixed elements",
   "west-sun heat path from 16:00 to 18:30",
-  "bedroom Damp Risk band, kept band-only in homeowner UI",
+  "bedroom humidity evidence status, with unmeasured outcomes shown as Not assessed",
 ] as const;
 
 export const methodologyDisclosures = {

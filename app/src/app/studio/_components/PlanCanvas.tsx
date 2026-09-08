@@ -194,12 +194,12 @@ export default function PlanCanvas({
       ))}
 
       {/* The 0.6m pipeshaft clearance circle. Always faint; pulses while shaft_buffer is in play. */}
-      <circle
+      {plan.pipeshaft && <circle
         cx={plan.pipeshaft.openingPoint.x}
         cy={plan.pipeshaft.openingPoint.y}
         r={plan.pipeshaft.bufferRadiusM}
         className={`${styles.bufferCircle} ${showShaftCircle ? styles.bufferCirclePulse : ""}`}
-      />
+      />}
 
       {/* Placed tokens. Click or Enter/Space to remove. */}
       {placed.map((token) => (

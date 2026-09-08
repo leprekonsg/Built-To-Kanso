@@ -15,6 +15,7 @@
 // The route never returns 5xx for an OpenAI miss; the UI renders a designed
 // surface, not an alarming error toast.
 import { NextResponse } from "next/server";
+import { geometryReleaseResponse } from "@/server/geometry/releaseResponse";
 import { getPlanGeometry, isTemplateId } from "@/server/geometry/registry";
 import {
   renderPlanSketchFallbackSvg,
@@ -143,7 +144,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
 
-  if (!body.templateId || !isTemplateId(body.templateId)) {
+  if (!body?.templateId || !isTemplateId(body.templateId)) {
     return NextResponse.json(
       { error: "templateId must be one of: tampines-greenweave, tengah-5room, resale-exec-1990s." },
       { status: 400 },
@@ -152,7 +153,9 @@ export async function POST(request: Request) {
 
   const plan = getPlanGeometry(body.templateId);
   const svg = renderPlanSketchFallbackSvg(plan);
-  if (wantsSvg(request)) return svgFallbackResponse(svg);
+  if (wantsSvg(request)) return svgFallbackResponse(svg, "deterministic-svg", { "X-Geometry-Use": "diagnostic-only" });
+  const blocked = geometryReleaseResponse(body.templateId);
+  if (blocked) return blocked;
 
   const local = await resolvePlanSketchArtifact(body.templateId);
   if (local) {

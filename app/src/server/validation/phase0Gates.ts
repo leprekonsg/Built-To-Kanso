@@ -153,7 +153,7 @@ export function evaluateTemplateArchitectureVerification(): AutomatedPhase0GateR
     if (!plan.fixedElements.some((element) => element.kind === "pipeshaft_opening" && element.bufferEligible)) {
       planIssues.push(`${plan.templateId}: missing buffer-eligible pipeshaft opening.`);
     }
-    if (plan.pipeshaft.bufferRadiusM !== 0.6) {
+    if (plan.pipeshaft && plan.pipeshaft.bufferRadiusM !== 0.6) {
       planIssues.push(`${plan.templateId}: Shaft Buffer radius must be 0.6m.`);
     }
     if (!sceneSpec.kitchenShadow || sceneSpec.kitchenShadow.bounds.width <= 0 || sceneSpec.kitchenShadow.bounds.height <= 0) {

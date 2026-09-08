@@ -32,8 +32,7 @@ import ResonanceBanner from "@/components/resonance/ResonanceBanner";
 import styles from "../studio.module.css";
 
 const DAMP_DISCLAIMER =
-  "Damp Risk is a layout-based comfort estimate. Not a humidity measurement, not a mould diagnosis, not a certified IAQ assessment.";
-const LIVE_STUDIO_WIND_MPS = 2.4;
+  "Humidity has not been assessed. Use measured indoor humidity and site observations before drawing a damp or mould conclusion.";
 // Brief Section 15, item 22: a 2-3-second on-demand stress trial. Long enough
 // for the field re-fetch to land and the eye to register the new pattern.
 const WEATHER_TRIAL_DURATION_MS = 2600;
@@ -78,6 +77,8 @@ const DESIGNER_SLIDER_FIELDS: ReadonlyArray<{ key: DesignerSliderKey; label: str
 
 interface BonesInteractiveProps {
   plan: PlanGeometry;
+  geometryContentHash: string;
+  geometryReleaseEligible: boolean;
   compassDeg: number;
   floor: number;
   scenario?: string;
@@ -87,6 +88,8 @@ interface BonesInteractiveProps {
 
 export default function BonesInteractive({
   plan,
+  geometryContentHash,
+  geometryReleaseEligible,
   compassDeg,
   floor,
   scenario,
@@ -163,7 +166,7 @@ export default function BonesInteractive({
     [plan.templateId, compassDeg, floor, scenario],
   );
   const calmChecks = useMemo(
-    () => buildCalmChecks(glowReading, quietReading, dampSummary?.worst.band ?? "clear", mode, plan),
+    () => buildCalmChecks(glowReading, quietReading, dampSummary?.worst.band ?? "not_assessed", mode, plan),
     [glowReading, quietReading, dampSummary, mode, plan],
   );
   const designerDetails = useMemo(
@@ -216,9 +219,9 @@ export default function BonesInteractive({
                     {formatDampBand(dampSummary.worst.band)} Damp Risk. {dampSummary.worst.recommendation}
                   </p>
                   <span>
-                  {dampSummary.watchOrHighCount > 0
-                    ? `${dampSummary.watchOrHighCount} bedroom${dampSummary.watchOrHighCount === 1 ? "" : "s"} ${dampSummary.watchOrHighCount === 1 ? "shares" : "share"} this damp recommendation.`
-                    : "All bedrooms are Clear after current buffers."}
+                  {dampSummary.assessedCount > 0
+                    ? `${dampSummary.assessedCount} bedroom${dampSummary.assessedCount === 1 ? " has" : "s have"} an assessed band.`
+                    : "No bedroom has an assessed humidity outcome."}
                   </span>
                 </div>
               </div>
@@ -261,9 +264,11 @@ export default function BonesInteractive({
         <div className={styles.liveGrid}>
           <LiveStudio
             plan={plan}
+            geometryContentHash={geometryContentHash}
+            geometryReleaseEligible={geometryReleaseEligible}
+            operatingScenario={scenario}
             compassDeg={compassDeg}
             floor={floor}
-            ambientWindMps={LIVE_STUDIO_WIND_MPS}
             tokenPlacements={placements}
             prebakedField={null}
             weatherTrial={activeTrial}
@@ -454,16 +459,17 @@ function summarizeDampRisk(readings: DampRiskReading[]) {
   );
   return {
     worst,
-    watchOrHighCount: readings.filter((reading) => reading.band !== "clear").length,
+    assessedCount: readings.filter((reading) => reading.band !== "not_assessed").length,
   };
 }
 
 function formatDampBand(band: DampRiskBand): string {
+  if (band === "not_assessed") return "Not assessed";
   return band.charAt(0).toUpperCase() + band.slice(1);
 }
 
 function rankDampBand(band: DampRiskBand): number {
-  return { clear: 0, watch: 1, high: 2 }[band];
+  return { not_assessed: -1, clear: 0, watch: 1, high: 2 }[band];
 }
 
 function formatRoom(roomId: string): string {
@@ -504,7 +510,9 @@ function buildCalmChecks(
       name: "Damp",
       tier: "heuristic_estimate" as const,
       copy:
-        dampBand === "high"
+        dampBand === "not_assessed"
+          ? "Humidity effect: Not assessed. Measurement is needed before drawing a damp conclusion."
+          : dampBand === "high"
           ? "High band receives one paired action: Shaft Buffer, bed move, or exhaust timer."
           : `${formatDampBand(dampBand)} band. Keep the recommendation visible and modest.`,
     },

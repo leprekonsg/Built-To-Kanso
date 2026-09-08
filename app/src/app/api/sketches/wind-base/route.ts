@@ -5,6 +5,7 @@
 // composition. Cached output lives at public/wind-base/<templateId>/base.png
 // once prebake-wind-base writes it.
 import { NextResponse } from "next/server";
+import { geometryReleaseResponse } from "@/server/geometry/releaseResponse";
 import { isTemplateId } from "@/server/geometry/registry";
 import { generateWindSketchBase } from "@/server/openai/sketches";
 import { resolveCurrentPlanSketchArtifact } from "@/server/sketches/planSketchAsset";
@@ -32,6 +33,8 @@ export async function POST(request: Request) {
   // The topology proof is the locked-geometry input — Stage B styles it and
   // strips furniture/labels per prompt. Without the topology proof we can't
   // produce a sumi-e Stage B background.
+  const blocked = geometryReleaseResponse(body.templateId);
+  if (blocked) return blocked;
   const topology = await resolveCurrentPlanSketchArtifact(body.templateId);
   if (!topology) {
     return NextResponse.json(

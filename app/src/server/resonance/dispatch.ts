@@ -11,7 +11,7 @@ import type { ResonanceEvaluation, WindReading } from "./types";
 
 export interface ResonancePushPayload {
   title: "Resonance Hours";
-  body: "Your home is breathing right now.";
+  body: "Outdoor wind aligns with the illustrated path. Indoor airflow is not measured.";
   url: "/threshold?resonance=now";
   tag: "resonance-hours";
   timestamp: string;
@@ -252,7 +252,7 @@ export function resetResonanceDispatchStateForTest(): void {
 function buildResonancePushPayload(now: Date): ResonancePushPayload {
   return {
     title: "Resonance Hours",
-    body: "Your home is breathing right now.",
+    body: "Outdoor wind aligns with the illustrated path. Indoor airflow is not measured.",
     url: "/threshold?resonance=now",
     tag: "resonance-hours",
     timestamp: now.toISOString(),

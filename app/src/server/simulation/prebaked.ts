@@ -226,7 +226,7 @@ export function buildTier4PrebakeMatrix(): Tier4PrebakeMatrix {
 export function buildTier4CandidatePositions(templateId: TemplateId): Tier4CandidatePosition[] {
   const plan = getPlanGeometry(templateId);
   const seeds: Tier4CandidatePosition[] = [
-    { id: "pipeshaft", ...roundPoint(plan.pipeshaft.openingPoint) },
+    ...(plan.pipeshaft ? [{ id: "pipeshaft", ...roundPoint(plan.pipeshaft.openingPoint) }] : []),
     ...plan.openings.map((opening) => ({
       id: `opening-${opening.id}`,
       ...roundPoint({
@@ -324,7 +324,7 @@ function buildGeneratedField(
   const pull = candidate ? 0.035 : 0;
 
   return {
-    streamlines: base.streamlines.map((line) => {
+    streamlines: base.streamlines.filter((line) => plan.pipeshaft || !(line.id.includes("shaft") || line.id.includes("pipeshaft"))).map((line) => {
       const isShaftLine = line.id.includes("shaft") || line.id.includes("pipeshaft");
       const factor = isShaftLine ? condition.speedFactor * shaftFactor : cleanFactor;
       return {
@@ -333,7 +333,7 @@ function buildGeneratedField(
         points: line.points.map((point, index) => shiftPoint(point, candidate, pull * index)),
       };
     }),
-    particles: base.particles.flatMap((particle) => {
+    particles: base.particles.filter((particle) => plan.pipeshaft || particle.kind !== "pipeshaft_drift").flatMap((particle) => {
       const factor = particle.kind === "pipeshaft_drift" ? condition.speedFactor * shaftFactor : cleanFactor;
       const shifted = shiftPoint(particle, candidate, pull);
       const seed = {
@@ -372,6 +372,7 @@ function expandPipeshaftJet(
   _condition: Tier4WeatherCondition,
   _shaftFactor: number,
 ): SimulationParticle[] {
+  if (!plan.pipeshaft) return [];
   const directionRad = (plan.pipeshaft.openingDirectionDeg * Math.PI) / 180;
   const dirX = Math.cos(directionRad);
   const dirY = Math.sin(directionRad);

@@ -510,7 +510,7 @@ describe("Life Sketch anchor pipeline", () => {
         manifest.fixedElements.map((element) => element.id).sort(),
         plan.fixedElements.map((element) => element.id).sort(),
       );
-      assert.ok(scene.getObjectByName(`pipeshaft:${plan.pipeshaft.id}`), `${plan.templateId} missing pipeshaft anchor`);
+      assert.ok(scene.getObjectByName(`pipeshaft:${plan.pipeshaft!.id}`), `${plan.templateId} missing pipeshaft anchor`);
       const firstWall = manifest.wallVolumes[0];
       assert.ok(scene.getObjectByName(`wall:${firstWall.roomId}:${firstWall.edge}`), `${plan.templateId} missing extruded wall volume`);
       assert.ok(

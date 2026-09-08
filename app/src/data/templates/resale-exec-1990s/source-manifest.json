@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "templateId": "resale-exec-1990s",
+  "geometrySha256": "d3187b1bf7e2d09a7b5236b3a7470d6ce9610f357af4e991da49d9bd66ef10da",
+  "sourceDocument": { "title": "Source drawing not yet acquired", "uri": null, "sha256": null, "drawingPage": null, "revision": null, "variant": null },
+  "coordinateTransform": { "origin": null, "axes": null, "planToNorthDeg": null },
+  "uncertaintyM": null,
+  "intendedScope": "diagnostic"
+}

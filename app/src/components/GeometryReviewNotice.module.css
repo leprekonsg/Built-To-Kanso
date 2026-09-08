@@ -1,0 +1,26 @@
+.notice {
+  padding: var(--s-7) 0;
+  border-bottom: 1px solid var(--line-1);
+  margin-bottom: var(--s-6);
+  max-width: 70ch;
+}
+
+.notice h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 500;
+  line-height: 1.1;
+  margin: 0 0 var(--s-5);
+}
+
+.notice p {
+  color: var(--fg-2);
+  line-height: 1.5;
+  margin: 0 0 var(--s-4);
+}
+
+.notice a {
+  color: var(--fg-1);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}

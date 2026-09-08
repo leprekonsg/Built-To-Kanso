@@ -10,7 +10,7 @@ const VALID_EXPRESSWAY_ADJACENCY = new Set<ExpresswayAdjacency>([
 ]);
 
 function isPositiveRect(rect: Rect): boolean {
-  return rect.width > 0 && rect.height > 0;
+  return [rect.x, rect.y, rect.width, rect.height].every(Number.isFinite) && rect.width > 0 && rect.height > 0;
 }
 
 function hasDuplicate(values: string[]): boolean {
@@ -23,7 +23,10 @@ export function validatePlanGeometry(plan: PlanGeometry): GeometryValidationResu
   if (plan.schemaVersion !== 1) issues.push("Unsupported plan geometry schema version.");
   if (plan.units !== "meters") issues.push("Plan geometry units must be meters.");
   if (!isPositiveRect(plan.bounds)) issues.push("Plan bounds must have positive width and height.");
-  if (plan.openingAreaPct <= 0) issues.push("Opening area percentage must be greater than zero.");
+  if (!Number.isFinite(plan.openingAreaPct) || plan.openingAreaPct <= 0) issues.push("Opening area percentage must be a finite number greater than zero.");
+  if (!Number.isFinite(plan.westSunFacadeDeg) || !Number.isFinite(plan.defaultDoorFacingDeg)) {
+    issues.push("Plan orientations must be finite numbers.");
+  }
 
   const roomIds = plan.rooms.map((room) => room.id);
   if (hasDuplicate(roomIds)) issues.push("Room ids must be unique.");
@@ -32,31 +35,22 @@ export function validatePlanGeometry(plan: PlanGeometry): GeometryValidationResu
   }
 
   const roomIdSet = new Set(roomIds);
+  const openingIds = plan.openings.map((opening) => opening.id);
+  if (hasDuplicate(openingIds)) issues.push("Opening ids must be unique.");
   for (const opening of plan.openings) {
+    if (opening.roomIds.length === 0) issues.push(`Opening "${opening.id}" must declare at least one adjoining room.`);
     if (opening.roomIds.some((id) => !roomIdSet.has(id))) {
       issues.push(`Opening "${opening.id}" references an unknown room.`);
     }
+    if (![opening.start.x, opening.start.y, opening.end.x, opening.end.y].every(Number.isFinite)) {
+      issues.push(`Opening "${opening.id}" coordinates must be finite.`);
+    }
+    if (opening.start.x === opening.end.x && opening.start.y === opening.end.y) {
+      issues.push(`Opening "${opening.id}" must have non-zero length.`);
+    }
   }
-
-  const blackKinds = new Set(plan.fixedElements.map((element) => element.kind));
-  if (!blackKinds.has("household_shelter")) {
-    issues.push("Plan must mark household shelter as a Black-state fixed element.");
-  }
-  if (!blackKinds.has("pipeshaft_opening")) {
-    issues.push("Plan must mark pipeshaft opening as a Black-state fixed element.");
-  }
-  if (!plan.fixedElements.some((element) => element.kind === "pipeshaft_opening" && element.bufferEligible)) {
-    issues.push("Pipeshaft opening must be buffer-eligible for Shaft Buffer placement.");
-  }
-
-  if (!roomIdSet.has(plan.pipeshaft.roomId)) {
-    issues.push("Pipeshaft room must exist in rooms.");
-  }
-  if (plan.pipeshaft.bufferRadiusM !== 0.6) {
-    issues.push("Shaft Buffer radius must be 0.6m.");
-  }
-  if (plan.pipeshaft.jetVelocityMps[0] < 0.15 || plan.pipeshaft.jetVelocityMps[1] > 0.25) {
-    issues.push("Pipeshaft jet velocity must stay within the 0.15-0.25 m/s Phase 1 range.");
+  for (const element of plan.fixedElements) {
+    if (!isPositiveRect(element)) issues.push(`Fixed element "${element.id}" must have finite positive dimensions.`);
   }
 
   if (plan.bathrooms.length === 0) issues.push("Plan must include at least one bathroom.");

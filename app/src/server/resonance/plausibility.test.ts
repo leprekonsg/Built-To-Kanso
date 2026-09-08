@@ -18,7 +18,8 @@ function wind(directionDeg: number, speedMps: number, now: Date): WindReading {
     directionDeg: normalizeDeg(directionDeg),
     speedMps,
     timestamp: now.toISOString(),
-    source: "mock",
+    source: "nea",
+    stationId: "S-plausibility-fixture",
   };
 }
 

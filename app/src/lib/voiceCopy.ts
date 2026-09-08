@@ -3,7 +3,7 @@
 //   Designer — same calm, plus instrument values (opening %, deg, ACH).
 //
 // Rule of thumb: Cultural strings stay metaphor-clean and never expose the
-// internal Damp Risk numeric model. Designer still stays band-only for Damp.
+// humidity outcome. Designer uses the same evidence boundary.
 
 export interface VoicePair<TArgs extends unknown[] = []> {
   cultural: string;
@@ -44,22 +44,20 @@ export const voiceCopy = {
       `Facade ${facadeDeg}deg aligns with afternoon west-sun exposure. SHGC target <=0.30.`,
   } satisfies VoicePair<[number]>,
 
-  // damp-* — Damp Risk bands. Internal numeric values never surface.
+  // Legacy Damp keys remain for consumers, but do not imply an unmeasured outcome.
   dampHigh: {
-    cultural: "Damp Risk wants a buffer.",
-    designer: () =>
-      "Damp Risk High: two or more layout risk conditions present. Pair the band with a Shaft Buffer, bed move, or exhaust-timer recommendation.",
+    cultural: "Humidity effect: Not assessed.",
+    designer: () => "Humidity effect: Not assessed. Measure indoor humidity before drawing a damp conclusion.",
   } satisfies VoicePair,
 
   dampWatch: {
-    cultural: "Damp Risk on watch.",
-    designer: () =>
-      "Damp Risk Watch: one layout risk condition present. Keep the airflow path clear and observe after showers and rain.",
+    cultural: "Humidity effect: Not assessed.",
+    designer: () => "Humidity effect: Not assessed. Measure indoor humidity before drawing a damp conclusion.",
   } satisfies VoicePair,
 
   dampClear: {
-    cultural: "Damp Risk clear.",
-    designer: () => "Damp Risk Clear: no layout risk conditions present.",
+    cultural: "Humidity effect: Not assessed.",
+    designer: () => "Humidity effect: Not assessed. Measure indoor humidity before drawing a damp conclusion.",
   } satisfies VoicePair,
 } as const;
 

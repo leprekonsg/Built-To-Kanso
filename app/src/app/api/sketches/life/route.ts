@@ -25,6 +25,7 @@
 // fallback. The route never returns 5xx for an OpenAI miss; the UI renders a
 // designed surface, not an alarming error toast.
 import { NextResponse } from "next/server";
+import { geometryReleaseResponse } from "@/server/geometry/releaseResponse";
 import { hashBytes } from "@/lib/imageHash";
 import {
   buildLifeAnchorSceneManifest,
@@ -423,6 +424,10 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!anchorOnlyRequested(request)) {
+    const blocked = geometryReleaseResponse(body.templateId);
+    if (blocked) return blocked;
+  }
   const plan = getPlanGeometry(body.templateId);
   const descriptor = deterministicAnchor(plan);
   if (!anchorOnlyRequested(request) && descriptor.manifest.metadata.geometryIssues.length > 0) {

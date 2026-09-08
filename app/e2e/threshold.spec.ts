@@ -60,8 +60,8 @@ test.describe("Threshold onboarding", () => {
     await expect(continueLink).toHaveAttribute("aria-disabled", "false");
     await continueLink.click();
     await expect(page).toHaveURL(/\/studio\?template=tampines-greenweave&compass=15&floor=16&scenario=just-moved-in$/);
-    await expect(page.getByRole("heading", { name: "The house is listening." })).toBeVisible();
-    await expect(page.getByLabel("Threshold inputs")).toContainText("015°");
+    await expect(page.getByRole("heading", { name: "This layout needs a source review." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Diagnostic template" })).toBeVisible();
   });
 
   test("does not overflow on mobile viewport", async ({ page, isMobile }) => {

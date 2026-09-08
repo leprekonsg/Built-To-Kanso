@@ -160,17 +160,19 @@ export function buildPipeshaftJetParticles(
   startDelayMs: number,
   attenuation: number,
 ): SimulationParticle[] {
-  const rad = (plan.pipeshaft.openingDirectionDeg * Math.PI) / 180;
+  if (!plan.pipeshaft) return [];
+  const pipeshaft = plan.pipeshaft;
+  const rad = (pipeshaft.openingDirectionDeg * Math.PI) / 180;
   const dx = Math.sin(rad);
   const dy = -Math.cos(rad);
-  const [minJet, maxJet] = plan.pipeshaft.jetVelocityMps;
+  const [minJet, maxJet] = pipeshaft.jetVelocityMps;
   const baseSpeed = round(((minJet + maxJet) / 2) * attenuation);
   return [0, 1, 2].map((index) => ({
     id: `pipeshaft-jet-${index + 1}`,
     kind: "pipeshaft_drift" as const,
     material: "hdb_concrete_dust" as const,
-    x: roundPoint(plan.pipeshaft.openingPoint.x + dx * index * 0.18),
-    y: roundPoint(plan.pipeshaft.openingPoint.y + dy * index * 0.18),
+    x: roundPoint(pipeshaft.openingPoint.x + dx * index * 0.18),
+    y: roundPoint(pipeshaft.openingPoint.y + dy * index * 0.18),
     delayMs: startDelayMs + index * 280,
     speedMps: baseSpeed,
   }));

@@ -90,7 +90,7 @@ export interface PlanGeometry {
   rooms: RoomGeometry[];
   openings: OpeningGeometry[];
   fixedElements: FixedElementGeometry[];
-  pipeshaft: PipeshaftGeometry;
+  pipeshaft?: PipeshaftGeometry | null;
   bathrooms: BathroomGeometry[];
   siteContext?: SiteContext;
 }
@@ -98,4 +98,70 @@ export interface PlanGeometry {
 export interface GeometryValidationResult {
   ok: boolean;
   issues: string[];
+}
+
+export type EvidenceStatus = "pending" | "verified" | "not_applicable";
+
+export interface GeometrySourceManifest {
+  schemaVersion: 1;
+  templateId: TemplateId;
+  geometrySha256: string;
+  sourceDocument: {
+    title: string;
+    uri: string | null;
+    sha256: string | null;
+    drawingPage: string | null;
+    revision: string | null;
+    variant: string | null;
+  };
+  coordinateTransform: {
+    origin: string | null;
+    axes: string | null;
+    planToNorthDeg: number | null;
+  };
+  uncertaintyM: number | null;
+  intendedScope: "diagnostic" | "generic_template" | "resident_specific";
+}
+
+export interface GeometryReviewRecord {
+  schemaVersion: 1;
+  templateId: TemplateId;
+  geometrySha256: string;
+  sourceManifestSha256: string;
+  reviewer: string | null;
+  reviewedAt: string | null;
+  statuses: {
+    sourceAuthenticity: EvidenceStatus;
+    geometricAccuracy: EvidenceStatus;
+    asBuiltConfirmation: EvidenceStatus;
+    renovationApproval: EvidenceStatus;
+  };
+  notes: string[];
+}
+
+export interface GeometryReleaseGateResult {
+  eligible: boolean;
+  basicValidation: GeometryValidationResult;
+  topology: GeometryValidationResult;
+  provenance: GeometryValidationResult & {
+    geometrySha256: string;
+    statuses: GeometryReviewRecord["statuses"];
+  };
+  capabilities: {
+    shaftAdvice: { available: boolean; reason: string | null };
+    orientationAnalysis: { available: boolean; reason: string | null };
+  };
+}
+
+export interface PlanGeometryV2 {
+  schemaVersion: 2;
+  templateId: TemplateId;
+  units: "meters";
+  physical: {
+    spaces: Array<{ id: string; role: "space" | "subzone"; parentSpaceId?: string; polygon: Point[] }>;
+    walls: Array<{ id: string; centerline: Point[]; thicknessM: number }>;
+    openings: Array<{ id: string; wallId: string; roomIds: string[]; offsetM: number; widthM: number }>;
+  };
+  restrictions: Array<{ id: string; kind: string; polygon: Point[]; source: string }>;
+  // Source and review records are kept outside the hashed physical geometry.
 }

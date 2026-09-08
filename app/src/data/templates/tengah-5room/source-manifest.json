@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "templateId": "tengah-5room",
+  "geometrySha256": "db7edb56685dcc46bd111c609467e0bd211fe79d9e5cabd83c9ebad3d0fc1544",
+  "sourceDocument": { "title": "Source drawing not yet acquired", "uri": null, "sha256": null, "drawingPage": null, "revision": null, "variant": null },
+  "coordinateTransform": { "origin": null, "axes": null, "planToNorthDeg": null },
+  "uncertaintyM": null,
+  "intendedScope": "diagnostic"
+}

@@ -215,7 +215,7 @@ describe("buildSceneElementSpec", () => {
       assert.ok(spec.kitchenShadow.bounds.height > 0, `${templateId} kitchen shadow must have positive height`);
       assert.ok(pipeshaft, `${templateId} must mark a pipeshaft opening`);
       assert.equal(pipeshaft.bufferEligible, true, `${templateId} pipeshaft must be Shaft Buffer eligible`);
-      assert.equal(plan.pipeshaft.bufferRadiusM, 0.6, `${templateId} Shaft Buffer radius must remain 0.6m`);
+      assert.equal(plan.pipeshaft!.bufferRadiusM, 0.6, `${templateId} Shaft Buffer radius must remain 0.6m`);
     }
   });
 });

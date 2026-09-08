@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "templateId": "tampines-greenweave",
+  "geometrySha256": "c9bd18093d5f13ce90e758d45425f68deb66661d6edf08dec6909c2060b949a6",
+  "sourceDocument": { "title": "Source drawing not yet acquired", "uri": null, "sha256": null, "drawingPage": null, "revision": null, "variant": null },
+  "coordinateTransform": { "origin": null, "axes": null, "planToNorthDeg": null },
+  "uncertaintyM": null,
+  "intendedScope": "diagnostic"
+}

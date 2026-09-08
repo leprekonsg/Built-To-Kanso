@@ -703,13 +703,12 @@ export function createLifeAnchorThreeScene(plan: PlanGeometry): LifeAnchorPngRen
     scene.add(createOpeningMesh(opening));
   }
 
-  const shaft = new THREE.Mesh(
-    new THREE.BoxGeometry(0.18, 1.2, 0.18),
-    createPipeshaftMarkerMaterial(),
-  );
-  shaft.name = `pipeshaft:${plan.pipeshaft.id}`;
-  shaft.position.set(plan.pipeshaft.openingPoint.x, 0.72, plan.pipeshaft.openingPoint.y);
-  scene.add(shaft);
+  if (plan.pipeshaft) {
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.2, 0.18), createPipeshaftMarkerMaterial());
+    shaft.name = `pipeshaft:${plan.pipeshaft.id}`;
+    shaft.position.set(plan.pipeshaft.openingPoint.x, 0.72, plan.pipeshaft.openingPoint.y);
+    scene.add(shaft);
+  }
 
   for (const fixture of buildServiceYardAffordances(plan)) {
     scene.add(createServiceFixtureMesh(fixture));

@@ -10,7 +10,8 @@ import {
 import { PlanGlyph } from "@/components/PlanGlyph";
 import { EVIDENCE_TIER_LABELS, type EvidenceTier } from "@/server/evidence";
 import { buildLifeAnchorSceneManifest } from "@/server/anchors/lifeAnchor";
-import { getPlanGeometry } from "@/server/geometry/registry";
+import { getPlanGeometry, getGeometryReleaseGate } from "@/server/geometry/registry";
+import GeometryReviewNotice from "@/components/GeometryReviewNotice";
 import type { Point, RoomGeometry } from "@/server/geometry/types";
 import { buildRecommendationProof, type RecommendationAction, type RecommendationProof } from "@/server/recommendations/proof";
 import type { SimulationStreamline } from "@/server/simulation/types";
@@ -45,6 +46,9 @@ export default async function RecommendationProofPage({ searchParams }: Recommen
     return <MissingInputs />;
   }
 
+  if (!getGeometryReleaseGate(templateId).eligible) {
+    return <main className={styles.page}><GeometryReviewNotice templateId={templateId} /></main>;
+  }
   const plan = getPlanGeometry(templateId);
   const template = TEMPLATES.find((item) => item.id === templateId);
   const proof = buildRecommendationProof({ plan, compassDeg, floor });
@@ -331,12 +335,12 @@ function ProofPlan({ proof }: { proof: RecommendationProof }) {
           className={`${styles.fixedElement} ${element.bufferEligible ? styles.bufferEligible : ""}`}
         />
       ))}
-      <circle
+      {plan.pipeshaft && <circle
         cx={plan.pipeshaft.openingPoint.x}
         cy={plan.pipeshaft.openingPoint.y}
         r={plan.pipeshaft.bufferRadiusM}
         className={styles.bufferCircle}
-      />
+      />}
       {plan.rooms.filter((room) => room.kind !== "corridor").map((room) =>
         room.confidence === "black" ? (
           <PlanGlyph

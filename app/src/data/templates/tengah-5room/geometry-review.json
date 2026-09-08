@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "templateId": "tengah-5room",
+  "geometrySha256": "db7edb56685dcc46bd111c609467e0bd211fe79d9e5cabd83c9ebad3d0fc1544",
+  "sourceManifestSha256": "1848732164829eb462ec84af90bf09a56042253190e9866efa8bb58128bc2444",
+  "reviewer": null,
+  "reviewedAt": null,
+  "statuses": { "sourceAuthenticity": "pending", "geometricAccuracy": "pending", "asBuiltConfirmation": "pending", "renovationApproval": "pending" },
+  "notes": ["No source-backed geometry review has been completed."]
+}

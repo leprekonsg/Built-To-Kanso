@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { submittedGeometryReleaseResponse } from "@/server/geometry/releaseResponse";
 import type { PlanGeometry } from "@/server/geometry/types";
 import {
   dispatchScheduledResonancePush,
@@ -58,6 +59,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: validationError }, { status: 400 });
   }
 
+  if (!body.dryRun && (body.wind !== undefined || body.nowIso !== undefined)) {
+    return NextResponse.json({ error: "Supplied weather and clock values are diagnostic-only. Set dryRun to true; live dispatch uses current server-fetched weather." }, { status: 400 });
+  }
+
+  const blocked = submittedGeometryReleaseResponse(body.plan);
+  if (blocked) return blocked;
   const wind = body.wind ?? (await fetchCurrentWind({ siteLocation: body.siteLocation }));
   const now = body.nowIso ? new Date(body.nowIso) : body.wind ? new Date(wind.timestamp) : new Date();
 
@@ -121,7 +128,7 @@ export async function POST(request: Request) {
 function validateDispatchBody(
   body: ResonanceDispatchBody,
 ): string | null {
-  if (!body.plan || typeof body.plan !== "object") {
+  if (!body?.plan || typeof body.plan !== "object") {
     return "plan (PlanGeometry) is required.";
   }
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { geometryReleaseResponse } from "@/server/geometry/releaseResponse";
 import { getPlanGeometry } from "@/server/geometry/registry";
 import {
   renderWindSketchOverBaseSvg,
@@ -28,12 +29,14 @@ export async function POST(request: Request) {
 
   const valid = validateSimulationRequest({
     ...body,
-    condition: body.condition ?? "ne_monsoon",
+    condition: body?.condition ?? "ne_monsoon",
   });
   if (typeof valid === "string") {
     return NextResponse.json({ error: "invalid_wind_sketch_request", message: valid }, { status: 400 });
   }
 
+  const blocked = geometryReleaseResponse(valid.templateId);
+  if (blocked) return blocked;
   const plan = getPlanGeometry(valid.templateId);
   const field = buildTier4Simulation(valid);
   // Stage B/C pipeline: prefer the prebaked sumi-e Stage B

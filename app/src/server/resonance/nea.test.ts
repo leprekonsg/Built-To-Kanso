@@ -155,7 +155,7 @@ describe("selectMatchingWindReading", () => {
     );
   });
 
-  it("falls back to independent first readings when no shared station exists", () => {
+  it("rejects readings when no station provides both direction and speed", () => {
     const direction = {
       code: 0,
       data: {
@@ -187,12 +187,25 @@ describe("selectMatchingWindReading", () => {
       errorMsg: "",
     };
 
-    assert.deepEqual(selectMatchingWindReading(direction, speed), {
-      directionDeg: 90,
-      speedMps: 2.4,
-      timestamp: "2026-05-09T06:00:00+08:00",
-      source: "nea",
-    });
+    assert.throws(() => selectMatchingWindReading(direction, speed), /no shared station/);
+  });
+
+  it("rejects mismatched timestamps and unknown speed units", () => {
+    const direction = {
+      code: 0,
+      data: { readings: [{ timestamp: "2026-05-09T06:00:00Z", data: [{ stationId: "S1", value: 90 }] }], readingUnit: "degrees" },
+    };
+    const mismatchedSpeed = {
+      code: 0,
+      data: { readings: [{ timestamp: "2026-05-09T06:05:00Z", data: [{ stationId: "S1", value: 2 }] }], readingUnit: "m/s" },
+    };
+    assert.throws(() => selectMatchingWindReading(direction, mismatchedSpeed), /timestamps do not match/);
+
+    const unknownUnitSpeed = {
+      code: 0,
+      data: { readings: [{ timestamp: "2026-05-09T06:00:00Z", data: [{ stationId: "S1", value: 2 }] }], readingUnit: "km\/h" },
+    };
+    assert.throws(() => selectMatchingWindReading(direction, unknownUnitSpeed), /speed unit must be/);
   });
 
   it("rejects a v2 response without readings", () => {

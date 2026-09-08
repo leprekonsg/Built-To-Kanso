@@ -73,7 +73,7 @@ export const TOKEN_PERSONALITY_PROFILES: Record<TokenPersonalityVariant, TokenPe
 
 export interface TokenPlacementResult {
   allowed: boolean;
-  code: "ok" | "black_state_blocked" | "shaft_buffer_out_of_range";
+  code: "ok" | "black_state_blocked" | "shaft_buffer_out_of_range" | "shaft_unavailable";
   message: string;
   alternatives: string[];
 }
@@ -132,6 +132,9 @@ export function validateTokenPlacement(
   const blocked = blockedElementAt(plan, placement.point);
 
   if (placement.tokenId === "shaft_buffer") {
+    if (!plan.pipeshaft) {
+      return { allowed: false, code: "shaft_unavailable", message: "Shaft Buffer is unavailable because this plan has no verified pipeshaft location.", alternatives: ["Use a non-invasive screen where its location is known.", "Leave fixed elements unchanged."] };
+    }
     const shaftDistance = distance(placement.point, plan.pipeshaft.openingPoint);
     const onBufferEligibleShaft = plan.fixedElements.some(
       (element) =>

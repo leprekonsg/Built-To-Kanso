@@ -4,7 +4,13 @@ import type { CSSProperties } from "react";
 import { useEffect, useId, useMemo, useState } from "react";
 import { useVoiceStore } from "@/lib/voice";
 import type { DesignerMaterialControls } from "@/lib/designerControls";
-import { getPlanGeometry } from "@/server/geometry/registry";
+import {
+  bindSimulationResult,
+  buildScenario,
+  createSimulationResultCoordinator,
+  type CoordinatedSimulationResult,
+  type ScenarioBoundSimulationResult,
+} from "@/lib/scenario";
 import type { PlanGeometry } from "@/server/geometry/types";
 import { runTier1IfAvailable } from "@/server/lbm/gpuSolver";
 import { evaluateGlow, type GlowReading } from "@/server/rules/glow";
@@ -43,6 +49,9 @@ export interface LiveStudioProps {
   plan: PlanGeometry;
   compassDeg: number;
   ambientWindMps?: number;
+  geometryContentHash?: string;
+  geometryReleaseEligible?: boolean;
+  operatingScenario?: string | null;
   tokenPlacements?: TokenPlacement[];
   initialField?: Tier4SimulationField | null;
   /** Kept optional while older Bones wiring is replaced with the Tier 4 field. */
@@ -74,114 +83,141 @@ const EMPTY_TOKEN_PLACEMENTS: TokenPlacement[] = [];
 export function LiveStudio({
   plan,
   compassDeg,
+  geometryContentHash = "unbound",
+  geometryReleaseEligible = false,
+  operatingScenario = null,
   tokenPlacements = EMPTY_TOKEN_PLACEMENTS,
-  initialField = null,
   visibilityMode = "resident",
   weatherTrial = null,
   floor = 8,
   designerControls,
 }: LiveStudioProps) {
-  const [field, setField] = useState<Tier4SimulationField | null>(initialField);
-  const [status, setStatus] = useState<"ready" | "loading" | "unavailable">(initialField ? "ready" : "loading");
+  const [coordinatedResult, setCoordinatedResult] = useState<CoordinatedSimulationResult | null>(null);
+  const [status, setStatus] = useState<"ready" | "loading" | "unavailable">("loading");
   const [windVisibility, setWindVisibility] = useState(58);
   const voiceMode = useVoiceStore((state) => state.mode);
   const sliderId = useId();
   const placementKey = useMemo(() => JSON.stringify(tokenPlacements), [tokenPlacements]);
-  const requestBody = useMemo(
-    () =>
-      JSON.stringify({
-        templateId: plan.templateId,
-        tokenPlacements: JSON.parse(placementKey) as TokenPlacement[],
-        ...(weatherTrial ? { condition: weatherTrial } : {}),
-      }),
-    [plan.templateId, placementKey, weatherTrial],
+  const conditionId = weatherTrial ?? DEFAULT_TIER1_CONDITION;
+  const condition = useMemo(
+    () => withPlanCondition(WEATHER_TRIALS[conditionId], plan.westSunFacadeDeg),
+    [conditionId, plan.westSunFacadeDeg],
   );
+  const scenario = useMemo(() => buildScenario({
+    plan,
+    geometryContentHash,
+    geometryReleaseEligible,
+    // The current solver is plan-relative. The Threshold compass remains an
+    // independent UI input and must not silently become airflow orientation.
+    planRotationDeg: null,
+    mirrored: null,
+    placements: JSON.parse(placementKey) as TokenPlacement[],
+    operatingScenario,
+    weatherCondition: conditionId,
+    windFromDeg: condition.compassDeg,
+    ambientWindMps: condition.ambientWindMps,
+  }), [condition.ambientWindMps, condition.compassDeg, conditionId, geometryContentHash, geometryReleaseEligible, operatingScenario, placementKey, plan]);
+  const field = coordinatedResult?.scenarioId === scenario.scenarioId
+    ? coordinatedResult.field
+    : null;
 
   useEffect(() => {
-    // When a Weather Trial is active, never use the SSR-supplied initialField:
-    // initialField was rendered at the default condition and would shadow the
-    // trial's distinct field. Always re-fetch when a trial is active.
-    if (initialField && !weatherTrial) {
-      return;
-    }
-
     const controller = new AbortController();
+    if (!geometryReleaseEligible) {
+      const unavailableTimer = setTimeout(() => setStatus("unavailable"), 0);
+      return () => {
+        clearTimeout(unavailableTimer);
+        controller.abort();
+      };
+    }
     const loadingTimer = setTimeout(() => setStatus("loading"), 0);
+    let apiSettled = false;
+    let gpuSettled = typeof navigator === "undefined" || !("gpu" in navigator);
+    let accepted = false;
+    const resultCoordinator = createSimulationResultCoordinator(scenario.scenarioId, (result) => {
+      setCoordinatedResult(result);
+    });
 
-    async function loadField() {
+    const settleUnavailable = () => {
+      if (apiSettled && gpuSettled && !accepted && !controller.signal.aborted) setStatus("unavailable");
+    };
+
+    const offer = (candidate: ScenarioBoundSimulationResult, precedence: CoordinatedSimulationResult["precedence"]) => {
+      if (controller.signal.aborted) return;
+      if (resultCoordinator.offer({ ...candidate, precedence })) {
+        accepted = true;
+        clearTimeout(loadingTimer);
+        setStatus("ready");
+      }
+    };
+
+    async function loadApiFallback() {
       try {
         const response = await fetch("/api/simulation", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: requestBody,
+          body: JSON.stringify({ scenario }),
           signal: controller.signal,
         });
 
         if (!response.ok) throw new Error("Simulation API returned a non-200 response.");
-        const nextField = (await response.json()) as Tier4SimulationField;
-        setField(nextField);
-        setStatus("ready");
-      } catch {
-        if (!controller.signal.aborted) {
-          setStatus("unavailable");
-          setField(null);
+        const result = (await response.json()) as ScenarioBoundSimulationResult;
+        if (controller.signal.aborted) return;
+        if (result.scenarioId !== scenario.scenarioId || result.inputHash !== scenario.inputHash) {
+          throw new Error("Simulation response does not match the active scenario.");
         }
+        offer(result, result.method.id === "d2q9_lbm" ? "calculated" : "illustrative_fallback");
+      } catch {
+        // The GPU request may still provide the field. Status settles only
+        // after both producers have completed.
+      } finally {
+        apiSettled = true;
+        settleUnavailable();
       }
     }
 
-    loadField();
+    async function upgradeToTier1() {
+      if (gpuSettled) return;
+
+      try {
+        const tier1 = await runTier1IfAvailable({
+          templateId: plan.templateId,
+          compassDeg: condition.compassDeg,
+          ambientWindMps: condition.ambientWindMps,
+          iterations: CLIENT_TIER1_ITERATIONS,
+        });
+
+        if (!tier1 || controller.signal.aborted) return;
+
+        const tier1Field = composeTier1Field({
+          templateId: plan.templateId,
+          field: tier1,
+          condition,
+          tokenPlacements: scenario.placements,
+          iterations: CLIENT_TIER1_ITERATIONS,
+        });
+
+        if (!controller.signal.aborted) offer(bindSimulationResult(scenario, tier1Field), "calculated");
+      } catch {
+        // The API fallback remains available when browser compute fails.
+      } finally {
+        gpuSettled = true;
+        settleUnavailable();
+      }
+    }
+
+    // A legacy field has no scenario binding, so it cannot be safely restamped
+    // after the arrangement changes. Both producers start from this scenario.
+    void loadApiFallback();
+    void upgradeToTier1();
+    settleUnavailable();
 
     return () => {
       clearTimeout(loadingTimer);
+      resultCoordinator.close();
       controller.abort();
     };
-  }, [initialField, plan.templateId, placementKey, requestBody, weatherTrial]);
-
-  // Tier 1 client upgrade: when WebGPU is available in the browser, run the
-  // canonical 256x256 D2Q9 LBM and replace the SSR/API field with the live
-  // velocity field. Silent on failure — the existing prebaked field stays
-  // visible as the honest Tier 4 lookup in the caption. Re-runs when template /
-  // placements / trial change.
-  useEffect(() => {
-    if (typeof navigator === "undefined" || !("gpu" in navigator)) return;
-
-    let cancelled = false;
-    const conditionId = weatherTrial ?? DEFAULT_TIER1_CONDITION;
-    const placements = JSON.parse(placementKey) as TokenPlacement[];
-
-    async function upgradeToTier1() {
-      const planGeometry = getPlanGeometry(plan.templateId);
-      const condition = withPlanCondition(WEATHER_TRIALS[conditionId], planGeometry.westSunFacadeDeg);
-
-      const tier1 = await runTier1IfAvailable({
-        templateId: plan.templateId,
-        compassDeg: condition.compassDeg,
-        ambientWindMps: condition.ambientWindMps,
-        iterations: CLIENT_TIER1_ITERATIONS,
-      });
-
-      if (!tier1 || cancelled) return;
-
-      const tier1Field = composeTier1Field({
-        templateId: plan.templateId,
-        field: tier1,
-        condition,
-        tokenPlacements: placements,
-        iterations: CLIENT_TIER1_ITERATIONS,
-      });
-
-      if (!cancelled) {
-        setField(tier1Field);
-        setStatus("ready");
-      }
-    }
-
-    void upgradeToTier1();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [plan.templateId, placementKey, weatherTrial]);
+  }, [condition, geometryReleaseEligible, plan.templateId, scenario]);
 
   // Designer mode hands its visibility value through; otherwise the local
   // slider drives, gated by the audit/designer floor.

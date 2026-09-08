@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "templateId": "tampines-greenweave",
+  "geometrySha256": "c9bd18093d5f13ce90e758d45425f68deb66661d6edf08dec6909c2060b949a6",
+  "sourceManifestSha256": "38aa214b89224e8ea47101a9b796f7f547d73c7f439a9766de8fabfb5eb774c8",
+  "reviewer": null,
+  "reviewedAt": null,
+  "statuses": { "sourceAuthenticity": "pending", "geometricAccuracy": "pending", "asBuiltConfirmation": "pending", "renovationApproval": "pending" },
+  "notes": ["Diagnostic only: entry and household shelter overlap. No replacement coordinates have been approved."]
+}

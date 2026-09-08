@@ -1,7 +1,6 @@
 "use client";
 
 import { EVIDENCE_TIER_LABELS, type EvidenceTier } from "@/server/evidence";
-import type { DampRiskBand } from "@/server/scout/scout";
 import type { TokenId } from "@/server/rules/tokens";
 import { TOKEN_DEFINITIONS } from "./TokenTray";
 import styles from "./GhostPreview.module.css";
@@ -15,18 +14,10 @@ export interface GhostPreviewData {
   preview: string;
   breathDelta: {
     label: string;
-    estimatedChangePct: number;
     tier: EvidenceTier;
   };
   breathCopy?: string;
   dampBandCopy?: string;
-  dampDelta?: {
-    roomId: string;
-    beforeBand: DampRiskBand;
-    afterBand: DampRiskBand;
-    label: string;
-    tier: EvidenceTier;
-  };
   alternatives: string[];
 }
 
@@ -52,25 +43,6 @@ const TOKEN_NAME: Record<TokenId, string> = TOKEN_DEFINITIONS.reduce(
   },
   {} as Record<TokenId, string>,
 );
-
-const DAMP_DISCLAIMER =
-  "Damp Risk is a layout-based comfort estimate. Not a humidity measurement, not a mould diagnosis, not a certified IAQ assessment.";
-
-function formatBand(band: DampRiskBand): string {
-  return band.charAt(0).toUpperCase() + band.slice(1);
-}
-
-function formatRoom(roomId: string): string {
-  return roomId
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
-function formatBreathPct(pct: number): string {
-  const sign = pct > 0 ? "+" : "";
-  return `${sign}${pct}%`;
-}
 
 function formatRole(role: GhostPreviewData["role"]): string {
   if (role === "recommended") return "Recommended";
@@ -152,11 +124,11 @@ export default function GhostPreview({
               <dl className={styles.futureBands}>
                 <div>
                   <dt>Breath</dt>
-                  <dd>{future.breathCopy ?? formatBreathPct(future.breathDelta.estimatedChangePct)}</dd>
+                  <dd>{future.breathCopy ?? "Physical effect: Not assessed."}</dd>
                 </div>
                 <div>
                   <dt>Damp</dt>
-                  <dd>{future.dampBandCopy ?? "Damp Risk band stays unchanged."}</dd>
+                  <dd>{future.dampBandCopy ?? "Humidity effect: Not assessed."}</dd>
                 </div>
               </dl>
             </article>
@@ -174,7 +146,6 @@ export default function GhostPreview({
 
   const tokenName = current.tokenId ? TOKEN_NAME[current.tokenId] : "Current home";
   const blocked = !current.allowed;
-  const breathTone = current.breathDelta.estimatedChangePct >= 0 ? styles.breathPositive : styles.breathNegative;
 
   return (
     <aside
@@ -195,57 +166,26 @@ export default function GhostPreview({
           <div className={styles.row}>
             <span className={styles.rowLabel}>Breath</span>
             <span className={styles.rowValue}>
-              <span className={breathTone}>
-                {formatBreathPct(current.breathDelta.estimatedChangePct)}
-              </span>
-              <span className={styles.rowDetail}>{current.breathDelta.label}</span>
+              <span className={styles.bandUnchanged}>Not assessed</span>
+              <span className={styles.rowDetail}>{current.breathCopy ?? current.breathDelta.label}</span>
             </span>
             <span className={styles.tierTag}>
               {EVIDENCE_TIER_LABELS[current.breathDelta.tier]}
             </span>
           </div>
 
-          {current.dampDelta ? (
-            <div className={styles.row}>
-              <span className={styles.rowLabel}>Damp</span>
-              <span className={styles.rowValue}>
-                <span className={styles.dampTransition}>
-                  <span className={`${styles.bandPill} ${styles[`band_${current.dampDelta.beforeBand}`]}`}>
-                    {formatBand(current.dampDelta.beforeBand)}
-                  </span>
-                  <span className={styles.dampArrow} aria-hidden>
-                    &rarr;
-                  </span>
-                  <span className={`${styles.bandPill} ${styles[`band_${current.dampDelta.afterBand}`]}`}>
-                    {formatBand(current.dampDelta.afterBand)}
-                  </span>
-                </span>
-                <span className={styles.rowDetail}>
-                  {formatRoom(current.dampDelta.roomId)} reading shifts.
-                </span>
+          <div className={styles.row}>
+            <span className={styles.rowLabel}>Damp</span>
+            <span className={styles.rowValue}>
+              <span className={styles.bandUnchanged}>Not assessed</span>
+              <span className={styles.rowDetail}>
+                {current.dampBandCopy ?? "Humidity effect: Not assessed."}
               </span>
-              <span className={styles.tierTag}>
-                {EVIDENCE_TIER_LABELS[current.dampDelta.tier]}
-              </span>
-            </div>
-          ) : (
-            <div className={styles.row}>
-              <span className={styles.rowLabel}>Damp</span>
-              <span className={styles.rowValue}>
-                <span className={styles.bandUnchanged}>Band unchanged</span>
-                <span className={styles.rowDetail}>
-                  No bedroom moves out of its current band on this candidate.
-                </span>
-              </span>
-              <span className={styles.tierTag}>
-                {EVIDENCE_TIER_LABELS["heuristic_estimate"]}
-              </span>
-            </div>
-          )}
-
-          {current.dampDelta ? (
-            <p className={styles.dampDisclaimer}>{DAMP_DISCLAIMER}</p>
-          ) : null}
+            </span>
+            <span className={styles.tierTag}>
+              {EVIDENCE_TIER_LABELS["heuristic_estimate"]}
+            </span>
+          </div>
 
           <p className={styles.placementCount}>
             <span>{placedCount} of 6</span> tokens placed. Drop to place.

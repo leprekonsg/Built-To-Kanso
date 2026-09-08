@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "templateId": "resale-exec-1990s",
+  "geometrySha256": "d3187b1bf7e2d09a7b5236b3a7470d6ce9610f357af4e991da49d9bd66ef10da",
+  "sourceManifestSha256": "c2dae29aadb3f5b28cd57094d2094859961d545cdee0b0184f83679352baa2a8",
+  "reviewer": null,
+  "reviewedAt": null,
+  "statuses": { "sourceAuthenticity": "pending", "geometricAccuracy": "pending", "asBuiltConfirmation": "pending", "renovationApproval": "pending" },
+  "notes": ["No source-backed geometry review has been completed."]
+}

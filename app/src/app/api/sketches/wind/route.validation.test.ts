@@ -1,39 +1,22 @@
 import assert from "node:assert/strict";
-import { it } from "node:test";
+import { describe, it } from "node:test";
 import { POST } from "./route";
 
-it("keeps deterministic streamlines out of Images even when polish is requested", async () => {
-  const originalFetch = globalThis.fetch;
-  const originalKey = process.env.OPENAI_API_KEY;
-  let upstreamCalls = 0;
-  process.env.OPENAI_API_KEY = "sk-test-wind-validation";
-  globalThis.fetch = (async () => {
-    upstreamCalls += 1;
-    throw new Error("The composed airflow image must never reach an image model.");
-  }) as typeof fetch;
-  const request = (query: string, accept = "image/svg+xml") => new Request(`https://example.com/api/sketches/wind${query}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", accept },
-    body: JSON.stringify({ templateId: "resale-exec-1990s" }),
-  });
-  try {
-    const plain = await POST(request(""));
-    const polished = await POST(request("?polish=1"));
-    assert.equal(polished.status, 200);
-    assert.match(polished.headers.get("content-type") ?? "", /image\/svg\+xml/);
-    const svg = await polished.text();
-    assert.equal(svg, await plain.text());
-    assert.match(svg, /data-layer="deterministic-streamlines"/);
-    assert.equal(polished.headers.get("x-prompt-id"), null);
-    assert.equal(upstreamCalls, 0);
+function request(body: unknown, query = "") {
+  return new Request(`https://example.com/api/sketches/wind${query}`, { method: "POST", headers: { "Content-Type": "application/json", accept: "image/svg+xml" }, body: JSON.stringify(body) });
+}
 
-    const json = await POST(request("?polish=1", "application/json"));
-    assert.match(json.headers.get("content-type") ?? "", /application\/json/);
-    assert.equal((await json.json()).contentType, "image/svg+xml");
-    assert.equal(upstreamCalls, 0);
-  } finally {
-    globalThis.fetch = originalFetch;
-    if (originalKey === undefined) delete process.env.OPENAI_API_KEY;
-    else process.env.OPENAI_API_KEY = originalKey;
-  }
+describe("Wind Sketch geometry boundary", () => {
+  it("rejects null, unknown, and malformed requests with 400", async () => {
+    assert.equal((await POST(request(null))).status, 400); assert.equal((await POST(request({ templateId: "unknown" }))).status, 400);
+    assert.equal((await POST(new Request("https://example.com/api/sketches/wind", { method: "POST", body: "{" }))).status, 400);
+  });
+  it("blocks plain and polish output before any provider call", async () => {
+    const originalFetch = globalThis.fetch; let calls = 0;
+    globalThis.fetch = (async () => { calls += 1; throw new Error("must not reach provider"); }) as typeof fetch;
+    try {
+      for (const query of ["", "?polish=1"]) { const response = await POST(request({ templateId: "resale-exec-1990s" }, query)); assert.equal(response.status, 422); assert.equal((await response.json()).error, "geometry_not_ready"); }
+      assert.equal(calls, 0);
+    } finally { globalThis.fetch = originalFetch; }
+  });
 });

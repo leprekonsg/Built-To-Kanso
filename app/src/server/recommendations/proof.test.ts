@@ -21,7 +21,12 @@ describe("Recommendation proof", () => {
     assert.equal(proof.actions[1].tokenId, "fan_anchor");
     assert.equal(proof.actions[1].object, "Quiet standing fan");
     assert.ok(proof.acceptedPlacements.some((placement) => placement.tokenId === "shaft_buffer"));
-    assert.ok(proof.changelog.includes("pipeshaft jet deflected"));
+    assert.ok(proof.changelog.includes("Shaft Buffer placed near the pipeshaft path"));
+    assert.ok(proof.changelog.includes("physical airflow and humidity effects not assessed"));
+    for (const action of proof.actions) {
+      assert.doesNotMatch(action.proof, /[+-]?\d+%|Damp Risk moves|band stays unchanged/i);
+      if (action.tokenId !== "anti_cure") assert.match(action.proof, /not been assessed/i);
+    }
   });
 
   it("keeps the anti-cure as a keep-clear recommendation", () => {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPlanGeometry, isTemplateId } from "@/server/geometry/registry";
+import { getPlanGeometry, getGeometryReleaseGate, isTemplateId } from "@/server/geometry/registry";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -23,5 +23,8 @@ export async function GET(_request: Request, context: RouteContext) {
     );
   }
 
-  return NextResponse.json(getPlanGeometry(id));
+  const releaseGate = getGeometryReleaseGate(id);
+  return NextResponse.json({ ...getPlanGeometry(id), releaseGate, diagnosticOnly: !releaseGate.eligible }, {
+    headers: { "Cache-Control": "no-store", "X-Geometry-Use": releaseGate.eligible ? "reviewed" : "diagnostic-only" },
+  });
 }

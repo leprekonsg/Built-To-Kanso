@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { geometryReleaseResponse } from "@/server/geometry/releaseResponse";
 import { getPlanGeometry, isTemplateId } from "@/server/geometry/registry";
 import { generateHouseChangelog } from "@/server/rules/changelog";
 import { isTokenPlacement, type TokenPlacement } from "@/server/rules/tokens";
@@ -9,9 +10,11 @@ interface ChangelogRequestBody {
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as ChangelogRequestBody;
+  let body: ChangelogRequestBody;
+  try { body = await request.json() as ChangelogRequestBody; }
+  catch { return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 }); }
 
-  if (!body.templateId || !isTemplateId(body.templateId)) {
+  if (!body?.templateId || !isTemplateId(body.templateId)) {
     return NextResponse.json(
       { error: "templateId must be one of: tampines-greenweave, tengah-5room, resale-exec-1990s." },
       { status: 400 },
@@ -30,6 +33,8 @@ export async function POST(request: Request) {
     );
   }
 
+  const blocked = geometryReleaseResponse(body.templateId);
+  if (blocked) return blocked;
   return NextResponse.json(
     generateHouseChangelog({
       plan: getPlanGeometry(body.templateId),
